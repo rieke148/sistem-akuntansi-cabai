@@ -1,7 +1,7 @@
 # 🌶️ Sistem Informasi Siklus Akuntansi
 ### PT Sari Subur Langgeng Jaya Hidroponik Farm
 
-Aplikasi web sistem informasi siklus akuntansi terpadu berbasis Python dan Streamlit, dibangun khusus untuk usaha budidaya cabai rawit hidroponik dan tanaman pendamping (selada & melon) di Ungaran Barat, Kabupaten Semarang.
+Aplikasi web sistem informasi siklus akuntansi terpadu berbasis Python dan Streamlit, dibangun khusus untuk usaha budidaya cabai rawit hidroponik di Ungaran Barat, Kabupaten Semarang.
 
 ---
 
@@ -28,7 +28,7 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
 
 1. **Dashboard Visual & Metrik Eksekutif**:
    - Saldo Kas riil, piutang tempo jatuh tempo (< 7 hari), status stok persediaan.
-   - Grafik interaktif tren penjualan per komoditas (Cabai, Selada, Melon) dan perbandingan Penjualan vs Beban operasional.
+   - Grafik interaktif tren penjualan cabai dan perbandingan Penjualan vs Beban operasional.
    - Pemilih periode fleksibel terpadu di bagian atas dashboard.
 
 2. **Master Data Terpadu (10 Tab)**:
