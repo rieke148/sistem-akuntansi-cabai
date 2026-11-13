@@ -200,8 +200,6 @@ def _seed_bagan_akun(cursor: sqlite3.Cursor) -> dict:
 
         # --- PENDAPATAN (4xxx) ---
         ("4101", "Penjualan Cabai Rawit", "Pendapatan", "Kredit", 0),
-        ("4102", "Penjualan Selada", "Pendapatan", "Kredit", 0),
-        ("4103", "Penjualan Melon", "Pendapatan", "Kredit", 0),
         ("4901", "Pendapatan Lain-lain", "Pendapatan", "Kredit", 0),
 
         # --- BEBAN PRODUKSI (5xxx) ---
@@ -300,13 +298,12 @@ def _seed_item(cursor: sqlite3.Cursor, akun: dict) -> dict:
 
 
 def _seed_pekerja(cursor: sqlite3.Cursor) -> dict:
-    """Membuat data pekerja. 4 pekerja cabai + 1 selada/melon."""
+    """Membuat data 4 pekerja yang terlibat dalam budidaya cabai."""
     pekerja_list = [
         ("Ahmad Suparto", "tetap", 90000, "cabai"),
         ("Budi Santoso", "tetap", 90000, "cabai"),
         ("Cahyo Wibowo", "tetap", 90000, "cabai"),
         ("Dian Rahayu", "tetap", 90000, "cabai"),
-        ("Eko Prasetyo", "tetap", 90000, "selada"),
     ]
     result = {}
     for nama, tipe, upah, komoditas in pekerja_list:
