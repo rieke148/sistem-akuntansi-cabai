@@ -77,13 +77,17 @@ def db_jurnal():
             (5,  '3101', 'Modal Disetor',      'Ekuitas',          'Kredit'),
             (6,  '4101', 'Penjualan Cabai',    'Pendapatan',       'Kredit'),
             (7,  '5101', 'Beban Upah',         'Beban Produksi',   'Debit'),
-            (8,  '6101', 'Beban Listrik',      'Beban Operasional','Debit');
+            (8,  '6101', 'Beban Listrik',      'Beban Operasional','Debit'),
+            (9,  '5108', 'HPP Penjualan Cabai', 'Beban Produksi',   'Debit'),
+            (10, '1307', 'Persediaan Cabai',    'Aset',             'Debit');
 
         -- 1. Penjualan Tempo (Sales Journal) — Rp600.000
         INSERT INTO journal_entries (period_id, tanggal, no_bukti, journal_type, keterangan, pihak_terkait)
         VALUES (1, '2026-10-05', 'JL-OKT26-001', 'penjualan', 'Jual tempo ke Restoran A', 'Restoran A');
         INSERT INTO journal_lines (journal_entry_id, account_id, debit, kredit)
-        VALUES (1, 2, 600000, 0), (1, 6, 0, 600000);
+        VALUES
+            (1, 2, 600000, 0), (1, 6, 0, 600000),
+            (1, 9, 100000, 0), (1, 10, 0, 100000);
         INSERT INTO receivables (journal_entry_id, customer_id, no_faktur, tanggal_faktur, tanggal_jatuh_tempo, jumlah)
         VALUES (1, 1, 'JL-OKT26-001', '2026-10-05', '2026-10-12', 600000);
 
@@ -97,7 +101,9 @@ def db_jurnal():
         INSERT INTO journal_entries (period_id, tanggal, no_bukti, journal_type, keterangan, pihak_terkait)
         VALUES (1, '2026-10-07', 'KM-OKT26-001', 'penerimaan_kas', 'Jual tunai ke Supermarket B', 'Supermarket B');
         INSERT INTO journal_lines (journal_entry_id, account_id, debit, kredit)
-        VALUES (3, 1, 900000, 0), (3, 6, 0, 900000);
+        VALUES
+            (3, 1, 900000, 0), (3, 6, 0, 900000),
+            (3, 9, 150000, 0), (3, 10, 0, 150000);
 
         -- 4. Penerimaan Kas — pelunasan piutang Rp600.000
         INSERT INTO journal_entries (period_id, tanggal, no_bukti, journal_type, keterangan, pihak_terkait)
@@ -143,7 +149,10 @@ class TestJurnalPenjualan:
         """Harus menghasilkan DataFrame dengan kolom yang benar."""
         with patch("services.special_journal_service.get_connection", return_value=db_jurnal):
             df = ambil_jurnal_penjualan()
-        kolom_wajib = ["tanggal", "no_faktur", "pelanggan", "jatuh_tempo", "piutang_d", "penjualan_k"]
+        kolom_wajib = [
+            "tanggal", "no_faktur", "pelanggan", "jatuh_tempo",
+            "piutang_d", "penjualan_k", "hpp_d", "persediaan_k",
+        ]
         for kol in kolom_wajib:
             assert kol in df.columns, f"Kolom '{kol}' tidak ditemukan"
 
@@ -192,8 +201,15 @@ class TestJurnalPenjualan:
         conn2.close()
         assert len(df_kosong) == 0
 
+    def test_jurnal_hpp_dan_persediaan_tampil(self, db_jurnal):
+        """Jurnal penjualan tempo juga menampilkan HPP dan pengurangan stok."""
+        with patch("services.special_journal_service.get_connection", return_value=db_jurnal):
+            df = ambil_jurnal_penjualan()
+        assert int(df.iloc[0]["hpp_d"]) == 100_000
+        assert int(df.iloc[0]["persediaan_k"]) == 100_000
+
     def test_jurnal_seimbang(self, db_jurnal):
-        """Piutang (D) harus == Penjualan (K)."""
+        """Piutang (D) harus == Penjualan (K), dan HPP (D) == Persediaan (K)."""
         with patch("services.special_journal_service.get_connection", return_value=db_jurnal):
             df = ambil_jurnal_penjualan()
         assert df["piutang_d"].sum() == df["penjualan_k"].sum()
@@ -275,8 +291,17 @@ class TestJurnalPenerimaanKas:
         assert int(baris_modal["lain_lain_k"]) == 5_000_000
         assert int(baris_modal["penjualan_k"]) == 0
 
+    def test_hpp_penjualan_tunai_tidak_masuk_lain_lain_kas(self, db_jurnal):
+        """HPP dan Persediaan ditampilkan sebagai kolom terpisah, bukan sumber kas."""
+        with patch("services.special_journal_service.get_connection", return_value=db_jurnal):
+            df = ambil_jurnal_penerimaan_kas()
+        baris = df[df["no_bukti"] == "KM-OKT26-001"].iloc[0]
+        assert int(baris["hpp_d"]) == 150_000
+        assert int(baris["persediaan_k"]) == 150_000
+        assert int(baris["lain_lain_k"]) == 0
+
     def test_total_kas_seimbang(self, db_jurnal):
-        """Total Kas (D) == Total semua kolom Kredit."""
+        """Total Kas (D) == Total semua kolom sumber kas; HPP bukan arus kas."""
         with patch("services.special_journal_service.get_connection", return_value=db_jurnal):
             df = ambil_jurnal_penerimaan_kas()
         total_kas = int(df["kas_d"].sum())
