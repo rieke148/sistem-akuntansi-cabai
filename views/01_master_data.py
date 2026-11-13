@@ -342,6 +342,54 @@ def _tab_item() -> None:
                         except Exception as e:
                             st.error(f"Gagal: {e}")
 
+    # --- Hapus permanen ---
+    with st.expander("🗑️ Hapus Item"):
+        st.warning(
+            "Penghapusan permanen hanya tersedia untuk item yang belum pernah "
+            "memiliki pergerakan stok. Item yang sudah memiliki histori harus "
+            "dinonaktifkan melalui menu Edit Item agar kartu persediaan tetap utuh."
+        )
+
+        if df.empty:
+            st.info("Belum ada item yang dapat dipilih.")
+        else:
+            pilihan_hapus = {
+                f"{r['kode_item']} - {r['nama_item']} ({'Aktif' if r['aktif'] else 'Nonaktif'})": int(r["id"])
+                for _, r in df.iterrows()
+            }
+            item_hapus_label = st.selectbox(
+                "Pilih Item yang Akan Dihapus",
+                list(pilihan_hapus.keys()),
+                key="hapus_item_sel",
+            )
+            item_hapus_id = pilihan_hapus[item_hapus_label]
+            item_hapus = df[df["id"] == item_hapus_id].iloc[0]
+
+            st.caption(
+                f"Item terpilih: **{item_hapus['kode_item']} — {item_hapus['nama_item']}**. "
+                "Tindakan ini tidak dapat dibatalkan."
+            )
+            konfirmasi_hapus = st.checkbox(
+                "Saya yakin ingin menghapus item ini secara permanen.",
+                key=f"konfirmasi_hapus_item_{item_hapus_id}",
+            )
+
+            if st.button(
+                "🗑️ Hapus Item Permanen",
+                type="secondary",
+                use_container_width=True,
+                disabled=not konfirmasi_hapus,
+                key="btn_hapus_item",
+            ):
+                try:
+                    svc.hapus_item(item_hapus_id)
+                    st.success(f"Item '{item_hapus['nama_item']}' berhasil dihapus.")
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
+                except Exception as e:
+                    st.error(f"Gagal menghapus item: {e}")
+
 
 # ================================================================
 # TAB 5 — PEKERJA
