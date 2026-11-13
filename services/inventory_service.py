@@ -196,11 +196,11 @@ def catat_saldo_awal_persediaan(
     harga_satuan: int,
 ) -> int:
     """
-    Mencatat saldo awal kuantitas dan nilai satu item.
+    Mencatat snapshot saldo persediaan per awal periode yang dipilih.
 
-    Nilai akun persediaan pada opening_balances otomatis diselaraskan dengan
-    jumlah nilai saldo awal semua item yang memakai akun tersebut.
-    Saldo awal hanya dapat dimasukkan sebelum transaksi item dicatat.
+    Riwayat periode sebelumnya tetap dipertahankan. Jika transaksi pada periode
+    berjalan sudah ada, saldo awal periode tersebut tidak boleh diubah.
+    Nilainya diselaraskan ke opening_balances berdasarkan akun item.
     """
     if qty < 0 or harga_satuan < 0:
         raise ValueError("Kuantitas dan harga satuan saldo awal tidak boleh negatif.")
@@ -225,27 +225,28 @@ def catat_saldo_awal_persediaan(
             raise ValueError("Item belum dihubungkan dengan akun persediaan di Master Data.")
 
         tanggal_awal = f"{int(periode['tahun']):04d}-{int(periode['bulan']):02d}-01"
-        mutasi_transaksi = koneksi.execute("""
+
+        # Saldo awal hanya boleh disiapkan sebelum ada transaksi persediaan di periode ini.
+        mutasi_periode_ini = koneksi.execute("""
             SELECT COUNT(*) AS jumlah
             FROM inventory_movements
-            WHERE item_id = ? AND tipe_gerakan != 'saldo_awal'
-        """, (item_id,)).fetchone()["jumlah"]
-        if mutasi_transaksi:
+            WHERE item_id = ?
+              AND tipe_gerakan != 'saldo_awal'
+              AND tanggal >= ?
+        """, (item_id, tanggal_awal)).fetchone()["jumlah"]
+        if mutasi_periode_ini:
             raise ValueError(
-                "Saldo awal item ini tidak dapat diubah karena transaksi persediaan sudah tercatat."
+                "Saldo awal periode ini tidak dapat diubah karena transaksi persediaan sudah tercatat."
             )
 
         nilai_awal = int(qty * harga_satuan)
         existing = koneksi.execute("""
-            SELECT id, tanggal FROM inventory_movements
-            WHERE item_id = ? AND tipe_gerakan = 'saldo_awal'
+            SELECT id FROM inventory_movements
+            WHERE item_id = ?
+              AND tipe_gerakan = 'saldo_awal'
+              AND tanggal = ?
             ORDER BY id DESC LIMIT 1
-        """, (item_id,)).fetchone()
-        if existing and existing["tanggal"] != tanggal_awal:
-            raise ValueError(
-                "Item ini sudah memiliki saldo awal pada periode lain. "
-                "Saldo yang tersedia harus diteruskan sebagai stok berjalan, bukan dipindahkan."
-            )
+        """, (item_id, tanggal_awal)).fetchone()
 
         if qty == 0:
             if existing:
@@ -255,25 +256,28 @@ def catat_saldo_awal_persediaan(
         elif existing:
             koneksi.execute("""
                 UPDATE inventory_movements
-                SET tanggal = ?, qty = ?, harga_satuan = ?, total_nilai = ?,
+                SET qty = ?, harga_satuan = ?, total_nilai = ?,
                     saldo_qty = ?, saldo_nilai = ?, harga_rata2 = ?,
-                    keterangan = 'Saldo awal persediaan'
+                    keterangan = 'Saldo awal persediaan periode'
                 WHERE id = ?
             """, (
-                tanggal_awal, qty, harga_satuan, nilai_awal, qty, nilai_awal,
+                qty, harga_satuan, nilai_awal, qty, nilai_awal,
                 int(nilai_awal / qty), existing["id"],
             ))
         else:
+            # Snapshot saldo periode ini; gerakan periode sebelumnya tidak dihapus.
             koneksi.execute("""
                 INSERT INTO inventory_movements
                     (item_id, tanggal, tipe_gerakan, qty, harga_satuan,
                      total_nilai, saldo_qty, saldo_nilai, harga_rata2, keterangan)
-                VALUES (?, ?, 'saldo_awal', ?, ?, ?, ?, ?, ?, 'Saldo awal persediaan')
+                VALUES (?, ?, 'saldo_awal', ?, ?, ?, ?, ?, ?, 'Saldo awal persediaan periode')
             """, (
                 item_id, tanggal_awal, qty, harga_satuan, nilai_awal,
                 qty, nilai_awal, int(nilai_awal / qty) if qty else 0,
             ))
 
+        # Jika beberapa item memakai akun yang sama, saldo akun adalah jumlah
+        # nilai snapshot item pada tanggal awal periode yang sedang dipilih.
         total_akun = koneksi.execute("""
             SELECT COALESCE(SUM(im.total_nilai), 0) AS total
             FROM inventory_movements im
@@ -286,7 +290,7 @@ def catat_saldo_awal_persediaan(
         koneksi.execute("""
             INSERT INTO opening_balances
                 (period_id, account_id, saldo_debit, saldo_kredit, catatan)
-            VALUES (?, ?, ?, 0, 'Otomatis dari saldo awal kuantitas persediaan')
+            VALUES (?, ?, ?, 0, 'Otomatis dari snapshot saldo awal persediaan per item')
             ON CONFLICT(period_id, account_id) DO UPDATE SET
                 saldo_debit = excluded.saldo_debit,
                 saldo_kredit = 0,
