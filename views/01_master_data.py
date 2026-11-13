@@ -25,6 +25,7 @@ from datetime import date
 import streamlit_antd_components as sac
 
 from services import master_data_service as svc
+from services import inventory_service as inv_svc
 from utils.formatting import format_rupiah, format_tanggal, nama_bulan_tahun
 from utils.ui_components import divider_dengan_judul, selector_periode
 from theme import WARNA_PRIMER
@@ -836,7 +837,11 @@ def _tab_saldo_awal() -> None:
         "⚠️ Semua angka saldo awal bertanda 'CONTOH' harus diganti dengan data asli!"
     )
 
-    # Form input/ubah saldo awal
+    # Saldo awal persediaan harus dicatat per item agar kuantitas dan nilainya sinkron.
+    with st.expander("📦 Saldo Awal Persediaan per Item"):
+        _form_saldo_awal_persediaan(period_id)
+
+    # Saldo awal akun selain persediaan tetap dikelola di form ini.
     with st.expander("➕ Tambah / Ubah Saldo Awal Akun"):
         _form_input_saldo_awal(period_id)
 
@@ -856,14 +861,73 @@ def _tab_saldo_awal() -> None:
                     st.error(f"Gagal: {e}")
 
 
+def _form_saldo_awal_persediaan(period_id: int) -> None:
+    """Form input stok awal per item dan sinkronisasi otomatis ke akun persediaan."""
+    items = [
+        item for item in inv_svc.ambil_daftar_item_persediaan()
+        if item["account_id"] is not None
+    ]
+    if not items:
+        st.info("Tambahkan item persediaan dan hubungkan dengan akun persediaan terlebih dahulu.")
+        return
+
+    st.caption(
+        "Masukkan kuantitas fisik dan harga pokok per satuan pada awal periode. "
+        "Sistem otomatis membuat mutasi saldo_awal di kartu persediaan serta "
+        "menyelaraskan saldo debit akun persediaannya. Jangan masukkan nilai yang sama "
+        "lagi pada form saldo awal akun."
+    )
+
+    with st.form("form_saldo_awal_persediaan", clear_on_submit=True):
+        item_idx = st.selectbox(
+            "Item Persediaan *",
+            range(len(items)),
+            format_func=lambda i: (
+                f"{items[i]['kode_item']} - {items[i]['nama_item']} "
+                f"({items[i]['satuan']})"
+            ),
+        )
+        kol1, kol2 = st.columns(2)
+        with kol1:
+            qty = st.number_input(
+                "Kuantitas Stok Awal", min_value=0.0, step=0.1, value=0.0
+            )
+        with kol2:
+            harga = st.number_input(
+                "Harga Pokok per Satuan (Rp)", min_value=0, step=1000, value=0
+            )
+        st.caption("Nilai awal persediaan dihitung dari kuantitas × harga pokok per satuan.")
+        simpan = st.form_submit_button("💾 Simpan Saldo Awal Persediaan", use_container_width=True)
+
+    if simpan:
+        item = items[item_idx]
+        try:
+            nilai = inv_svc.catat_saldo_awal_persediaan(
+                period_id=period_id,
+                item_id=int(item["id"]),
+                qty=float(qty),
+                harga_satuan=int(harga),
+            )
+            st.success(
+                f"Saldo awal {item['nama_item']} berhasil disimpan. "
+                f"Nilai persediaan: {format_rupiah(nilai)}."
+            )
+            st.rerun()
+        except Exception as e:
+            st.error(f"Gagal menyimpan saldo awal persediaan: {e}")
+
+
 def _form_input_saldo_awal(period_id: int) -> None:
-    """Form input/update saldo awal satu akun."""
+    """Form input/update saldo awal satu akun selain akun persediaan per item."""
     # Ambil semua akun aktif
     from database.connection import get_connection
     koneksi = get_connection()
     akun_rows = koneksi.execute(
         "SELECT id, kode_akun, nama_akun, saldo_normal, kategori "
-        "FROM accounts WHERE aktif=1 ORDER BY kode_akun"
+        "FROM accounts "
+        "WHERE aktif=1 AND id NOT IN "
+        "(SELECT DISTINCT account_id FROM items WHERE account_id IS NOT NULL) "
+        "ORDER BY kode_akun"
     ).fetchall()
     koneksi.close()
 
