@@ -337,7 +337,7 @@ class TestRingkasanPenjualanBeban:
     def test_mengembalikan_dict(self, db):
         result = ambil_ringkasan_penjualan_beban(db)
         assert isinstance(result, dict)
-        for key in ["penjualan", "beban", "laba_kotor"]:
+        for key in ["penjualan", "hpp_penjualan", "beban", "beban_produksi_lain", "laba_kotor"]:
             assert key in result
 
     def test_penjualan_benar(self, db):
@@ -352,11 +352,46 @@ class TestRingkasanPenjualanBeban:
 
     def test_laba_kotor_benar(self, db):
         result = ambil_ringkasan_penjualan_beban(db)
-        assert result["laba_kotor"] == result["penjualan"] - result["beban"]
+        assert result["laba_kotor"] == result["penjualan"] - result["hpp_penjualan"]
+
+    def test_hpp_penjualan_dihitung_terpisah(self, db, tmp_path):
+        """HPP dipisahkan dari beban produksi lainnya untuk menghitung laba kotor."""
+        koneksi = sqlite3.connect(str(tmp_path / "test_dashboard.db"))
+        koneksi.execute(
+            "INSERT INTO accounts (kode_akun, nama_akun, kategori, saldo_normal) VALUES "
+            "('5108', 'HPP Penjualan Cabai', 'Beban Produksi', 'Debit')"
+        )
+        koneksi.execute(
+            "INSERT INTO accounts (kode_akun, nama_akun, kategori, saldo_normal) VALUES "
+            "('1307', 'Persediaan Hasil Panen', 'Aset', 'Debit')"
+        )
+        hpp_id = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun='5108'"
+        ).fetchone()[0]
+        persediaan_id = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun='1307'"
+        ).fetchone()[0]
+        entry_id = koneksi.execute(
+            "SELECT id FROM journal_entries WHERE no_bukti='PJ-001'"
+        ).fetchone()[0]
+        koneksi.executemany(
+            "INSERT INTO journal_lines (journal_entry_id, account_id, debit, kredit) VALUES (?,?,?,?)",
+            [(entry_id, hpp_id, 300_000, 0), (entry_id, persediaan_id, 0, 300_000)],
+        )
+        koneksi.commit()
+        koneksi.close()
+
+        result = ambil_ringkasan_penjualan_beban(db)
+        assert result["hpp_penjualan"] == 300_000
+        assert result["beban"] == 800_000
+        assert result["beban_produksi_lain"] == 500_000
+        assert result["laba_kotor"] == 4_700_000
+        assert result["laba_setelah_beban_produksi"] == 4_200_000
 
     def test_semua_nilai_integer(self, db):
         result = ambil_ringkasan_penjualan_beban(db)
-        for key in ["penjualan", "beban", "laba_kotor"]:
+        for key in ["penjualan", "hpp_penjualan", "beban", "beban_produksi_lain",
+                    "laba_kotor", "laba_setelah_beban_produksi"]:
             assert isinstance(result[key], int)
 
 
