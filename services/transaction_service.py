@@ -15,8 +15,8 @@ LOGIKA INTI:
   3. Memanggil journal_service.simpan_jurnal() untuk menyimpan
 
 PEMETAAN TRANSAKSI → JURNAL:
-  Penjualan tunai     : Dr Kas          / Kr Penjualan
-  Penjualan tempo     : Dr Piutang      / Kr Penjualan
+  Penjualan tunai     : Dr Kas          / Kr Penjualan; Dr HPP / Kr Persediaan
+  Penjualan tempo     : Dr Piutang      / Kr Penjualan; Dr HPP / Kr Persediaan
   Terima piutang      : Dr Kas          / Kr Piutang Usaha
   Setoran modal       : Dr Kas          / Kr Modal Disetor
   Beli tunai          : Dr Persediaan   / Kr Kas
