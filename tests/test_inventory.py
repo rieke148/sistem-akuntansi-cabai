@@ -111,3 +111,146 @@ class TestNilaiKeluarPerpetual:
         with patch("services.inventory_service.ambil_saldo_persediaan", return_value=saldo):
             with pytest.raises(ValueError, match="lebih besar dari nol"):
                 hitung_nilai_keluar(item_id=1, qty=0)
+
+
+
+import sqlite3
+
+
+def _siapkan_db_persediaan(tmp_path, monkeypatch):
+    """Menyiapkan database sementara untuk menguji mutasi stok nyata."""
+    db_path = tmp_path / "persediaan_test.db"
+
+    def buka_koneksi():
+        koneksi = sqlite3.connect(str(db_path))
+        koneksi.row_factory = sqlite3.Row
+        return koneksi
+
+    koneksi = buka_koneksi()
+    koneksi.executescript("""
+        CREATE TABLE items (
+            id INTEGER PRIMARY KEY,
+            nama_item TEXT NOT NULL,
+            satuan TEXT NOT NULL,
+            account_id INTEGER,
+            aktif INTEGER DEFAULT 1
+        );
+        CREATE TABLE periods (
+            id INTEGER PRIMARY KEY,
+            tahun INTEGER NOT NULL,
+            bulan INTEGER NOT NULL,
+            status TEXT DEFAULT 'buka'
+        );
+        CREATE TABLE inventory_movements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_id INTEGER NOT NULL,
+            journal_entry_id INTEGER,
+            tanggal TEXT NOT NULL,
+            tipe_gerakan TEXT NOT NULL,
+            qty REAL NOT NULL,
+            harga_satuan INTEGER NOT NULL,
+            total_nilai INTEGER NOT NULL,
+            saldo_qty REAL NOT NULL,
+            saldo_nilai INTEGER NOT NULL,
+            harga_rata2 INTEGER NOT NULL,
+            keterangan TEXT
+        );
+        CREATE TABLE opening_balances (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            period_id INTEGER NOT NULL,
+            account_id INTEGER NOT NULL,
+            saldo_debit INTEGER NOT NULL DEFAULT 0,
+            saldo_kredit INTEGER NOT NULL DEFAULT 0,
+            catatan TEXT,
+            UNIQUE (period_id, account_id)
+        );
+
+        INSERT INTO items (id, nama_item, satuan, account_id, aktif)
+        VALUES (1, 'Cabai Rawit', 'kg', 13, 1);
+        INSERT INTO periods (id, tahun, bulan, status)
+        VALUES (1, 2026, 10, 'buka'), (2, 2026, 11, 'buka');
+    """)
+    koneksi.commit()
+    koneksi.close()
+
+    monkeypatch.setattr("services.inventory_service.get_connection", buka_koneksi)
+    return buka_koneksi
+
+
+def test_mutasi_perpetual_menghitung_rata_rata_dan_hpp(tmp_path, monkeypatch):
+    """Pembelian kedua mengubah rata-rata, lalu pengeluaran memakai rata-rata terbaru."""
+    buka_db = _siapkan_db_persediaan(tmp_path, monkeypatch)
+
+    from services.inventory_service import catat_gerakan_masuk, catat_gerakan_keluar, ambil_saldo_persediaan
+
+    catat_gerakan_masuk(1, "2026-10-01", 100, 25_000, "Saldo awal uji")
+    catat_gerakan_masuk(1, "2026-10-02", 100, 30_000, "Pembelian kedua")
+    hasil_keluar = catat_gerakan_keluar(1, "2026-10-03", 50, "Pemakaian uji")
+
+    saldo = ambil_saldo_persediaan(1)
+    assert hasil_keluar["total_keluar"] == 1_375_000
+    assert saldo["saldo_qty"] == 150
+    assert saldo["saldo_nilai"] == 2_750_000
+    assert saldo["harga_rata2"] == 27_500
+
+    koneksi = buka_db()
+    jumlah_mutasi = koneksi.execute(
+        "SELECT COUNT(*) FROM inventory_movements WHERE item_id = 1"
+    ).fetchone()[0]
+    koneksi.close()
+    assert jumlah_mutasi == 3
+
+
+def test_saldo_awal_periode_baru_tidak_menghapus_riwayat_lama(tmp_path, monkeypatch):
+    """Saldo awal November disimpan sebagai snapshot setelah saldo akhir Oktober."""
+    buka_db = _siapkan_db_persediaan(tmp_path, monkeypatch)
+
+    from services.inventory_service import (
+        catat_saldo_awal_persediaan,
+        catat_gerakan_masuk,
+        ambil_saldo_persediaan,
+    )
+
+    nilai_oktober = catat_saldo_awal_persediaan(1, 1, 100, 25_000)
+    catat_gerakan_masuk(1, "2026-10-05", 10, 25_000, "Pembelian Oktober")
+    nilai_november = catat_saldo_awal_persediaan(2, 1, 110, 25_000)
+
+    assert nilai_oktober == 2_500_000
+    assert nilai_november == 2_750_000
+    saldo = ambil_saldo_persediaan(1)
+    assert saldo["saldo_qty"] == 110
+    assert saldo["saldo_nilai"] == 2_750_000
+
+    koneksi = buka_db()
+    saldo_awal = koneksi.execute("""
+        SELECT tanggal, qty, total_nilai
+        FROM inventory_movements
+        WHERE item_id = 1 AND tipe_gerakan = 'saldo_awal'
+        ORDER BY tanggal
+    """).fetchall()
+    opening = koneksi.execute("""
+        SELECT period_id, saldo_debit
+        FROM opening_balances
+        ORDER BY period_id
+    """).fetchall()
+    koneksi.close()
+
+    assert [(r["tanggal"], r["qty"], r["total_nilai"]) for r in saldo_awal] == [
+        ("2026-10-01", 100, 2_500_000),
+        ("2026-11-01", 110, 2_750_000),
+    ]
+    assert [(r["period_id"], r["saldo_debit"]) for r in opening] == [
+        (1, 2_500_000),
+        (2, 2_750_000),
+    ]
+
+
+def test_saldo_awal_tidak_boleh_dimasukkan_mundur_setelah_mutasi_masa_depan(tmp_path, monkeypatch):
+    """Snapshot periode lebih lama ditolak jika sudah ada snapshot periode setelahnya."""
+    _siapkan_db_persediaan(tmp_path, monkeypatch)
+
+    from services.inventory_service import catat_saldo_awal_persediaan
+
+    catat_saldo_awal_persediaan(2, 1, 110, 25_000)
+    with pytest.raises(ValueError, match="secara kronologis"):
+        catat_saldo_awal_persediaan(1, 1, 100, 25_000)
