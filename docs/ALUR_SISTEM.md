@@ -124,7 +124,7 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 - **Jurnal Penutup**: Menutup akun nominal (4, 5, 6) ke Ikhtisar L/R, memindahkan laba ke Laba Ditahan, dan mengunci periode ke status `tutup`.
 
 ### Fase 7 — Dashboard, Ekspor Dokumen & Cadangan
-- **Dashboard Eksekutif**: Metrik kas, piutang jatuh tempo, grafik komoditas (Cabai, Selada, Melon), grafik Penjualan vs Beban, dan tabel status stok.
+- **Dashboard Eksekutif**: Metrik kas, piutang jatuh tempo, grafik penjualan cabai, grafik Penjualan vs Beban, dan tabel status stok.
 - **Ekspor Dokumen**: Ekspor laporan keuangan ke Excel (.xlsx) multi-sheet dan PDF (.pdf) bebas error unicode.
 - **Backup & Restore**: Cadangkan database SQLite (`.db`) atau seluruh tabel ke Excel, serta restore data secara aman.
 
