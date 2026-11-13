@@ -239,6 +239,18 @@ def catat_saldo_awal_persediaan(
                 "Saldo awal periode ini tidak dapat diubah karena transaksi persediaan sudah tercatat."
             )
 
+        # Jangan memasukkan snapshot periode lama setelah mutasi atau snapshot masa depan.
+        mutasi_setelah_tanggal_awal = koneksi.execute("""
+            SELECT tanggal FROM inventory_movements
+            WHERE item_id = ? AND tanggal > ?
+            ORDER BY tanggal ASC, id ASC LIMIT 1
+        """, (item_id, tanggal_awal)).fetchone()
+        if mutasi_setelah_tanggal_awal:
+            raise ValueError(
+                "Sudah ada mutasi persediaan setelah tanggal awal periode yang dipilih. "
+                "Masukkan saldo awal secara kronologis."
+            )
+
         nilai_awal = int(qty * harga_satuan)
         existing = koneksi.execute("""
             SELECT id FROM inventory_movements
