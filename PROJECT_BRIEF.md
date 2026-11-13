@@ -120,8 +120,8 @@ sistem-akuntansi-cabai/
 
 | Transaksi | Jurnal | Debit / Kredit |
 |---|---|---|
-| Penjualan **tunai** | Penerimaan Kas | Kas / Penjualan |
-| Penjualan **tempo** (1 minggu) | Penjualan | Piutang Usaha / Penjualan |
+| Penjualan **tunai** | Penerimaan Kas | Kas / Penjualan; HPP Penjualan Cabai / Persediaan Cabai |
+| Penjualan **tempo** (1 minggu) | Penjualan | Piutang Usaha / Penjualan; HPP Penjualan Cabai / Persediaan Cabai |
 | Terima pelunasan piutang | Penerimaan Kas | Kas / Piutang Usaha |
 | Setoran modal | Penerimaan Kas | Kas / Modal Disetor |
 | Beli bahan **tunai** (Toko Sido Panen) | Pengeluaran Kas | Persediaan bahan / Kas |
