@@ -137,6 +137,10 @@ def _siapkan_hpp_penjualan(
             "Nilai persediaan berubah setelah pratinjau. Silakan buat pratinjau jurnal kembali."
         )
 
+    if total_hpp <= 0:
+        raise ValueError(
+            "Harga pokok persediaan bernilai nol. Periksa saldo awal dan harga pokok hasil panen."
+        )
     item_info["total_hpp"] = total_hpp
     item_info["harga_rata2"] = int(nilai_keluar["harga_rata2"])
     return item_info
@@ -503,12 +507,16 @@ def catat_pembelian_tunai(
         pihak_terkait=supplier_nama,
     )
 
-    # Catat gerakan persediaan masuk (rata-rata bergerak dihitung otomatis)
-    catat_gerakan_masuk(
-        item_id=item_id, tanggal=tanggal, qty=qty,
-        harga_satuan=harga_satuan, keterangan=ket,
-        journal_entry_id=entry_id,
-    )
+    # Catat gerakan persediaan masuk; bila gagal, batalkan jurnal pembelian.
+    try:
+        catat_gerakan_masuk(
+            item_id=item_id, tanggal=tanggal, qty=qty,
+            harga_satuan=harga_satuan, keterangan=ket,
+            journal_entry_id=entry_id,
+        )
+    except Exception:
+        _hapus_jurnal_transaksi_gagal(entry_id)
+        raise
 
     return entry_id
 
@@ -556,12 +564,16 @@ def catat_pembelian_kredit(
         pihak_terkait=supplier_nama,
     )
 
-    # Catat gerakan persediaan masuk
-    catat_gerakan_masuk(
-        item_id=item_id, tanggal=tanggal, qty=qty,
-        harga_satuan=harga_satuan, keterangan=ket,
-        journal_entry_id=entry_id,
-    )
+    # Catat gerakan persediaan masuk; bila gagal, batalkan jurnal pembelian.
+    try:
+        catat_gerakan_masuk(
+            item_id=item_id, tanggal=tanggal, qty=qty,
+            harga_satuan=harga_satuan, keterangan=ket,
+            journal_entry_id=entry_id,
+        )
+    except Exception:
+        _hapus_jurnal_transaksi_gagal(entry_id)
+        raise
 
     return entry_id
 
@@ -674,12 +686,16 @@ def catat_panen(
         journal_type="umum", keterangan=ket, baris=baris, komoditas=komoditas,
     )
 
-    # Catat gerakan persediaan panen masuk
-    catat_gerakan_masuk(
-        item_id=item_panen_id, tanggal=tanggal, qty=jumlah_kg,
-        harga_satuan=harga_estimasi_per_kg, keterangan=ket,
-        journal_entry_id=entry_id,
-    )
+    # Catat hasil panen sebagai penambahan stok; batalkan jurnal bila gagal.
+    try:
+        catat_gerakan_masuk(
+            item_id=item_panen_id, tanggal=tanggal, qty=jumlah_kg,
+            harga_satuan=harga_estimasi_per_kg, keterangan=ket,
+            journal_entry_id=entry_id,
+        )
+    except Exception:
+        _hapus_jurnal_transaksi_gagal(entry_id)
+        raise
 
     return entry_id
 
