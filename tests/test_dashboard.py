@@ -61,7 +61,7 @@ def _buat_schema(koneksi: sqlite3.Connection) -> None:
             journal_type  TEXT NOT NULL
                 CHECK (journal_type IN ('penjualan','penerimaan_kas','pengeluaran_kas','pembelian','umum')),
             keterangan    TEXT,
-            komoditas     TEXT NOT NULL DEFAULT 'umum'
+            komoditas     TEXT NOT NULL DEFAULT 'cabai'
                 CHECK (komoditas IN ('cabai','umum')),
             pihak_terkait TEXT,
             dibuat_pada   TEXT DEFAULT (datetime('now'))
