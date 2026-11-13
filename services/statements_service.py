@@ -60,6 +60,7 @@ def susun_laporan_laba_rugi(period_id: int) -> dict:
 
     for _, baris in df_ns.iterrows():
         kategori = baris["kategori"]
+        kode = str(baris["kode_akun"])
         nama = baris["nama_akun"]
         # Pendapatan: saldo normal Kredit → kredit - debit
         # Beban: saldo normal Debit → debit - kredit (memperhitungkan retur/kredit panen)
@@ -75,13 +76,20 @@ def susun_laporan_laba_rugi(period_id: int) -> dict:
         elif kategori == "Beban Produksi":
             hasil["beban_produksi"].append({"nama_akun": nama, "jumlah": jumlah})
             hasil["total_beban_produksi"] += jumlah
+            if kode == "5108":
+                hasil["hpp_penjualan"].append({"nama_akun": nama, "jumlah": jumlah})
+                hasil["total_hpp_penjualan"] += jumlah
+            else:
+                hasil["beban_produksi_lain"].append({"nama_akun": nama, "jumlah": jumlah})
+                hasil["total_beban_produksi_lain"] += jumlah
 
         elif kategori == "Beban Operasional":
             hasil["beban_operasional"].append({"nama_akun": nama, "jumlah": jumlah})
             hasil["total_beban_operasional"] += jumlah
 
+    # HPP dipisahkan agar laba kotor dapat dibaca: Penjualan - HPP Penjualan.
+    hasil["laba_kotor"] = hasil["total_pendapatan"] - hasil["total_hpp_penjualan"]
     hasil["total_beban"] = hasil["total_beban_produksi"] + hasil["total_beban_operasional"]
-    # Laba Bersih = Pendapatan - Total Beban
     hasil["laba_bersih"] = hasil["total_pendapatan"] - hasil["total_beban"]
 
     return hasil
@@ -409,10 +417,15 @@ def _laba_rugi_kosong() -> dict:
     """Mengembalikan struktur dict kosong untuk Laba Rugi."""
     return {
         "pendapatan": [],
+        "hpp_penjualan": [],
         "beban_produksi": [],
+        "beban_produksi_lain": [],
         "beban_operasional": [],
         "total_pendapatan": 0,
+        "total_hpp_penjualan": 0,
+        "laba_kotor": 0,
         "total_beban_produksi": 0,
+        "total_beban_produksi_lain": 0,
         "total_beban_operasional": 0,
         "total_beban": 0,
         "laba_bersih": 0,
