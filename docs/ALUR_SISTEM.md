@@ -133,6 +133,6 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 
 ### Fase 8 — Pengujian Menyeluruh, Kerapian Kode, Manajemen Periode & Kesiapan Deploy
 - **Pemilih Periode Fleksibel & Kalender**: Komponen terpadu `selector_periode` dipasang di seluruh menu dengan dukungan multi-periode (2025-2027), preset cepat (Bulan Ini, Bulan Lalu, Tahun Ini, Tahun Lalu, Observasi Okt 2026), dan pemilih kalender manual yang otomatis membuat periode jika belum terdaftar.
-- **Test Suite 100% Passed**: 204 tes otomatis mencakup unit tests, period service tests, dan end-to-end accounting cycle test.
+- **Test Suite Pytest**: mencakup unit tests, validasi jurnal, persediaan perpetual dan HPP penjualan, period service tests, serta end-to-end accounting cycle test. Jalankan `pytest tests/ -v` untuk memeriksa seluruh tes sebelum merge.
 - **100% Python Murni**: Bebas dari tag HTML/CSS/JS mentah. Seluruh antarmuka menggunakan widget native Streamlit dan wrapper `streamlit-antd-components`.
 - **Kesiapan Streamlit Community Cloud**: Konfigurasi `.streamlit/config.toml`, dependency dipin di `requirements.txt`, penanganan database otomatis saat cold-start, dan file path berbasis `pathlib.Path` yang agnostik terhadap OS.
