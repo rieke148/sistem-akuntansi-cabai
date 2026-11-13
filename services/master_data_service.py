@@ -202,7 +202,7 @@ KOMODITAS_ITEM = ["cabai", "selada", "melon"]
 def ambil_semua_item() -> pd.DataFrame:
     return _ambil_semua("""
         SELECT i.id, i.kode_item, i.nama_item, i.satuan, i.tipe, i.komoditas,
-               a.kode_akun as akun_persediaan, i.aktif
+               i.account_id, a.kode_akun as akun_persediaan, i.aktif
         FROM items i
         LEFT JOIN accounts a ON i.account_id = a.id
         ORDER BY i.tipe, i.kode_item
@@ -242,6 +242,68 @@ def ubah_item(
         "WHERE id=?",
         (nama_item.strip(), satuan.strip(), tipe, komoditas, account_id, int(aktif), item_id),
     )
+
+
+def hapus_item(item_id: int) -> None:
+    """
+    Menghapus item persediaan secara permanen jika belum memiliki riwayat stok.
+
+    Item yang sudah memiliki pergerakan persediaan tidak boleh dihapus karena
+    riwayat tersebut menjadi dasar audit kartu stok. Nonaktifkan item tersebut
+    melalui form Edit Item agar histori tetap tersimpan.
+
+    Args:
+        item_id: ID item yang akan dihapus.
+
+    Raises:
+        ValueError: Jika item tidak ditemukan atau sudah memiliki riwayat stok.
+    """
+    if item_id <= 0:
+        raise ValueError("Item yang dipilih tidak valid.")
+
+    koneksi = get_connection()
+    try:
+        item = koneksi.execute(
+            "SELECT kode_item, nama_item FROM items WHERE id = ?",
+            (item_id,),
+        ).fetchone()
+
+        if item is None:
+            raise ValueError("Item yang ingin dihapus tidak ditemukan.")
+
+        jumlah_riwayat = koneksi.execute(
+            "SELECT COUNT(*) FROM inventory_movements WHERE item_id = ?",
+            (item_id,),
+        ).fetchone()[0]
+
+        if jumlah_riwayat > 0:
+            raise ValueError(
+                f"Item '{item['kode_item']} - {item['nama_item']}' memiliki "
+                f"{jumlah_riwayat} riwayat pergerakan stok sehingga tidak dapat "
+                "dihapus permanen. Gunakan Edit Item lalu hilangkan centang "
+                "'Aktif?' agar item tidak digunakan lagi tanpa menghapus histori."
+            )
+
+        cursor = koneksi.execute(
+            "DELETE FROM items WHERE id = ?",
+            (item_id,),
+        )
+        if cursor.rowcount != 1:
+            raise ValueError("Item gagal dihapus karena data sudah berubah.")
+
+        koneksi.commit()
+
+    except sqlite3.IntegrityError as error:
+        koneksi.rollback()
+        raise ValueError(
+            "Item tidak dapat dihapus karena masih terhubung dengan data lain. "
+            "Nonaktifkan item agar riwayat tetap aman."
+        ) from error
+    except Exception:
+        koneksi.rollback()
+        raise
+    finally:
+        koneksi.close()
 
 
 # ================================================================
