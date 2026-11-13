@@ -1,0 +1,23 @@
+# ===================================================================
+# TEMA WARNA SISTEM AKUNTANSI CABAI
+# PT Sari Subur Langgeng Jaya Hidroponik Farm
+# -------------------------------------------------------------------
+# Ubah warna di sini, perubahan langsung terlihat tanpa restart.
+# Dokumentasi: https://docs.streamlit.io/library/advanced-features/theming
+# ===================================================================
+
+[theme]
+# Warna utama: hijau tua seperti daun tanaman
+primaryColor = "#2E7D32"
+
+# Warna latar belakang halaman
+backgroundColor = "#F9FBF9"
+
+# Warna latar belakang komponen (sidebar, widget, kartu)
+secondaryBackgroundColor = "#E8F5E9"
+
+# Warna teks utama
+textColor = "#1B2E1C"
+
+# Font yang dipakai (sans-serif agar bersih)
+font = "sans serif"
