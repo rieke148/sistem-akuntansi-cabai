@@ -171,7 +171,7 @@ Aplikasi ini telah dioptimalkan untuk deployment ke **Streamlit Community Cloud*
 
 ## 🧪 Pengujian Otomatis (Testing)
 
-Proyek ini dilengkapi dengan 204 tes otomatis menggunakan `pytest` yang memvalidasi seluruh formula akuntansi, keseimbangan jurnal, neraca saldo, neraca lajur, laporan keuangan, kartu persediaan, manajemen periode, dan siklus akuntansi end-to-end:
+Proyek ini dilengkapi dengan rangkaian tes otomatis menggunakan `pytest` untuk memvalidasi formula akuntansi, keseimbangan jurnal, neraca saldo, neraca lajur, laporan keuangan, mutasi persediaan perpetual, HPP penjualan, manajemen periode, dan siklus akuntansi end-to-end:
 
 ```bash
 # Jalankan seluruh test suite
