@@ -205,7 +205,7 @@ def buat_semua_tabel() -> None:
             -- Upah harian sesuai tipe (bisa diubah di Master Data)
             upah_harian     INTEGER NOT NULL,  -- Rp90.000 tetap / Rp120.000 tambahan
             komoditas       TEXT NOT NULL DEFAULT 'cabai'
-                            CHECK (komoditas IN ('cabai', 'selada', 'melon')),
+                            CHECK (komoditas = 'cabai'),
             aktif           INTEGER NOT NULL DEFAULT 1
         )
     """)
@@ -448,7 +448,7 @@ def _bangun_ulang_tabel_komoditas(
 
     sql_lama = " ".join((baris["sql"] or "").lower().split())
     if fragmen_check_baru in sql_lama:
-        # Skema sudah sesuai. Tetap normalisasi data lama yang mungkin tersisa.
+        # Tidak perlu membangun ulang tabel jika batasan sudah sesuai.
         return
 
     nama_tabel_baru = f"{nama_tabel}_baru"
