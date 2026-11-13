@@ -190,7 +190,7 @@ def test_mutasi_perpetual_menghitung_rata_rata_dan_hpp(tmp_path, monkeypatch):
     saldo = ambil_saldo_persediaan(1)
     assert hasil_keluar["total_keluar"] == 1_375_000
     assert saldo["saldo_qty"] == 150
-    assert saldo["saldo_nilai"] == 2_750_000
+    assert saldo["saldo_nilai"] == 4_125_000
     assert saldo["harga_rata2"] == 27_500
 
     koneksi = buka_db()
