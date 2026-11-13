@@ -109,6 +109,58 @@ def _tab_bagan_akun() -> None:
         with st.expander("✏️ Edit Akun"):
             _form_edit_akun(df)
 
+    # --- Hapus permanen ---
+    with st.expander("🗑️ Hapus Akun"):
+        st.warning(
+            "Akun hanya dapat dihapus permanen jika belum digunakan pada jurnal, "
+            "saldo awal, item persediaan, atau aset tetap. Akun yang sudah "
+            "digunakan harus dinonaktifkan melalui form Edit Akun agar histori "
+            "pencatatan tetap terjaga."
+        )
+
+        if df.empty:
+            st.info("Tidak ada akun pada filter yang dipilih.")
+        else:
+            pilihan_hapus = {
+                f"{r['kode_akun']} - {r['nama_akun']} ({'Aktif' if r['aktif'] else 'Nonaktif'})": int(r["id"])
+                for _, r in df.iterrows()
+            }
+            akun_hapus_label = st.selectbox(
+                "Pilih Akun yang Akan Dihapus",
+                list(pilihan_hapus.keys()),
+                key="hapus_akun_sel",
+            )
+            akun_hapus_id = pilihan_hapus[akun_hapus_label]
+            akun_hapus = df[df["id"] == akun_hapus_id].iloc[0]
+
+            st.caption(
+                f"Akun terpilih: **{akun_hapus['kode_akun']} — {akun_hapus['nama_akun']}**. "
+                "Penghapusan permanen tidak dapat dibatalkan."
+            )
+            konfirmasi_hapus = st.checkbox(
+                "Saya yakin ingin menghapus akun ini secara permanen.",
+                key=f"konfirmasi_hapus_akun_{akun_hapus_id}",
+            )
+
+            if st.button(
+                "🗑️ Hapus Akun Permanen",
+                type="secondary",
+                use_container_width=True,
+                disabled=not konfirmasi_hapus,
+                key="btn_hapus_akun",
+            ):
+                try:
+                    svc.hapus_akun(akun_hapus_id)
+                    st.success(
+                        f"Akun '{akun_hapus['kode_akun']} - {akun_hapus['nama_akun']}' "
+                        "berhasil dihapus."
+                    )
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
+                except Exception as e:
+                    st.error(f"Gagal menghapus akun: {e}")
+
 
 def _form_tambah_akun() -> None:
     """Form tambah akun baru ke COA."""
