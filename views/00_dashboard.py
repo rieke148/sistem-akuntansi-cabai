@@ -77,8 +77,6 @@ def _tampilkan_grafik_penjualan(period_id: int) -> None:
     # Mapping nama display
     peta_nama = {
         "cabai": "🌶️ Cabai",
-        "selada": "🥬 Selada",
-        "melon": "🍈 Melon",
         "umum": "📦 Umum",
     }
     df["komoditas_label"] = df["komoditas"].map(lambda x: peta_nama.get(x, x))
