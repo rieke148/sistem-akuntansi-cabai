@@ -406,7 +406,7 @@ def _seed_saldo_awal(
     SEMUA ANGKA ADALAH CONTOH — user wajib mengganti dengan data asli.
 
     Kas: Rp500.000.000 (CONTOH)
-    Modal Disetor: Rp3.410.000.000 (CONTOH — total aset tetap + kas awal)
+    Modal Disetor: Rp3.460.000.000 (CONTOH — aset tetap + kas awal + persediaan cabai)
     """
     catatan = "⚠️ CONTOH - ganti dengan data asli"
     # Debit: Kas
