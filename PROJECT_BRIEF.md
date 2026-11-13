@@ -210,6 +210,9 @@ Bangun "Sistem Informasi Siklus Akuntansi" untuk usaha budidaya cabai rawit PT S
 - Tanah tidak disusutkan. Umur ekonomis dan nilai residu SETIAP aset adalah INPUT MANUAL dari user di Master Data (jangan hardcode angka paten; boleh isi awal dari observasi untuk peralatan, sisanya kosong/wajib diisi sebelum penyusutan dihitung). Hal yang sama berlaku untuk jumlah unit peralatan, tanggal perolehan, saldo awal, persentase alokasi biaya bersama, dan hasil panen per pohon: semuanya parameter yang bisa diedit user.
 - Penyusutan dihitung bulanan = (harga - residu) / (umur x 12).
 - Persediaan memakai sistem perpetual, rata-rata bergerak. Saat bahan dipakai: Dr Beban Bahan Produksi, Cr Persediaan.
+- Saat cabai dijual, sistem langsung mencatat HPP: Dr HPP Penjualan Cabai (5108), Cr Persediaan Cabai (1307/akun item terkait). Penjualan tanpa stok yang cukup ditolak.
+- Saldo awal persediaan wajib dimasukkan per item berdasarkan kuantitas fisik dan harga pokok per satuan. Sistem menyinkronkan jumlah nilai item ke saldo awal akun persediaan.
+- Mutasi per item harus dicatat secara kronologis supaya perhitungan rata-rata bergerak tetap benar.
 - Biaya bersama (listrik, tenaga) yang terkait budidaya cabai dicatat sebagai biaya komoditas cabai. Biaya untuk kegiatan di luar ruang lingkup sistem tidak dimasukkan ke laporan cabai.
 - Semua nominal pakai tipe Decimal atau integer Rupiah (hindari float). Format tampilan "Rp1.234.567".
 - Periode bulanan. Periode yang sudah ditutup tidak boleh diedit.
