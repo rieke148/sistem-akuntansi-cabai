@@ -99,9 +99,9 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 ### Fase 3 — Jurnal Umum & 4 Jurnal Khusus
 - **Jurnal Umum** (`views/04_jurnal_umum.py`): Format kronologis dengan kolom Tanggal, No Bukti, Keterangan, Ref Akun, Debit, dan Kredit.
 - **Jurnal Khusus** (`views/05_jurnal_khusus.py`): 4 tab format kolom akuntansi:
-  - *Sales Journal*: Piutang Usaha (D) / Penjualan (K)
+  - *Sales Journal*: Piutang Usaha (D) / Penjualan (K), serta HPP Penjualan (D) / Persediaan Cabai (K).
   - *Purchase Journal*: Persediaan (D) / Utang Usaha (K)
-  - *Cash Receipt Journal*: Kas (D), Piutang (K), Penjualan (K), Lain-lain (K)
+  - *Cash Receipt Journal*: Kas (D), Piutang (K), Penjualan (K), Lain-lain (K), dengan kolom tambahan HPP (D) / Persediaan Cabai (K) yang tidak dihitung sebagai sumber kas.
   - *Cash Payment Journal*: Kas (K), Persediaan (D), Beban Upah (D), Beban Lain (D)
 
 ### Fase 4 — Buku Besar, BB Pembantu & Kartu Persediaan
