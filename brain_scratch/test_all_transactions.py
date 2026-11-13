@@ -103,7 +103,7 @@ except Exception as e:
 print("\n=== TEST 2: Penjualan Tempo ===")
 try:
     akun_piutang = get_account_id("1201")
-    akun_jual = get_account_id("4102")
+    akun_jual = get_account_id("4101")
     customer_id = get_customer_id()
     result = ts.catat_penjualan_tempo(
         period_id=period_id,
