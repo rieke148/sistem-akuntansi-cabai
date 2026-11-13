@@ -219,7 +219,7 @@ Bangun "Sistem Informasi Siklus Akuntansi" untuk usaha budidaya cabai rawit PT S
 - Untuk penyederhanaan tugas kuliah: aset biologis (PSAK 69) dan pajak tidak diterapkan, kecuali saya minta nanti.
 
 # DATA CONTOH (SEED)
-Buat seed otomatis periode Oktober 2026 berdasarkan data di atas: saldo awal 1 Okt 2026 (angka modal/kas HARUS ditandai "CONTOH, ganti data asli"), 20-30 transaksi realistis (penjualan tunai & tempo ke restoran/supermarket/UMKM dengan harga sekitar Rp60.000/kg, pembelian bahan tunai di Toko Sido Panen, upah 2 mingguan, listrik, BBM, sewa traktor, 1-2 pembelian kredit sebagai simulasi, pelunasan piutang). Setelah seed, semua laporan harus seimbang.
+Buat seed otomatis periode Oktober 2026 berdasarkan data di atas: saldo awal 1 Okt 2026 (angka modal/kas HARUS ditandai "CONTOH, ganti data asli"). Untuk mendemonstrasikan pencatatan perpetual penjualan, gunakan stok awal hasil panen 3.000 kg @ Rp25.000/kg sebagai DATA CONTOH (bukan hasil observasi; wajib diganti dengan stok fisik dan HPP aktual). Buat 20-30 transaksi realistis (penjualan tunai & tempo ke restoran/supermarket/UMKM dengan harga sekitar Rp60.000/kg, pembelian bahan tunai di Toko Sido Panen, upah 2 mingguan, listrik, BBM, sewa traktor, 1-2 pembelian kredit sebagai simulasi, pelunasan piutang). Setelah seed, semua laporan harus seimbang.
 
 # KUALITAS
 - Tes pytest untuk: jurnal seimbang, neraca saldo seimbang, penyusutan, rata-rata bergerak, upah, laba rugi, Aset = Liabilitas + Ekuitas.
