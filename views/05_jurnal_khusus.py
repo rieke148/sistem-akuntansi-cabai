@@ -114,8 +114,8 @@ def _tampilkan_jurnal_penjualan(period_id: int | None) -> None:
     """
     st.subheader("📋 Sales Journal — Jurnal Penjualan Tempo")
     st.caption(
-        "Mencatat penjualan yang pembayarannya ditangguhkan (tempo/kredit). "
-        "Debit ke Piutang Usaha, Kredit ke Penjualan."
+        "Mencatat penjualan tempo dan pencatatan perpetualnya: Piutang (D) / Penjualan (K), "
+        "serta HPP Penjualan (D) / Persediaan Cabai (K)."
     )
 
     df = ambil_jurnal_penjualan(period_id)
@@ -185,19 +185,26 @@ def _tampilkan_jurnal_penjualan(period_id: int | None) -> None:
         },
     )
 
-    # Validasi: piutang_d harus == penjualan_k
-    if total["piutang_d"] == total["penjualan_k"]:
+    # Validasi kedua pasangan: Piutang = Penjualan dan HPP = Persediaan.
+    pasangan_penjualan_seimbang = total["piutang_d"] == total["penjualan_k"]
+    pasangan_hpp_seimbang = total["hpp_d"] == total["persediaan_k"]
+    if pasangan_penjualan_seimbang and pasangan_hpp_seimbang:
         sac.alert(
             label="Jurnal Seimbang ✅",
-            description=f"Total Piutang = Total Penjualan = {format_rupiah(total['piutang_d'])}",
+            description=(
+                f"Piutang = Penjualan = {format_rupiah(total['piutang_d'])}; "
+                f"HPP = Persediaan = {format_rupiah(total['hpp_d'])}"
+            ),
             color="success", icon=True,
         )
     else:
         sac.alert(
             label="Peringatan: Kolom Tidak Seimbang",
             description=(
-                f"Piutang (D): {format_rupiah(total['piutang_d'])} ≠ "
-                f"Penjualan (K): {format_rupiah(total['penjualan_k'])}"
+                f"Piutang (D): {format_rupiah(total['piutang_d'])} | "
+                f"Penjualan (K): {format_rupiah(total['penjualan_k'])} | "
+                f"HPP (D): {format_rupiah(total['hpp_d'])} | "
+                f"Persediaan (K): {format_rupiah(total['persediaan_k'])}"
             ),
             color="warning", icon=True,
         )
