@@ -46,8 +46,11 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
    - Buku Besar utama saldo berjalan dengan filter periode.
    - Buku Besar Pembantu Piutang (dengan analisis umur piutang / aging), Persediaan, dan Aset Tetap.
 
-6. **Kartu Persediaan Moving Average**:
-   - Kartu persediaan perpetual menggunakan metode rata-rata bergerak (*moving average*) untuk bahan produksi (bibit, pupuk, bambu, mulsa, pestisida) dan hasil panen cabai.
+6. **Kartu Persediaan Perpetual — Moving Average**:
+   - Pembelian, pemakaian bahan, panen, dan penjualan langsung memperbarui kuantitas serta nilai persediaan.
+   - Penjualan tunai dan tempo otomatis membentuk jurnal HPP Penjualan Cabai (Dr 5108) / Persediaan Cabai (Cr akun persediaan item).
+   - HPP dihitung dengan rata-rata bergerak. Penjualan yang melebihi stok yang tersedia ditolak.
+   - Saldo awal dimasukkan per item (kuantitas fisik × harga pokok per satuan) melalui Master Data → Saldo Awal Persediaan.
 
 7. **Penggajian & Slip Upah**:
    - Perhitungan upah harian pekerja tetap (Rp90.000/hari) dan pekerja tambahan (Rp120.000/hari) per periode 2 mingguan, cetak slip upah, dan pencatatan akrual utang gaji.
