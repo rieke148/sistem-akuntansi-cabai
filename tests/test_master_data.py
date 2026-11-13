@@ -15,6 +15,7 @@ import pandas as pd
 # Import fungsi yang akan dites (tidak butuh DB nyata untuk tes logika)
 from services.master_data_service import (
     hitung_penyusutan_preview,
+    hapus_akun,
     validasi_saldo_awal_seimbang,
     ambil_nilai_parameter,
     hapus_item,
@@ -256,3 +257,115 @@ def test_hapus_item_dengan_id_tidak_valid_ditolak(db_item_hapus):
     """ID nol atau negatif tidak boleh diproses sebagai penghapusan."""
     with pytest.raises(ValueError, match="tidak valid"):
         hapus_item(0)
+
+
+
+# ================================================================
+# TES HAPUS AKUN
+# ================================================================
+
+@pytest.fixture
+def db_akun_hapus(tmp_path, monkeypatch):
+    """Database sementara dengan seluruh relasi akun pada skema aplikasi."""
+    db_path = tmp_path / "test_hapus_akun.db"
+
+    def buka_koneksi():
+        koneksi = sqlite3.connect(str(db_path))
+        koneksi.row_factory = sqlite3.Row
+        koneksi.execute("PRAGMA foreign_keys = ON")
+        return koneksi
+
+    koneksi = buka_koneksi()
+    koneksi.executescript("""
+        CREATE TABLE accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kode_akun TEXT NOT NULL UNIQUE,
+            nama_akun TEXT NOT NULL
+        );
+
+        CREATE TABLE journal_lines (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL REFERENCES accounts(id)
+        );
+
+        CREATE TABLE opening_balances (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL REFERENCES accounts(id)
+        );
+
+        CREATE TABLE items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER REFERENCES accounts(id)
+        );
+
+        CREATE TABLE fixed_assets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER REFERENCES accounts(id),
+            account_akum_id INTEGER REFERENCES accounts(id)
+        );
+    """)
+    koneksi.execute(
+        "INSERT INTO accounts (kode_akun, nama_akun) VALUES (?, ?)",
+        ("6999", "Akun Uji"),
+    )
+    koneksi.commit()
+    koneksi.close()
+
+    monkeypatch.setattr("services.master_data_service.get_connection", buka_koneksi)
+    return buka_koneksi
+
+
+def test_hapus_akun_tanpa_referensi_berhasil(db_akun_hapus):
+    """Akun yang belum digunakan pada tabel lain dapat dihapus."""
+    hapus_akun(1)
+
+    koneksi = db_akun_hapus()
+    akun = koneksi.execute(
+        "SELECT id FROM accounts WHERE id = ?", (1,)
+    ).fetchone()
+    koneksi.close()
+
+    assert akun is None
+
+
+@pytest.mark.parametrize(
+    ("sql_insert", "kolom_label"),
+    [
+        ("INSERT INTO journal_lines (account_id) VALUES (1)", "baris jurnal"),
+        ("INSERT INTO opening_balances (account_id) VALUES (1)", "saldo awal"),
+        ("INSERT INTO items (account_id) VALUES (1)", "akun persediaan pada item"),
+        ("INSERT INTO fixed_assets (account_id) VALUES (1)", "akun aset tetap"),
+        ("INSERT INTO fixed_assets (account_akum_id) VALUES (1)", "akun akumulasi penyusutan"),
+    ],
+)
+def test_hapus_akun_yang_sudah_direferensikan_ditolak(
+    db_akun_hapus, sql_insert, kolom_label
+):
+    """Semua relasi foreign key ke akun harus melindungi akun dari penghapusan."""
+    koneksi = db_akun_hapus()
+    koneksi.execute(sql_insert)
+    koneksi.commit()
+    koneksi.close()
+
+    with pytest.raises(ValueError, match=kolom_label):
+        hapus_akun(1)
+
+    koneksi = db_akun_hapus()
+    akun = koneksi.execute(
+        "SELECT id FROM accounts WHERE id = ?", (1,)
+    ).fetchone()
+    koneksi.close()
+
+    assert akun is not None
+
+
+def test_hapus_akun_yang_tidak_ditemukan_ditolak(db_akun_hapus):
+    """ID akun yang tidak ada harus menghasilkan pesan validasi."""
+    with pytest.raises(ValueError, match="tidak ditemukan"):
+        hapus_akun(9999)
+
+
+def test_hapus_akun_dengan_id_tidak_valid_ditolak(db_akun_hapus):
+    """ID akun nol atau negatif tidak boleh diproses."""
+    with pytest.raises(ValueError, match="tidak valid"):
+        hapus_akun(0)
