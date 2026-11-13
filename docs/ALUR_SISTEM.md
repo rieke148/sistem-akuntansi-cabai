@@ -21,10 +21,10 @@
         ▼                                                             ▼
 [5 Jenis Jurnal]                                            [Kartu Persediaan]
   • Jurnal Penjualan (tempo)                                 (services/inventory_service.py)
-  • Jurnal Penerimaan Kas (tunai, piutang, modal)            Metode Rata-rata Bergerak
-  • Jurnal Pengeluaran Kas (beli bahan, upah, beban)         Stok Bahan & Panen Cabai
-  • Jurnal Pembelian (kredit)
-  • Jurnal Umum (pemakaian bahan, memorial)
+  • Jurnal Penerimaan Kas (tunai, piutang, modal)            Sistem Perpetual
+  • Jurnal Pengeluaran Kas (beli bahan, upah, beban)         Metode Rata-rata Bergerak
+  • Jurnal Pembelian (kredit)                                Stok Bahan & Hasil Panen Cabai
+  • Jurnal Umum (pemakaian bahan, memorial)                  HPP dan stok berkurang saat penjualan
         │
         ▼
 [Posting Buku Besar & BB Pembantu]
@@ -94,7 +94,7 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
   8. Pencatatan Hasil Panen Cabai
   9. Biaya Operasional (BBM, Listrik, Sewa Traktor)
   10. Pembelian Aset Tetap Tunai
-- Fitur **Pratinjau Jurnal Interaktif**: Mengharuskan Total Debit == Total Kredit sebelum disimpan.
+- Fitur **Pratinjau Jurnal Interaktif**: Mengharuskan Total Debit == Total Kredit sebelum disimpan. Pratinjau penjualan juga menampilkan HPP dan pengurangan persediaan berdasarkan rata-rata bergerak; stok tidak mencukupi akan ditolak.
 
 ### Fase 3 — Jurnal Umum & 4 Jurnal Khusus
 - **Jurnal Umum** (`views/04_jurnal_umum.py`): Format kronologis dengan kolom Tanggal, No Bukti, Keterangan, Ref Akun, Debit, dan Kredit.
@@ -107,7 +107,10 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 ### Fase 4 — Buku Besar, BB Pembantu & Kartu Persediaan
 - **Buku Besar**: Menampilkan saldo berjalan per akun dengan saldo awal dan mutasi debit/kredit.
 - **BB Pembantu**: Rincian piutang per pelanggan (dilengkapi analisa umur piutang / aging), stok persediaan, dan buku pembantu aset tetap.
-- **Kartu Persediaan**: Metode Rata-rata Bergerak (*moving average*) mencatat pergerakan masuk, keluar, dan sisa saldo kuantitas serta saldo nilai.
+- **Kartu Persediaan**: Sistem perpetual dengan metode rata-rata bergerak (*moving average*). Pembelian, saldo awal, pemakaian bahan, panen, dan penjualan langsung memperbarui saldo kuantitas serta nilai.
+- **Saldo Awal Persediaan**: Kuantitas fisik dan harga pokok dimasukkan per item. Sistem mencatat mutasi `saldo_awal` dan menyelaraskan saldo akun persediaan pada `opening_balances`.
+- **Penjualan Cabai**: Setiap penjualan memeriksa ketersediaan stok dan membentuk dua pasangan jurnal: Kas/Piutang terhadap Penjualan, serta HPP Penjualan terhadap Persediaan Cabai.
+- **Validasi**: Penjualan atau pemakaian yang melebihi stok ditolak. Mutasi per item harus dicatat kronologis agar rata-rata bergerak akurat.
 
 ### Fase 5 — Neraca Saldo, Penggajian & Penyesuaian
 - **Neraca Saldo**: Menghitung saldo seluruh akun dan memvalidasi keseimbangan Debit == Kredit.
