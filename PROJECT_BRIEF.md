@@ -169,14 +169,14 @@ Bangun "Sistem Informasi Siklus Akuntansi" untuk usaha budidaya cabai rawit PT S
 - Jika ada data yang ambigu, jangan menebak diam-diam: catat di bagian ASUMSI, jadikan parameter yang bisa diubah di halaman Master Data, dan beri tahu saya.
 
 # PROFIL USAHA (dari observasi 26 Okt 2026, narasumber: Hanif Margan Asparingga, Agronomist Utama)
-- Badan usaha: PT; sektor hortikultura; komoditas utama cabai rawit; juga selada & melon (dikelola 1 pekerja, dicatat terpisah lewat kolom `komoditas`).
+- Badan usaha: PT; sektor hortikultura; ruang lingkup sistem dibatasi pada budidaya cabai rawit.
 - Lokasi: Ungaran Barat, Kab. Semarang. Mulai tanam: November 2024. Lahan milik pribadi 2.471 m2. Modal awal 100% modal pribadi (nominal belum diketahui, jadi input saldo awal).
 - Lahan 5 blok (A-E), 1.000 pohon per blok (total 5.000). Tanam bertahap, tambah 1 blok per 4 bulan. Panen pertama sekitar 4 bulan setelah tanam, masa produktif sekitar 1 tahun. Pemetikan 3x seminggu. Rata-rata hasil 700 gram per pohon PER PANEN (sudah dikonfirmasi).
 - Aset tetap: Tanah Rp2.500.000.000; Bangunan Kantor dan Gudang Rp120.000.000; Kendaraan Rp250.000.000; Komputer Rp15.000.000.
 - Peralatan (umur, harga satuan): Cangkul 3 th Rp150.000; Sabit 3 th Rp110.000; Tangki Semprot 5 th Rp450.000; Keranjang Panen 2 th Rp40.000; Timbangan 4 th Rp500.000; Selang Air 5 th Rp250.000; Ember 2 th Rp35.000; Pompa Air 4 th Rp1.500.000. (Jumlah unit belum diketahui, jadikan input manual.)
 - Bahan dan perlengkapan: Bibit 1.000/blok @Rp250; Pupuk 4 karung, TOTAL Rp720.000 (awal tanam; sudah dikonfirmasi total, bukan per karung); Pupuk NPK 7 jenis Rp1.190.000/blok; Pestisida 5 jenis Rp380.000/blok; Plastik Mulsa 200 m Rp400.000/blok (masa pakai 1,5 tahun); Bambu 5.000 batang @Rp550. Tidak memakai pupuk kandang.
 - Pembelian: TUNAI, mayoritas di Toko Sido Panen Bandungan, dibeli sesuai kebutuhan (nyaris tanpa sisa).
-- Tenaga kerja: 5 pekerja (4 cabai, 1 selada dan melon). Upah harian tetap Rp90.000/hari; tenaga tambahan (cangkul/olah tanah) Rp120.000/hari. Upah dihitung harian, DIBAYAR tiap 2 minggu (jadi ada utang gaji di akhir periode).
+- Tenaga kerja dalam ruang lingkup sistem: 4 pekerja yang menangani budidaya cabai. Upah harian tetap Rp90.000/hari; tenaga tambahan (cangkul/olah tanah) Rp120.000/hari. Upah dihitung harian, DIBAYAR tiap 2 minggu (jadi ada utang gaji di akhir periode).
 - Biaya: Listrik pompa total Rp500.000/bln (alokasi cabai Rp150.000/bln); BBM pengiriman Rp150.000/minggu; BBM operasional Rp250.000/minggu; Sewa traktor Rp350.000/hari pakai.
 - Penjualan: langsung ke restoran, supermarket, UMKM tanpa tengkulak. Harga fluktuatif Rp25.000-Rp120.000/kg (saat observasi Rp60.000/kg). Pembayaran tunai dan tempo 1 minggu. Ongkir gratis (biaya masuk BBM pengiriman). Laba diputar kembali sebagai modal.
 - Pencatatan saat ini: catatan tulis manual lalu direkap ke spreadsheet. Sistem baru harus bisa menggantikan alur ini dan menyediakan impor CSV/Excel.
@@ -196,7 +196,7 @@ Bangun "Sistem Informasi Siklus Akuntansi" untuk usaha budidaya cabai rawit PT S
 7. Buku Besar per akun (saldo berjalan), bisa filter periode.
 8. Buku Besar Pembantu: Piutang per pelanggan (dengan umur piutang/jatuh tempo), Persediaan per item, Aset Tetap (harga, akumulasi, nilai buku), Utang (kosong kalau tak ada).
 9. Neraca Saldo (sebelum penyesuaian).
-10. Ayat Penyesuaian: penyusutan semua aset tetap (garis lurus), amortisasi plastik mulsa (1,5 th), akrual upah belum dibayar, bahan terpakai/stok opname, akrual listrik (jika belum dibayar), alokasi biaya bersama antar komoditas. Tiap ayat bisa dilihat rumusnya.
+10. Ayat Penyesuaian: penyusutan semua aset tetap (garis lurus), amortisasi plastik mulsa (1,5 th), akrual upah belum dibayar, bahan terpakai/stok opname, akrual listrik (jika belum dibayar), alokasi biaya bersama untuk kegiatan budidaya cabai. Tiap ayat bisa dilihat rumusnya.
 11. Neraca Lajur 10 kolom (NS, Penyesuaian, NS Disesuaikan, Laba Rugi, Neraca).
 12. Laporan Keuangan: Laporan Laba Rugi, Laporan Perubahan Ekuitas, Neraca (bentuk laporan), Arus Kas (opsional, metode langsung). Export Excel dan PDF.
 13. Jurnal Penutup dan Neraca Saldo Setelah Penutup.
@@ -210,7 +210,7 @@ Bangun "Sistem Informasi Siklus Akuntansi" untuk usaha budidaya cabai rawit PT S
 - Tanah tidak disusutkan. Umur ekonomis dan nilai residu SETIAP aset adalah INPUT MANUAL dari user di Master Data (jangan hardcode angka paten; boleh isi awal dari observasi untuk peralatan, sisanya kosong/wajib diisi sebelum penyusutan dihitung). Hal yang sama berlaku untuk jumlah unit peralatan, tanggal perolehan, saldo awal, persentase alokasi biaya bersama, dan hasil panen per pohon: semuanya parameter yang bisa diedit user.
 - Penyusutan dihitung bulanan = (harga - residu) / (umur x 12).
 - Persediaan memakai sistem perpetual, rata-rata bergerak. Saat bahan dipakai: Dr Beban Bahan Produksi, Cr Persediaan.
-- Biaya bersama (listrik, tenaga) boleh dialokasikan ke komoditas lewat kolom `komoditas`. Laporan utama fokus pada Cabai, tapi bisa difilter per komoditas.
+- Biaya bersama (listrik, tenaga) yang terkait budidaya cabai dicatat sebagai biaya komoditas cabai. Biaya untuk kegiatan di luar ruang lingkup sistem tidak dimasukkan ke laporan cabai.
 - Semua nominal pakai tipe Decimal atau integer Rupiah (hindari float). Format tampilan "Rp1.234.567".
 - Periode bulanan. Periode yang sudah ditutup tidak boleh diedit.
 - Untuk penyederhanaan tugas kuliah: aset biologis (PSAK 69) dan pajak tidak diterapkan, kecuali saya minta nanti.
