@@ -17,6 +17,7 @@ from services.master_data_service import (
     hitung_penyusutan_preview,
     validasi_saldo_awal_seimbang,
     ambil_nilai_parameter,
+    hapus_item,
     KATEGORI_AKUN,
     SALDO_NORMAL,
     TIPE_PEKERJA,
@@ -159,3 +160,99 @@ class TestValidasiInputPekerja:
             nama = "   "  # hanya spasi
             if not nama.strip():
                 raise ValueError("Nama pekerja tidak boleh kosong.")
+
+
+
+# ================================================================
+# TES HAPUS ITEM PERSEDIAAN
+# ================================================================
+
+@pytest.fixture
+def db_item_hapus(tmp_path, monkeypatch):
+    """
+    Menyiapkan database SQLite sementara untuk menguji penghapusan item.
+    Item pertama belum memiliki riwayat, item kedua sudah memiliki mutasi stok.
+    """
+    db_path = tmp_path / "test_hapus_item.db"
+
+    def buka_koneksi():
+        koneksi = sqlite3.connect(str(db_path))
+        koneksi.row_factory = sqlite3.Row
+        koneksi.execute("PRAGMA foreign_keys = ON")
+        return koneksi
+
+    koneksi = buka_koneksi()
+    koneksi.executescript("""
+        CREATE TABLE items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kode_item TEXT NOT NULL UNIQUE,
+            nama_item TEXT NOT NULL,
+            aktif INTEGER NOT NULL DEFAULT 1
+        );
+
+        CREATE TABLE inventory_movements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_id INTEGER NOT NULL REFERENCES items(id),
+            tanggal TEXT NOT NULL
+        );
+    """)
+    koneksi.execute(
+        "INSERT INTO items (kode_item, nama_item) VALUES (?, ?)",
+        ("BHN-999", "Item Belum Digunakan"),
+    )
+    koneksi.execute(
+        "INSERT INTO items (kode_item, nama_item) VALUES (?, ?)",
+        ("BHN-998", "Item Memiliki Riwayat"),
+    )
+    koneksi.execute(
+        "INSERT INTO inventory_movements (item_id, tanggal) VALUES (?, ?)",
+        (2, "2026-11-01"),
+    )
+    koneksi.commit()
+    koneksi.close()
+
+    monkeypatch.setattr("services.master_data_service.get_connection", buka_koneksi)
+    return buka_koneksi
+
+
+def test_hapus_item_tanpa_riwayat_berhasil(db_item_hapus):
+    """Item yang belum pernah digunakan dapat dihapus secara permanen."""
+    hapus_item(1)
+
+    koneksi = db_item_hapus()
+    item = koneksi.execute(
+        "SELECT id FROM items WHERE id = ?", (1,)
+    ).fetchone()
+    koneksi.close()
+
+    assert item is None
+
+
+def test_hapus_item_dengan_riwayat_ditolak(db_item_hapus):
+    """Item yang memiliki mutasi stok tidak boleh dihapus agar histori aman."""
+    with pytest.raises(ValueError, match="riwayat pergerakan stok"):
+        hapus_item(2)
+
+    koneksi = db_item_hapus()
+    item = koneksi.execute(
+        "SELECT id FROM items WHERE id = ?", (2,)
+    ).fetchone()
+    jumlah_riwayat = koneksi.execute(
+        "SELECT COUNT(*) FROM inventory_movements WHERE item_id = ?", (2,)
+    ).fetchone()[0]
+    koneksi.close()
+
+    assert item is not None
+    assert jumlah_riwayat == 1
+
+
+def test_hapus_item_yang_tidak_ditemukan_ditolak(db_item_hapus):
+    """ID item yang tidak ada harus menghasilkan pesan validasi."""
+    with pytest.raises(ValueError, match="tidak ditemukan"):
+        hapus_item(9999)
+
+
+def test_hapus_item_dengan_id_tidak_valid_ditolak(db_item_hapus):
+    """ID nol atau negatif tidak boleh diproses sebagai penghapusan."""
+    with pytest.raises(ValueError, match="tidak valid"):
+        hapus_item(0)
