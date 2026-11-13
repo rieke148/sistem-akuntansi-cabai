@@ -94,7 +94,7 @@ def buat_semua_tabel() -> None:
                             )),
             keterangan      TEXT NOT NULL,         -- deskripsi transaksi
             komoditas       TEXT DEFAULT 'cabai'
-                            CHECK (komoditas IN ('cabai', 'selada', 'melon', 'umum')),
+                            CHECK (komoditas IN ('cabai', 'umum')),
             pihak_terkait   TEXT,                  -- nama pelanggan/supplier (opsional)
             dibuat_pada     TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
         )
@@ -163,7 +163,7 @@ def buat_semua_tabel() -> None:
             tipe            TEXT NOT NULL
                             CHECK (tipe IN ('bahan', 'hasil_panen')),
             komoditas       TEXT NOT NULL DEFAULT 'cabai'
-                            CHECK (komoditas IN ('cabai', 'selada', 'melon')),
+                            CHECK (komoditas = 'cabai'),
             account_id      INTEGER REFERENCES accounts(id),  -- akun persediaan terkait
             aktif           INTEGER NOT NULL DEFAULT 1
         )
@@ -316,7 +316,8 @@ def buat_semua_tabel() -> None:
             kode_blok       TEXT NOT NULL UNIQUE,  -- 'A', 'B', 'C', 'D', 'E'
             jumlah_pohon    INTEGER NOT NULL DEFAULT 1000,
             tanggal_tanam   TEXT,                  -- 'YYYY-MM-DD'
-            komoditas       TEXT NOT NULL DEFAULT 'cabai',
+            komoditas       TEXT NOT NULL DEFAULT 'cabai'
+                            CHECK (komoditas = 'cabai'),
             luas_m2         REAL,                  -- luas blok dalam m2
             jarak_tanam_cm  REAL DEFAULT 100,      -- jarak tanam (default 1 m)
             keterangan      TEXT,                  -- mis. catatan penyakit
@@ -328,6 +329,261 @@ def buat_semua_tabel() -> None:
     koneksi.commit()
     tutup_connection(koneksi)
     print("[OK] Semua tabel berhasil dibuat.")
+
+
+def _gabungkan_saldo_awal_akun(
+    koneksi: sqlite3.Connection, account_id_lama: int, account_id_cabai: int
+) -> None:
+    """Gabungkan saldo awal akun lama ke akun penjualan cabai tanpa kehilangan nilai."""
+    rows = koneksi.execute(
+        "SELECT id, period_id, saldo_debit, saldo_kredit, catatan "
+        "FROM opening_balances WHERE account_id = ?",
+        (account_id_lama,),
+    ).fetchall()
+
+    for row in rows:
+        tujuan = koneksi.execute(
+            "SELECT id, saldo_debit, saldo_kredit, catatan "
+            "FROM opening_balances WHERE period_id = ? AND account_id = ?",
+            (row["period_id"], account_id_cabai),
+        ).fetchone()
+
+        if tujuan:
+            catatan = " | ".join(
+                nilai for nilai in [tujuan["catatan"], row["catatan"]] if nilai
+            ) or None
+            koneksi.execute(
+                "UPDATE opening_balances "
+                "SET saldo_debit = ?, saldo_kredit = ?, catatan = ? WHERE id = ?",
+                (
+                    int(tujuan["saldo_debit"]) + int(row["saldo_debit"]),
+                    int(tujuan["saldo_kredit"]) + int(row["saldo_kredit"]),
+                    catatan,
+                    tujuan["id"],
+                ),
+            )
+            koneksi.execute("DELETE FROM opening_balances WHERE id = ?", (row["id"],))
+        else:
+            koneksi.execute(
+                "UPDATE opening_balances SET account_id = ? WHERE id = ?",
+                (account_id_cabai, row["id"]),
+            )
+
+
+def _gabungkan_akun_penjualan_lama(koneksi: sqlite3.Connection) -> None:
+    """
+    Gabungkan akun pendapatan selain cabai ke akun penjualan cabai.
+    Nilai jurnal dan saldo awal dipertahankan, sedangkan akun lama dihapus.
+    """
+    akun_lama = koneksi.execute(
+        "SELECT id FROM accounts WHERE kode_akun IN ('4102', '4103')"
+    ).fetchall()
+    if not akun_lama:
+        return
+
+    akun_cabai = koneksi.execute(
+        "SELECT id FROM accounts WHERE kode_akun = '4101'"
+    ).fetchone()
+
+    if akun_cabai is None:
+        koneksi.execute(
+            "INSERT INTO accounts "
+            "(kode_akun, nama_akun, kategori, saldo_normal, is_kontra, aktif) "
+            "VALUES ('4101', 'Penjualan Cabai Rawit', 'Pendapatan', 'Kredit', 0, 1)"
+        )
+        account_id_cabai = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun = '4101'"
+        ).fetchone()["id"]
+    else:
+        account_id_cabai = akun_cabai["id"]
+
+    tabel_rows = koneksi.execute(
+        "SELECT name FROM sqlite_master "
+        "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+    ).fetchall()
+
+    for akun in akun_lama:
+        account_id_lama = akun["id"]
+
+        for tabel_row in tabel_rows:
+            nama_tabel = tabel_row["name"]
+            foreign_keys = koneksi.execute(
+                f'PRAGMA foreign_key_list("{nama_tabel}")'
+            ).fetchall()
+
+            for fk in foreign_keys:
+                if fk["table"] != "accounts":
+                    continue
+
+                nama_kolom = fk["from"]
+                if nama_tabel == "opening_balances" and nama_kolom == "account_id":
+                    _gabungkan_saldo_awal_akun(
+                        koneksi, account_id_lama, account_id_cabai
+                    )
+                else:
+                    koneksi.execute(
+                        f'UPDATE "{nama_tabel}" SET "{nama_kolom}" = ? '
+                        f'WHERE "{nama_kolom}" = ?',
+                        (account_id_cabai, account_id_lama),
+                    )
+
+        koneksi.execute("DELETE FROM accounts WHERE id = ?", (account_id_lama,))
+
+
+def _bangun_ulang_tabel_komoditas(
+    koneksi: sqlite3.Connection,
+    nama_tabel: str,
+    fragmen_check_baru: str,
+    sql_baru: str,
+    kolom: str,
+    ekspresi_select: str,
+) -> None:
+    """Bangun ulang tabel agar CHECK constraint lama diganti tanpa menghapus relasi."""
+    baris = koneksi.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (nama_tabel,),
+    ).fetchone()
+    if baris is None:
+        return
+
+    sql_lama = " ".join((baris["sql"] or "").lower().split())
+    if fragmen_check_baru in sql_lama:
+        # Skema sudah sesuai. Tetap normalisasi data lama yang mungkin tersisa.
+        return
+
+    nama_tabel_baru = f"{nama_tabel}_baru"
+    koneksi.execute(f'DROP TABLE IF EXISTS "{nama_tabel_baru}"')
+    koneksi.execute(sql_baru)
+    koneksi.execute(
+        f'INSERT INTO "{nama_tabel_baru}" ({kolom}) '
+        f'SELECT {ekspresi_select} FROM "{nama_tabel}"'
+    )
+    koneksi.execute(f'DROP TABLE "{nama_tabel}"')
+    koneksi.execute(
+        f'ALTER TABLE "{nama_tabel_baru}" RENAME TO "{nama_tabel}"'
+    )
+
+
+def migrasikan_komoditas_cabai_saja() -> None:
+    """
+    Migrasi database lama agar hanya mendukung komoditas cabai.
+
+    Transaksi jurnal umum tetap dapat diberi penanda 'umum' untuk biaya
+    yang belum dialokasikan ke suatu komoditas. Data historis yang sebelumnya
+    memakai klasifikasi lain dipindahkan ke cabai, bukan dihapus.
+    """
+    koneksi = get_connection()
+    try:
+        koneksi.execute("PRAGMA foreign_keys = OFF")
+        koneksi.execute("BEGIN IMMEDIATE")
+
+        _gabungkan_akun_penjualan_lama(koneksi)
+
+        _bangun_ulang_tabel_komoditas(
+            koneksi,
+            "journal_entries",
+            "check (komoditas in ('cabai', 'umum'))",
+            """
+                CREATE TABLE journal_entries_baru (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    period_id INTEGER NOT NULL REFERENCES periods(id),
+                    tanggal TEXT NOT NULL,
+                    no_bukti TEXT NOT NULL UNIQUE,
+                    journal_type TEXT NOT NULL
+                        CHECK (journal_type IN (
+                            'penjualan', 'penerimaan_kas', 'pengeluaran_kas',
+                            'pembelian', 'umum'
+                        )),
+                    keterangan TEXT NOT NULL,
+                    komoditas TEXT DEFAULT 'cabai'
+                        CHECK (komoditas IN ('cabai', 'umum')),
+                    pihak_terkait TEXT,
+                    dibuat_pada TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+                )
+            """,
+            "id, period_id, tanggal, no_bukti, journal_type, keterangan, "
+            "komoditas, pihak_terkait, dibuat_pada",
+            "id, period_id, tanggal, no_bukti, journal_type, keterangan, "
+            "CASE WHEN komoditas = 'umum' THEN 'umum' ELSE 'cabai' END AS komoditas, "
+            "pihak_terkait, dibuat_pada",
+        )
+
+        _bangun_ulang_tabel_komoditas(
+            koneksi,
+            "items",
+            "check (komoditas = 'cabai')",
+            """
+                CREATE TABLE items_baru (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    kode_item TEXT NOT NULL UNIQUE,
+                    nama_item TEXT NOT NULL,
+                    satuan TEXT NOT NULL,
+                    tipe TEXT NOT NULL CHECK (tipe IN ('bahan', 'hasil_panen')),
+                    komoditas TEXT NOT NULL DEFAULT 'cabai' CHECK (komoditas = 'cabai'),
+                    account_id INTEGER REFERENCES accounts(id),
+                    aktif INTEGER NOT NULL DEFAULT 1
+                )
+            """,
+            "id, kode_item, nama_item, satuan, tipe, komoditas, account_id, aktif",
+            "id, kode_item, nama_item, satuan, tipe, 'cabai' AS komoditas, account_id, aktif",
+        )
+
+        _bangun_ulang_tabel_komoditas(
+            koneksi,
+            "employees",
+            "check (komoditas = 'cabai')",
+            """
+                CREATE TABLE employees_baru (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nama TEXT NOT NULL,
+                    tipe_pekerja TEXT NOT NULL DEFAULT 'tetap'
+                        CHECK (tipe_pekerja IN ('tetap', 'tambahan')),
+                    upah_harian INTEGER NOT NULL,
+                    komoditas TEXT NOT NULL DEFAULT 'cabai' CHECK (komoditas = 'cabai'),
+                    aktif INTEGER NOT NULL DEFAULT 1
+                )
+            """,
+            "id, nama, tipe_pekerja, upah_harian, komoditas, aktif",
+            "id, nama, tipe_pekerja, upah_harian, 'cabai' AS komoditas, aktif",
+        )
+
+        _bangun_ulang_tabel_komoditas(
+            koneksi,
+            "blok_lahan",
+            "check (komoditas = 'cabai')",
+            """
+                CREATE TABLE blok_lahan_baru (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    kode_blok TEXT NOT NULL UNIQUE,
+                    jumlah_pohon INTEGER NOT NULL DEFAULT 1000,
+                    tanggal_tanam TEXT,
+                    komoditas TEXT NOT NULL DEFAULT 'cabai' CHECK (komoditas = 'cabai'),
+                    luas_m2 REAL,
+                    jarak_tanam_cm REAL DEFAULT 100,
+                    keterangan TEXT,
+                    aktif INTEGER NOT NULL DEFAULT 1
+                )
+            """,
+            "id, kode_blok, jumlah_pohon, tanggal_tanam, komoditas, "
+            "luas_m2, jarak_tanam_cm, keterangan, aktif",
+            "id, kode_blok, jumlah_pohon, tanggal_tanam, 'cabai' AS komoditas, "
+            "luas_m2, jarak_tanam_cm, keterangan, aktif",
+        )
+
+        koneksi.commit()
+        koneksi.execute("PRAGMA foreign_keys = ON")
+        pelanggaran_fk = koneksi.execute("PRAGMA foreign_key_check").fetchall()
+        if pelanggaran_fk:
+            raise RuntimeError(
+                "Migrasi komoditas selesai, tetapi ditemukan relasi database "
+                "yang tidak valid. Periksa hasil PRAGMA foreign_key_check."
+            )
+    except Exception:
+        koneksi.rollback()
+        raise
+    finally:
+        koneksi.close()
+
 
 
 def tutup_connection(koneksi: sqlite3.Connection) -> None:
