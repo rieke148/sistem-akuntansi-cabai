@@ -75,3 +75,39 @@ class TestRataRataBergerak:
                 raise ValueError(
                     f"Saldo tidak cukup. Tersedia: {saldo_qty}, diminta: {qty_keluar}"
                 )
+
+
+
+from unittest.mock import patch
+from services.inventory_service import hitung_nilai_keluar
+
+
+class TestNilaiKeluarPerpetual:
+    """Tes perhitungan HPP dan saldo saat stok keluar."""
+
+    def test_hpp_keluar_menggunakan_rata_rata_bergerak(self):
+        saldo = {"saldo_qty": 6.0, "saldo_nilai": 1_120_000, "harga_rata2": 186_666}
+        with patch("services.inventory_service.ambil_saldo_persediaan", return_value=saldo):
+            hasil = hitung_nilai_keluar(item_id=1, qty=3)
+        assert hasil["total_keluar"] == 559_998
+        assert hasil["saldo_qty"] == 6.0
+        assert hasil["harga_rata2"] == 186_666
+
+    def test_hpp_menghabiskan_stok_memakai_seluruh_nilai_saldo(self):
+        saldo = {"saldo_qty": 3.0, "saldo_nilai": 560_002, "harga_rata2": 186_666}
+        with patch("services.inventory_service.ambil_saldo_persediaan", return_value=saldo):
+            hasil = hitung_nilai_keluar(item_id=1, qty=3)
+        # Seluruh nilai saldo diambil agar tidak tersisa selisih pembulatan.
+        assert hasil["total_keluar"] == 560_002
+
+    def test_penjualan_melebihi_stok_ditolak(self):
+        saldo = {"saldo_qty": 2.0, "saldo_nilai": 50_000, "harga_rata2": 25_000}
+        with patch("services.inventory_service.ambil_saldo_persediaan", return_value=saldo):
+            with pytest.raises(ValueError, match="Stok tidak mencukupi"):
+                hitung_nilai_keluar(item_id=1, qty=3)
+
+    def test_qty_keluar_nol_ditolak(self):
+        saldo = {"saldo_qty": 2.0, "saldo_nilai": 50_000, "harga_rata2": 25_000}
+        with patch("services.inventory_service.ambil_saldo_persediaan", return_value=saldo):
+            with pytest.raises(ValueError, match="lebih besar dari nol"):
+                hitung_nilai_keluar(item_id=1, qty=0)
