@@ -27,12 +27,12 @@ def _warna_saldo(nilai: int) -> str:
 
 
 def _tampilkan_metrik_utama(period_id: int) -> None:
-    """Menampilkan 4 metrik utama: Kas, Piutang Overdue, Penjualan, Beban."""
+    """Menampilkan 5 metrik utama termasuk HPP Penjualan dan laba kotor."""
     kas_bank = ds.ambil_saldo_kas_bank(period_id)
     overdue = ds.ambil_piutang_overdue()
     jual_beban = ds.ambil_ringkasan_penjualan_beban(period_id)
 
-    kol1, kol2, kol3, kol4 = st.columns(4)
+    kol1, kol2, kol3, kol4, kol5 = st.columns(5)
     with kol1:
         st.metric(
             label="💵 Total Kas & Bank",
@@ -59,11 +59,15 @@ def _tampilkan_metrik_utama(period_id: int) -> None:
         )
     with kol4:
         st.metric(
-            label="📉 Beban Periode Ini",
-            value=format_rupiah(jual_beban["beban"]),
-            delta=format_rupiah(jual_beban["laba_kotor"]),
-            delta_color=_warna_saldo(jual_beban["laba_kotor"]),
-            help="Total debit ke akun beban (5xxx). Delta = Laba Kotor",
+            label="📦 HPP Penjualan",
+            value=format_rupiah(jual_beban["hpp_penjualan"]),
+            help="Total debit ke akun 5108 - HPP Penjualan Cabai",
+        )
+    with kol5:
+        st.metric(
+            label="📈 Laba Kotor",
+            value=format_rupiah(jual_beban["laba_kotor"]),
+            help="Penjualan dikurangi HPP Penjualan (akun 5108)",
         )
 
 
@@ -89,7 +93,7 @@ def _tampilkan_grafik_penjualan(period_id: int) -> None:
 
 
 def _tampilkan_grafik_penjualan_vs_beban(period_id: int) -> None:
-    """Menampilkan grafik bar perbandingan total penjualan vs beban."""
+    """Menampilkan grafik penjualan, HPP, dan beban produksi lainnya."""
     jual_beban = ds.ambil_ringkasan_penjualan_beban(period_id)
     if jual_beban["penjualan"] == 0 and jual_beban["beban"] == 0:
         st.info("📊 Belum ada data transaksi keuangan untuk grafik.")
@@ -97,7 +101,8 @@ def _tampilkan_grafik_penjualan_vs_beban(period_id: int) -> None:
 
     df_pv = pd.DataFrame([
         {"Kategori": "Penjualan", "Nominal": jual_beban["penjualan"]},
-        {"Kategori": "Total Beban", "Nominal": jual_beban["beban"]},
+        {"Kategori": "HPP Penjualan", "Nominal": jual_beban["hpp_penjualan"]},
+        {"Kategori": "Beban Produksi Lain", "Nominal": jual_beban["beban_produksi_lain"]},
     ])
 
     st.bar_chart(
