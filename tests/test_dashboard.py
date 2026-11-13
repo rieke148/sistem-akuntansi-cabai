@@ -62,7 +62,7 @@ def _buat_schema(koneksi: sqlite3.Connection) -> None:
                 CHECK (journal_type IN ('penjualan','penerimaan_kas','pengeluaran_kas','pembelian','umum')),
             keterangan    TEXT,
             komoditas     TEXT NOT NULL DEFAULT 'umum'
-                CHECK (komoditas IN ('cabai','selada','melon','umum')),
+                CHECK (komoditas IN ('cabai','umum')),
             pihak_terkait TEXT,
             dibuat_pada   TEXT DEFAULT (datetime('now'))
         );
@@ -113,7 +113,7 @@ def _buat_schema(koneksi: sqlite3.Connection) -> None:
             nama_item TEXT NOT NULL,
             satuan    TEXT NOT NULL,
             tipe      TEXT NOT NULL,
-            komoditas TEXT NOT NULL DEFAULT 'umum',
+            komoditas TEXT NOT NULL DEFAULT 'cabai',
             account_id INTEGER,
             aktif     INTEGER NOT NULL DEFAULT 1
         );
