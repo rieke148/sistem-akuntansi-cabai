@@ -289,7 +289,7 @@ def ubah_supplier(
 # ITEM PERSEDIAAN
 # ================================================================
 TIPE_ITEM = ["bahan", "hasil_panen"]
-KOMODITAS_ITEM = ["cabai", "selada", "melon"]
+KOMODITAS_ITEM = ["cabai"]
 
 
 def ambil_semua_item() -> pd.DataFrame:
