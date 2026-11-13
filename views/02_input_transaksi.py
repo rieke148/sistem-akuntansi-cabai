@@ -116,21 +116,10 @@ def _cari_akun_by_kode(kode: str) -> int | None:
 
 
 def _cari_akun_penjualan(komoditas: str) -> int | None:
-    """
-    Mengembalikan account_id akun penjualan sesuai komoditas.
-    - cabai  → 4101 (Penjualan Cabai Rawit)
-    - selada → 4102 (Penjualan Selada)
-    - melon  → 4103 (Penjualan Melon)
-    - umum   → 4901 (Pendapatan Lain-lain)
-    """
-    peta = {
-        "cabai": "4101",
-        "selada": "4102",
-        "melon": "4103",
-        "umum": "4901",
-    }
-    kode = peta.get(komoditas, "4101")
-    return _cari_akun_by_kode(kode)
+    """Mengembalikan akun pendapatan untuk penjualan cabai."""
+    if komoditas != "cabai":
+        return None
+    return _cari_akun_by_kode("4101")
 
 
 def _bersihkan_pratinjau():
@@ -234,7 +223,8 @@ def _form_penjualan_tunai(period_id: int):
             harga_per_kg = st.number_input(
                 "Harga per kg (Rp)", min_value=1000, step=500, value=50000
             )
-            komoditas = st.selectbox("Komoditas", ["cabai", "selada", "melon", "umum"])
+            komoditas = "cabai"
+            st.text_input("Komoditas", value="Cabai", disabled=True)
 
         keterangan = st.text_input("Keterangan Tambahan", placeholder="(opsional)")
         st.caption(f"**Total: {format_rupiah(int(jumlah_kg * harga_per_kg))}**")
@@ -247,7 +237,7 @@ def _form_penjualan_tunai(period_id: int):
             return
 
         akun_kas_id = _cari_akun_by_kode("1101")
-        # Pilih akun penjualan berdasarkan komoditas yang dipilih
+        # Gunakan akun penjualan cabai
         akun_jual_id = _cari_akun_penjualan(komoditas)
 
         if not akun_kas_id or not akun_jual_id:
@@ -320,7 +310,8 @@ def _form_penjualan_tempo(period_id: int):
                 options=range(len(customers)),
                 format_func=lambda i: customers[i]["nama"],
             )
-            komoditas = st.selectbox("Komoditas", ["cabai", "selada", "melon", "umum"])
+            komoditas = "cabai"
+            st.text_input("Komoditas", value="Cabai", disabled=True)
         with kol2:
             jumlah_kg = st.number_input("Jumlah (kg)", min_value=0.1, step=0.1, value=1.0)
             harga_per_kg = st.number_input(
