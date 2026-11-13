@@ -237,9 +237,15 @@ def catat_saldo_awal_persediaan(
 
         nilai_awal = int(qty * harga_satuan)
         existing = koneksi.execute("""
-            SELECT id FROM inventory_movements
+            SELECT id, tanggal FROM inventory_movements
             WHERE item_id = ? AND tipe_gerakan = 'saldo_awal'
+            ORDER BY id DESC LIMIT 1
         """, (item_id,)).fetchone()
+        if existing and existing["tanggal"] != tanggal_awal:
+            raise ValueError(
+                "Item ini sudah memiliki saldo awal pada periode lain. "
+                "Saldo yang tersedia harus diteruskan sebagai stok berjalan, bukan dipindahkan."
+            )
 
         if qty == 0:
             if existing:
