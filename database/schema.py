@@ -586,6 +586,32 @@ def migrasikan_komoditas_cabai_saja() -> None:
 
 
 
+def pastikan_akun_hpp_penjualan_tersedia() -> None:
+    """
+    Memastikan akun HPP Penjualan Cabai tersedia pada database lama maupun baru.
+
+    Kode 5108 termasuk kategori Beban Produksi sehingga otomatis masuk ke
+    laporan laba rugi, neraca lajur, dan jurnal penutup.
+    """
+    koneksi = get_connection()
+    try:
+        ada = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun = '5108'"
+        ).fetchone()
+        if not ada:
+            koneksi.execute("""
+                INSERT INTO accounts
+                    (kode_akun, nama_akun, kategori, saldo_normal, is_kontra, aktif)
+                VALUES ('5108', 'HPP Penjualan Cabai', 'Beban Produksi', 'Debit', 0, 1)
+            """)
+            koneksi.commit()
+    except Exception:
+        koneksi.rollback()
+        raise
+    finally:
+        koneksi.close()
+
+
 def tutup_connection(koneksi: sqlite3.Connection) -> None:
     """Menutup koneksi database dengan aman."""
     if koneksi:
