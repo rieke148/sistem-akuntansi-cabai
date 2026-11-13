@@ -77,11 +77,16 @@ def catat_gerakan_masuk(
     koneksi = get_connection()
     try:
         row = koneksi.execute("""
-            SELECT saldo_qty, saldo_nilai
+            SELECT tanggal, saldo_qty, saldo_nilai
             FROM inventory_movements
             WHERE item_id = ? ORDER BY id DESC LIMIT 1
         """, (item_id,)).fetchone()
 
+        if row and tanggal < row["tanggal"]:
+            raise ValueError(
+                f"Tanggal mutasi {tanggal} lebih awal dari mutasi terakhir {row['tanggal']}. "
+                "Catat mutasi per item secara kronologis agar rata-rata bergerak tetap akurat."
+            )
         qty_lama = float(row["saldo_qty"]) if row else 0.0
         nilai_lama = int(row["saldo_nilai"]) if row else 0
         total_masuk = int(qty * harga_satuan)
@@ -126,7 +131,7 @@ def catat_gerakan_keluar(
     koneksi = get_connection()
     try:
         row = koneksi.execute("""
-            SELECT saldo_qty, saldo_nilai, harga_rata2
+            SELECT tanggal, saldo_qty, saldo_nilai, harga_rata2
             FROM inventory_movements
             WHERE item_id = ? ORDER BY id DESC LIMIT 1
         """, (item_id,)).fetchone()
@@ -136,6 +141,11 @@ def catat_gerakan_keluar(
                 "Stok persediaan belum tersedia. Masukkan saldo awal atau catat panen terlebih dahulu."
             )
 
+        if tanggal < row["tanggal"]:
+            raise ValueError(
+                f"Tanggal mutasi {tanggal} lebih awal dari mutasi terakhir {row['tanggal']}. "
+                "Catat mutasi per item secara kronologis agar rata-rata bergerak tetap akurat."
+            )
         qty_lama = float(row["saldo_qty"])
         nilai_lama = int(row["saldo_nilai"])
         harga_rata2 = int(row["harga_rata2"])
