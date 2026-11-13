@@ -32,7 +32,11 @@ import datetime
 import pandas as pd
 from database.connection import get_connection
 from services.journal_service import simpan_jurnal, generate_nomor_bukti
-from services.inventory_service import catat_gerakan_masuk, catat_gerakan_keluar
+from services.inventory_service import (
+    catat_gerakan_masuk,
+    catat_gerakan_keluar,
+    hitung_nilai_keluar,
+)
 
 
 # ================================================================
@@ -74,6 +78,115 @@ def _tambah_hari(tanggal_str: str, hari: int) -> str:
     return str(tanggal + datetime.timedelta(days=hari))
 
 
+def _siapkan_hpp_penjualan(
+    jumlah_kg: float,
+    item_panen_id: int | None = None,
+    hpp_estimasi: int | None = None,
+) -> dict:
+    """
+    Menyiapkan nilai HPP, akun persediaan, dan ID item untuk transaksi penjualan.
+
+    Jika item tidak diberikan, sistem memakai satu-satunya item hasil panen aktif.
+    """
+    koneksi = get_connection()
+    try:
+        if item_panen_id is None:
+            items = koneksi.execute("""
+                SELECT id, nama_item, account_id
+                FROM items
+                WHERE tipe = 'hasil_panen' AND aktif = 1
+                ORDER BY id
+            """).fetchall()
+            if len(items) != 1:
+                raise ValueError(
+                    "Pilih satu item hasil panen cabai yang akan dijual pada form transaksi."
+                )
+            item = items[0]
+        else:
+            item = koneksi.execute("""
+                SELECT id, nama_item, account_id
+                FROM items
+                WHERE id = ? AND tipe = 'hasil_panen' AND aktif = 1
+            """, (item_panen_id,)).fetchone()
+
+        if not item:
+            raise ValueError("Item hasil panen tidak ditemukan atau sudah nonaktif.")
+        if not item["account_id"]:
+            raise ValueError("Item hasil panen belum dihubungkan ke akun persediaan.")
+
+        akun_hpp = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun = '5108' AND aktif = 1"
+        ).fetchone()
+        if not akun_hpp:
+            raise ValueError(
+                "Akun 5108 - HPP Penjualan Cabai belum tersedia. Jalankan pembaruan database terlebih dahulu."
+            )
+        item_info = {
+            "item_id": int(item["id"]),
+            "nama_item": item["nama_item"],
+            "akun_persediaan_id": int(item["account_id"]),
+            "akun_hpp_id": int(akun_hpp["id"]),
+        }
+    finally:
+        koneksi.close()
+
+    nilai_keluar = hitung_nilai_keluar(item_info["item_id"], jumlah_kg)
+    total_hpp = int(nilai_keluar["total_keluar"])
+    if hpp_estimasi is not None and int(hpp_estimasi) != total_hpp:
+        raise ValueError(
+            "Nilai persediaan berubah setelah pratinjau. Silakan buat pratinjau jurnal kembali."
+        )
+
+    item_info["total_hpp"] = total_hpp
+    item_info["harga_rata2"] = int(nilai_keluar["harga_rata2"])
+    return item_info
+
+
+def _hapus_jurnal_transaksi_gagal(entry_id: int) -> None:
+    """Menghapus jurnal yang baru dibuat jika pencatatan mutasi stok gagal."""
+    koneksi = get_connection()
+    try:
+        koneksi.execute(
+            "DELETE FROM inventory_movements WHERE journal_entry_id = ?",
+            (entry_id,),
+        )
+        koneksi.execute(
+            "DELETE FROM receivables WHERE journal_entry_id = ?",
+            (entry_id,),
+        )
+        koneksi.execute(
+            "DELETE FROM journal_lines WHERE journal_entry_id = ?",
+            (entry_id,),
+        )
+        koneksi.execute(
+            "DELETE FROM journal_entries WHERE id = ?",
+            (entry_id,),
+        )
+        koneksi.commit()
+    except Exception:
+        koneksi.rollback()
+        raise
+    finally:
+        koneksi.close()
+
+
+def _catat_hpp_penjualan(
+    entry_id: int,
+    tanggal: str,
+    jumlah_kg: float,
+    item_hpp: dict,
+    keterangan: str,
+) -> None:
+    """Mencatat pengurangan stok hasil panen yang terjual."""
+    catat_gerakan_keluar(
+        item_id=item_hpp["item_id"],
+        tanggal=tanggal,
+        qty=jumlah_kg,
+        keterangan=keterangan,
+        journal_entry_id=entry_id,
+    )
+
+
 # ================================================================
 # 1. PENJUALAN TUNAI
 # ================================================================
@@ -88,24 +201,23 @@ def catat_penjualan_tunai(
     akun_penjualan_id: int,
     komoditas: str = "cabai",
     keterangan_tambahan: str = "",
+    item_panen_id: int | None = None,
+    hpp_estimasi: int | None = None,
 ) -> int:
     """
-    Mencatat transaksi penjualan tunai.
+    Mencatat penjualan tunai beserta HPP dan pengurangan persediaan.
 
-    Jurnal yang dibuat:
-      Debit : Kas
-      Kredit: Penjualan
-
-    Args:
-        jumlah_kg    : Kuantitas yang dijual (kg).
-        harga_per_kg : Harga jual per kg (Rupiah, integer).
-        pelanggan    : Nama pelanggan (teks bebas).
-
-    Returns:
-        ID journal_entry yang dibuat.
+    Jurnal:
+      Dr Kas / Cr Penjualan
+      Dr HPP Penjualan / Cr Persediaan Cabai
     """
-    # Hitung total penjualan (integer Rupiah)
+    if jumlah_kg <= 0 or harga_per_kg <= 0:
+        raise ValueError("Jumlah dan harga jual harus lebih besar dari nol.")
+
+    # Stok divalidasi sebelum jurnal dibuat agar penjualan tanpa stok ditolak.
+    item_hpp = _siapkan_hpp_penjualan(jumlah_kg, item_panen_id, hpp_estimasi)
     total = int(jumlah_kg * harga_per_kg)
+    total_hpp = item_hpp["total_hpp"]
 
     keterangan = (
         f"Penjualan {komoditas} tunai ke {pelanggan} "
@@ -114,16 +226,15 @@ def catat_penjualan_tunai(
     if keterangan_tambahan:
         keterangan += f" - {keterangan_tambahan}"
 
-    # Generate nomor bukti otomatis: KM-OKT26-001
     no_bukti = generate_nomor_bukti("KM", _label_periode(period_id))
-
-    # Susun baris jurnal: Kas (D) | Penjualan (K)
     baris = [
         {"account_id": akun_kas_id, "debit": total, "kredit": 0},
         {"account_id": akun_penjualan_id, "debit": 0, "kredit": total},
+        {"account_id": item_hpp["akun_hpp_id"], "debit": total_hpp, "kredit": 0},
+        {"account_id": item_hpp["akun_persediaan_id"], "debit": 0, "kredit": total_hpp},
     ]
 
-    return simpan_jurnal(
+    entry_id = simpan_jurnal(
         period_id=period_id,
         tanggal=tanggal,
         no_bukti=no_bukti,
@@ -133,6 +244,17 @@ def catat_penjualan_tunai(
         komoditas=komoditas,
         pihak_terkait=pelanggan,
     )
+
+    try:
+        _catat_hpp_penjualan(
+            entry_id, tanggal, jumlah_kg, item_hpp,
+            f"Penjualan cabai tunai ke {pelanggan}",
+        )
+    except Exception:
+        _hapus_jurnal_transaksi_gagal(entry_id)
+        raise
+
+    return entry_id
 
 
 # ================================================================
@@ -149,25 +271,24 @@ def catat_penjualan_tempo(
     akun_piutang_id: int,
     akun_penjualan_id: int,
     komoditas: str = "cabai",
+    item_panen_id: int | None = None,
+    hpp_estimasi: int | None = None,
 ) -> tuple[int, str]:
     """
-    Mencatat penjualan tempo (kredit, jatuh tempo sesuai parameter).
+    Mencatat penjualan tempo beserta HPP dan pengurangan persediaan.
 
-    Jurnal yang dibuat:
-      Debit : Piutang Usaha
-      Kredit: Penjualan
-
-    Efek samping:
-      INSERT ke tabel receivables (piutang baru menunggu pelunasan).
-
-    Returns:
-        Tuple (entry_id, no_faktur).
+    Jurnal:
+      Dr Piutang Usaha / Cr Penjualan
+      Dr HPP Penjualan / Cr Persediaan Cabai
     """
+    if jumlah_kg <= 0 or harga_per_kg <= 0:
+        raise ValueError("Jumlah dan harga jual harus lebih besar dari nol.")
+
+    item_hpp = _siapkan_hpp_penjualan(jumlah_kg, item_panen_id, hpp_estimasi)
     total = int(jumlah_kg * harga_per_kg)
+    total_hpp = item_hpp["total_hpp"]
 
-    # Nomor faktur / bukti penjualan tempo
     no_bukti = generate_nomor_bukti("JL", _label_periode(period_id))
-
     keterangan = (
         f"Penjualan {komoditas} tempo ke {pelanggan_nama} "
         f"{jumlah_kg} kg @ Rp{harga_per_kg:,}".replace(",", ".")
@@ -176,6 +297,8 @@ def catat_penjualan_tempo(
     baris = [
         {"account_id": akun_piutang_id, "debit": total, "kredit": 0},
         {"account_id": akun_penjualan_id, "debit": 0, "kredit": total},
+        {"account_id": item_hpp["akun_hpp_id"], "debit": total_hpp, "kredit": 0},
+        {"account_id": item_hpp["akun_persediaan_id"], "debit": 0, "kredit": total_hpp},
     ]
 
     entry_id = simpan_jurnal(
@@ -184,20 +307,30 @@ def catat_penjualan_tempo(
         komoditas=komoditas, pihak_terkait=pelanggan_nama,
     )
 
-    # Hitung jatuh tempo dari parameter (default 7 hari)
-    jatuh_tempo_hari = int(_ambil_parameter("jatuh_tempo_piutang_hari") or 7)
-    tanggal_jatuh_tempo = _tambah_hari(tanggal, jatuh_tempo_hari)
+    try:
+        # Mutasi stok dihubungkan ke jurnal penjualan yang sama.
+        _catat_hpp_penjualan(
+            entry_id, tanggal, jumlah_kg, item_hpp,
+            f"Penjualan cabai tempo ke {pelanggan_nama}",
+        )
 
-    # Simpan ke tabel receivables agar bisa dilacak dan dilunasi
-    koneksi = get_connection()
-    koneksi.execute("""
-        INSERT INTO receivables
-            (journal_entry_id, customer_id, no_faktur, tanggal_faktur,
-             tanggal_jatuh_tempo, jumlah, jumlah_terbayar, status)
-        VALUES (?, ?, ?, ?, ?, ?, 0, 'belum_lunas')
-    """, (entry_id, customer_id, no_bukti, tanggal, tanggal_jatuh_tempo, total))
-    koneksi.commit()
-    koneksi.close()
+        jatuh_tempo_hari = int(_ambil_parameter("jatuh_tempo_piutang_hari") or 7)
+        tanggal_jatuh_tempo = _tambah_hari(tanggal, jatuh_tempo_hari)
+
+        koneksi = get_connection()
+        try:
+            koneksi.execute("""
+                INSERT INTO receivables
+                    (journal_entry_id, customer_id, no_faktur, tanggal_faktur,
+                     tanggal_jatuh_tempo, jumlah, jumlah_terbayar, status)
+                VALUES (?, ?, ?, ?, ?, ?, 0, 'belum_lunas')
+            """, (entry_id, customer_id, no_bukti, tanggal, tanggal_jatuh_tempo, total))
+            koneksi.commit()
+        finally:
+            koneksi.close()
+    except Exception:
+        _hapus_jurnal_transaksi_gagal(entry_id)
+        raise
 
     return entry_id, no_bukti
 
@@ -447,39 +580,26 @@ def catat_pemakaian_bahan(
     blok_nama: str = "",
     keterangan: str = "",
     komoditas: str = "cabai",
+    hpp_estimasi: int | None = None,
 ) -> int:
     """
-    Mencatat pemakaian bahan produksi ke blok lahan (Jurnal Umum).
+    Mencatat pemakaian bahan dengan metode perpetual.
 
-    Jurnal yang dibuat:
-      Debit : Beban Bahan Produksi
-      Kredit: Persediaan
-
-    Efek samping:
-      INSERT ke inventory_movements (bahan keluar, dihitung dengan harga rata-rata bergerak).
-
-    Args:
-        item_id  : ID item bahan yang dipakai.
-        qty      : Kuantitas yang dipakai.
-        blok_nama: Nama blok lahan (untuk keterangan).
-
-    Returns:
-        ID journal_entry yang dibuat.
+    Jurnal: Dr Beban Bahan Produksi / Cr Persediaan.
+    Mutasi stok dihubungkan ke jurnal yang sama.
     """
-    no_bukti = generate_nomor_bukti("JU", _label_periode(period_id))
-
-    # Hitung nilai keluar berdasarkan saldo persediaan (rata-rata bergerak)
-    # catat_gerakan_keluar akan raise ValueError jika saldo tidak cukup
-    hasil_keluar = catat_gerakan_keluar(
-        item_id=item_id, tanggal=tanggal, qty=qty,
-        keterangan=keterangan or f"Pemakaian bahan ke blok {blok_nama}",
-    )
-    total_nilai = hasil_keluar["total_keluar"]
+    hasil_hitung = hitung_nilai_keluar(item_id, qty)
+    total_nilai = int(hasil_hitung["total_keluar"])
+    if hpp_estimasi is not None and int(hpp_estimasi) != total_nilai:
+        raise ValueError(
+            "Nilai persediaan berubah setelah pratinjau. Silakan buat pratinjau jurnal kembali."
+        )
 
     ket = keterangan or f"Pemakaian bahan produksi ke blok {blok_nama}"
     if blok_nama and not keterangan:
         ket = f"Pemakaian bahan ke blok {blok_nama}"
 
+    no_bukti = generate_nomor_bukti("JU", _label_periode(period_id))
     baris = [
         {"account_id": akun_beban_id, "debit": total_nilai, "kredit": 0},
         {"account_id": akun_persediaan_id, "debit": 0, "kredit": total_nilai},
@@ -489,21 +609,17 @@ def catat_pemakaian_bahan(
         period_id=period_id, tanggal=tanggal, no_bukti=no_bukti,
         journal_type="umum", keterangan=ket, baris=baris, komoditas=komoditas,
     )
-
-    # Update journal_entry_id di gerakan keluar yang baru dibuat
-    # SQLite tidak mendukung UPDATE ... ORDER BY ... LIMIT, gunakan subquery
-    koneksi = get_connection()
-    koneksi.execute("""
-        UPDATE inventory_movements
-        SET journal_entry_id = ?
-        WHERE id = (
-            SELECT id FROM inventory_movements
-            WHERE item_id = ? AND tipe_gerakan = 'keluar'
-            ORDER BY id DESC LIMIT 1
+    try:
+        catat_gerakan_keluar(
+            item_id=item_id,
+            tanggal=tanggal,
+            qty=qty,
+            keterangan=ket,
+            journal_entry_id=entry_id,
         )
-    """, (entry_id, item_id))
-    koneksi.commit()
-    koneksi.close()
+    except Exception:
+        _hapus_jurnal_transaksi_gagal(entry_id)
+        raise
 
     return entry_id
 
