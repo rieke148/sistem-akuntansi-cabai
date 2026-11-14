@@ -131,6 +131,16 @@ def hitung_saldo_awal_november(
     retained_id = akun_by_kode[KODE_LABA_DITAHAN]
     summary_id = akun_by_kode.get(KODE_IKHTISAR_LR)
 
+    # Periksa saldo awal November sebelum validasi lain agar saldo manual
+    # tidak pernah tertimpa atau tertutup pesan kesalahan yang tidak relevan.
+    existing_rows = conn.execute(
+        """
+        SELECT account_id,saldo_debit,saldo_kredit,catatan
+        FROM opening_balances WHERE period_id=?
+        """,
+        (period_november_id,),
+    ).fetchall()
+
     # Saldo awal Oktober adalah titik awal perhitungan.
     saldo = {aid: 0 for aid in akun_by_id}
     opening_rows = conn.execute(
@@ -202,7 +212,10 @@ def hitung_saldo_awal_november(
         saldo_temporer += saldo.get(summary_id, 0)
     laba_bersih_oktober = -saldo_temporer
 
-    saldo[retained_id] = saldo.get(retained_id, 0) + laba_bersih_oktober
+    # Saldo disimpan sebagai debit - kredit. Karena laba bersih positif
+    # adalah saldo normal kredit pada Laba Ditahan, nilainya harus dikurangkan.
+    # Jika rugi (negatif), operasi ini menghasilkan saldo debit.
+    saldo[retained_id] = saldo.get(retained_id, 0) - laba_bersih_oktober
 
     # Saldo awal November berisi akun permanen. Akun pendapatan/beban dan
     # Ikhtisar Laba Rugi direset supaya laporan laba rugi November tidak kumulatif.
@@ -247,14 +260,6 @@ def hitung_saldo_awal_november(
         )
 
     # Jangan menimpa saldo awal November yang pernah diinput manual.
-    existing_rows = conn.execute(
-        """
-        SELECT account_id,saldo_debit,saldo_kredit,catatan
-        FROM opening_balances WHERE period_id=?
-        """,
-        (period_november_id,),
-    ).fetchall()
-
     expected_map = {
         int(r["account_id"]): (int(r["saldo_debit"]), int(r["saldo_kredit"]))
         for r in saldo_awal_november
