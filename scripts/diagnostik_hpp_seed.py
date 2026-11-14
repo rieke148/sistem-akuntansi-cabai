@@ -33,6 +33,40 @@ def main() -> None:
 
     koneksi = get_connection()
     try:
+        print("DAFTAR PERIODE DALAM DATABASE:")
+        periods = koneksi.execute("""
+            SELECT id, tahun, bulan, nama_bulan, status
+            FROM periods
+            ORDER BY tahun, bulan, id
+        """).fetchall()
+        for row in periods:
+            print(
+                f"  id={row['id']} | {row['nama_bulan']} | "
+                f"{row['tahun']}-{row['bulan']:02d} | status={row['status']}"
+            )
+        print()
+
+        print("TRANSAKSI YANG TANGGALNYA TIDAK SESUAI DENGAN PERIODE:")
+        mismatches = koneksi.execute("""
+            SELECT je.id, je.tanggal, je.no_bukti, je.journal_type,
+                   je.keterangan, p.id AS period_id, p.tahun, p.bulan,
+                   p.nama_bulan
+            FROM journal_entries je
+            JOIN periods p ON p.id = je.period_id
+            WHERE CAST(substr(je.tanggal, 1, 4) AS INTEGER) != p.tahun
+               OR CAST(substr(je.tanggal, 6, 2) AS INTEGER) != p.bulan
+            ORDER BY je.tanggal, je.id
+        """).fetchall()
+        if not mismatches:
+            print("  Tidak ada.")
+        for row in mismatches:
+            print(
+                f"  id={row['id']} | {row['tanggal']} | {row['no_bukti']} | "
+                f"period_id={row['period_id']} ({row['nama_bulan']} "
+                f"{row['tahun']}-{row['bulan']:02d}) | {row['keterangan']}"
+            )
+        print()
+
         akun = koneksi.execute("""
             SELECT id, kode_akun, nama_akun
             FROM accounts
