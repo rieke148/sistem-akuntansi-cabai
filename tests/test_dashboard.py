@@ -420,6 +420,34 @@ class TestAmbilStokPersediaan:
         assert result[0]["saldo_nilai"] == 500_000
 
 
+    def test_stok_dashboard_memilih_tanggal_terbaru_bukan_id_terbesar(self, db, tmp_path):
+        """Snapshot historis ber-ID besar tidak boleh menggantikan mutasi terbaru."""
+        koneksi = sqlite3.connect(str(tmp_path / "test_dashboard.db"))
+        koneksi.execute(
+            """
+            UPDATE inventory_movements
+            SET journal_entry_id=73, tanggal='2026-11-14',
+                saldo_qty=409.5, saldo_nilai=10_237_500, harga_rata2=25_000
+            WHERE item_id=1
+            """
+        )
+        koneksi.execute(
+            """
+            INSERT INTO inventory_movements
+                (id, item_id, tanggal, tipe_gerakan, qty, harga_satuan,
+                 total_nilai, saldo_qty, saldo_nilai, harga_rata2, keterangan)
+            VALUES (999, 1, '2026-10-01', 'saldo_awal', 3000, 25000,
+                    75000000, 3000, 75000000, 25000, 'Snapshot historis')
+            """
+        )
+        koneksi.commit()
+        koneksi.close()
+
+        hasil = ambil_stok_persediaan()
+        assert hasil[0]["saldo_qty"] == 409.5
+        assert hasil[0]["saldo_nilai"] == 10_237_500
+
+
 # ---------------------------------------------------------------------------
 # TEST: ambil_ringkasan_jurnal
 # ---------------------------------------------------------------------------
