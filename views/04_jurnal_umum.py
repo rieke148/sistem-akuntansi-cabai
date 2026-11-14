@@ -61,6 +61,7 @@ def _hitung_penjualan_tanpa_hpp(
               AND a.kode_akun = '4101'
               AND jl.kredit > 0
         )
+        AND lower(je.keterangan) LIKE 'penjualan cabai%'
         AND NOT EXISTS (
             SELECT 1
             FROM journal_lines jl
