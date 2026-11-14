@@ -862,6 +862,11 @@ def print_plan(plan: dict) -> None:
         "  Saldo awal akun 1307: "
         + ("sudah ada" if plan["opening_balance_exists"] else "akan ditambahkan")
     )
+    if plan["opening_modal_adjustment"]:
+        print(
+            "  Kredit Modal Disetor (3101) yang akan ditambahkan: "
+            + rupiah(plan["opening_modal_adjustment"])
+        )
     print()
     print("PENJUALAN CABAI DAN HPP:")
     print(f"  Transaksi: {len(plan['sales'])}")
