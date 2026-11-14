@@ -63,6 +63,10 @@ def main() -> None:
         penjualan = koneksi.execute("""
             SELECT
                 je.id,
+                je.period_id,
+                p.tahun AS tahun_periode,
+                p.bulan AS bulan_periode,
+                p.nama_bulan AS nama_periode,
                 je.tanggal,
                 je.no_bukti,
                 je.journal_type,
@@ -81,6 +85,7 @@ def main() -> None:
                     WHERE im.journal_entry_id = je.id
                 ) AS jumlah_mutasi_terkait
             FROM journal_entries je
+            JOIN periods p ON p.id = je.period_id
             JOIN journal_lines jl ON jl.journal_entry_id = je.id
             JOIN accounts a ON a.id = jl.account_id
             WHERE je.journal_type IN ('penjualan', 'penerimaan_kas')
@@ -109,7 +114,9 @@ def main() -> None:
 
             qty_label = f"{qty:g} kg" if qty is not None else "QTY TIDAK TERBACA"
             print(
-                f"  id={row['id']} | {row['tanggal']} | {row['no_bukti']} | "
+                f"  id={row['id']} | periode_id={row['period_id']} "
+                f"({row['nama_periode']} {row['tahun_periode']}-{row['bulan_periode']:02d}) | "
+                f"{row['tanggal']} | {row['no_bukti']} | "
                 f"{row['journal_type']} | {qty_label} | "
                 f"penjualan=Rp{int(row['total_penjualan'] or 0):,} | "
                 f"HPP=Rp{int(row['total_hpp'] or 0):,} | "
@@ -128,12 +135,16 @@ def main() -> None:
                 continue
 
             movements = koneksi.execute("""
-                SELECT id, tanggal, tipe_gerakan, qty, harga_satuan,
-                       total_nilai, saldo_qty, saldo_nilai, harga_rata2,
-                       journal_entry_id, keterangan
-                FROM inventory_movements
-                WHERE item_id = ?
-                ORDER BY tanggal, id
+                SELECT im.id, im.tanggal, im.tipe_gerakan, im.qty, im.harga_satuan,
+                       im.total_nilai, im.saldo_qty, im.saldo_nilai, im.harga_rata2,
+                       im.journal_entry_id, im.keterangan,
+                       je.period_id, p.nama_bulan AS nama_periode,
+                       p.tahun AS tahun_periode, p.bulan AS bulan_periode
+                FROM inventory_movements im
+                LEFT JOIN journal_entries je ON je.id = im.journal_entry_id
+                LEFT JOIN periods p ON p.id = je.period_id
+                WHERE im.item_id = ?
+                ORDER BY im.tanggal, im.id
             """, (item["id"],)).fetchall()
 
             print("RIWAYAT KARTU PERSEDIAAN HSL-001:")
@@ -145,7 +156,8 @@ def main() -> None:
                     f"qty={row['qty']} | harga={row['harga_satuan']} | "
                     f"nilai={row['total_nilai']} | saldo_qty={row['saldo_qty']} | "
                     f"saldo_nilai={row['saldo_nilai']} | rata2={row['harga_rata2']} | "
-                    f"journal_id={row['journal_entry_id']}"
+                    f"journal_id={row['journal_entry_id']} | "
+                    f"periode={row['nama_periode']} {row['tahun_periode']}"
                 )
                 print(f"    {row['keterangan']}")
 
