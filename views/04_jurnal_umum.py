@@ -52,12 +52,13 @@ def _hitung_penjualan_tanpa_hpp(
     sql = f"""
         SELECT COUNT(*) AS jumlah
         FROM journal_entries je
-        WHERE EXISTS (
+        WHERE je.journal_type IN ('penjualan', 'penerimaan_kas')
+        AND EXISTS (
             SELECT 1
             FROM journal_lines jl
             JOIN accounts a ON jl.account_id = a.id
             WHERE jl.journal_entry_id = je.id
-              AND a.kode_akun LIKE '4%'
+              AND a.kode_akun = '4101'
               AND jl.kredit > 0
         )
         AND NOT EXISTS (
