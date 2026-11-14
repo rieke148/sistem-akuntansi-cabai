@@ -152,7 +152,7 @@ def ambil_ringkasan_penjualan_beban(period_id: int) -> dict[str, int]:
 def ambil_stok_persediaan() -> list[dict]:
     """
     Mengembalikan saldo stok terakhir per item dari inventory_movements.
-    Mengambil baris terakhir (ID terbesar) per item.
+    Mengambil mutasi terakhir berdasarkan tanggal, lalu ID sebagai pemecah seri.
 
     Returns:
         List dict: kode_item, nama_item, satuan, saldo_qty, saldo_nilai
@@ -163,9 +163,11 @@ def ambil_stok_persediaan() -> list[dict]:
         FROM inventory_movements im
         JOIN items i ON im.item_id = i.id
         WHERE im.id = (
-            SELECT MAX(im2.id)
+            SELECT im2.id
             FROM inventory_movements im2
             WHERE im2.item_id = im.item_id
+            ORDER BY im2.tanggal DESC, im2.id DESC
+            LIMIT 1
         )
         ORDER BY i.kode_item
     """
