@@ -4,6 +4,7 @@ import pytest
 
 from scripts.migrasi_hpp_data_contoh import (
     MARKER_SALDO_AWAL_NOV,
+    NILAI_AWAL,
     hitung_saldo_awal_november,
 )
 
@@ -74,7 +75,7 @@ def _buat_db_carry_forward():
     return conn
 
 
-def _hitung(conn):
+def _hitung(conn, nilai_persediaan_awal_november=900):
     return hitung_saldo_awal_november(
         conn=conn,
         period_oktober_id=1,
@@ -90,7 +91,7 @@ def _hitung(conn):
             "debit": 0,
             "kredit": 40,
         }],
-        nilai_persediaan_awal_november=900,
+        nilai_persediaan_awal_november=nilai_persediaan_awal_november,
     )
 
 
@@ -117,6 +118,33 @@ def test_saldo_awal_november_membawa_akun_permanen_dan_menutup_laba_rugi():
         assert hasil["laba_bersih_oktober"] == 190
         assert hasil["total_debit"] == hasil["total_kredit"] == 1290
         assert hasil["rows_to_insert"] == hasil["rows"]
+    finally:
+        conn.close()
+
+
+def test_saldo_awal_lama_menambahkan_persediaan_dan_modal_disetor_seimbang():
+    conn = _buat_db_carry_forward()
+    try:
+        # Simulasikan seed lama: baris persediaan 1307 belum ada dan Modal
+        # Disetor baru sebesar saldo aset lama tanpa stok cabai.
+        conn.execute("DELETE FROM opening_balances WHERE account_id=2")
+        conn.execute(
+            "UPDATE opening_balances SET saldo_kredit=100 WHERE account_id=4"
+        )
+
+        hasil = _hitung(
+            conn,
+            nilai_persediaan_awal_november=NILAI_AWAL - 100,
+        )
+        saldo = {
+            row["account_id"]: (row["saldo_debit"], row["saldo_kredit"])
+            for row in hasil["rows"]
+        }
+
+        assert saldo[2] == (NILAI_AWAL - 100, 0)
+        assert saldo[4] == (0, NILAI_AWAL + 100)
+        assert hasil["opening_modal_adjustment"] == NILAI_AWAL
+        assert hasil["total_debit"] == hasil["total_kredit"]
     finally:
         conn.close()
 
