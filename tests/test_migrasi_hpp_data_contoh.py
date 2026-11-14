@@ -129,8 +129,8 @@ def test_saldo_awal_november_migrasi_idempoten():
             """
             INSERT INTO opening_balances
                 (period_id,account_id,saldo_debit,saldo_kredit,catatan)
-            VALUES (2,?,?,?,?,?)
-            """.replace("VALUES (2,?,?,?,?,?)", "VALUES (2,?,?,?,?)"),
+            VALUES (2,?,?,?,?)
+            """,
             [
                 (
                     row["account_id"],
