@@ -129,6 +129,7 @@ def hitung_saldo_awal_november(
     if KODE_LABA_DITAHAN not in akun_by_kode:
         raise ValueError("Akun Laba Ditahan (3201) tidak ditemukan.")
     retained_id = akun_by_kode[KODE_LABA_DITAHAN]
+    modal_id = akun_by_kode.get("3101")
     summary_id = akun_by_kode.get(KODE_IKHTISAR_LR)
 
     # Periksa saldo awal November sebelum validasi lain agar saldo manual
@@ -162,8 +163,30 @@ def hitung_saldo_awal_november(
         saldo[aid] = saldo.get(aid, 0) + int(row["saldo_debit"]) - int(row["saldo_kredit"])
 
     inv_opening_exists = any(int(r["account_id"]) == akun_inv_id for r in opening_rows)
+    opening_modal_adjustment = 0
     if not inv_opening_exists:
+        # Database seed versi lama sudah memuat aset awal selain stok cabai,
+        # tetapi belum memuat akun 1307 dan belum memasukkan stok tersebut
+        # ke Modal Disetor. Tambahkan kedua sisi agar neraca pembukaan tetap
+        # seimbang. Jangan lakukan koreksi otomatis bila saldo dasar sendiri
+        # sudah tidak seimbang.
+        total_dasar_debit = sum(int(r["saldo_debit"]) for r in opening_rows)
+        total_dasar_kredit = sum(int(r["saldo_kredit"]) for r in opening_rows)
+        if total_dasar_debit != total_dasar_kredit:
+            raise ValueError(
+                "Saldo awal Oktober yang tersimpan sudah tidak seimbang "
+                "sebelum stok contoh ditambahkan: "
+                f"debit {total_dasar_debit:,}, kredit {total_dasar_kredit:,}. "
+                "Rekonsiliasi saldo awal secara manual."
+            )
+        if modal_id is None:
+            raise ValueError(
+                "Akun Modal Disetor (3101) tidak ditemukan; pasangan saldo awal "
+                "persediaan tidak dapat dibentuk dengan aman."
+            )
         saldo[akun_inv_id] = saldo.get(akun_inv_id, 0) + NILAI_AWAL
+        saldo[modal_id] = saldo.get(modal_id, 0) - NILAI_AWAL
+        opening_modal_adjustment = NILAI_AWAL
 
     # Mutasi semua jurnal bertanggal Oktober, termasuk yang saat ini salah periode.
     journal_rows = conn.execute(
@@ -202,6 +225,7 @@ def hitung_saldo_awal_november(
     total_opening_kredit = sum(int(r["saldo_kredit"]) for r in opening_rows)
     if not inv_opening_exists:
         total_opening_debit += NILAI_AWAL
+        total_opening_kredit += opening_modal_adjustment
     if total_opening_debit != total_opening_kredit:
         raise ValueError(
             "Saldo awal Oktober tidak seimbang setelah saldo persediaan contoh "
@@ -293,6 +317,7 @@ def hitung_saldo_awal_november(
         "total_kredit": total_kredit,
         "laba_bersih_oktober": laba_bersih_oktober,
         "nilai_persediaan": nilai_buku_persediaan,
+        "opening_modal_adjustment": opening_modal_adjustment,
     }
 
 
@@ -776,6 +801,8 @@ def build_plan(conn: sqlite3.Connection) -> dict:
         "period_november_label": periode_nov["nama_bulan"],
         "item_id": item_id,
         "akun_inv_id": aid_inv,
+        "akun_modal_id": akun_id(conn, "3101"),
+        "opening_modal_adjustment": saldo_nov["opening_modal_adjustment"],
         "akun_hpp_id": aid_hpp,
         "akun_lain_id": aid_lain,
         "opening_balance_exists": ob is not None,
@@ -943,6 +970,28 @@ def apply_plan(conn: sqlite3.Connection, plan: dict) -> None:
                 plan["akun_inv_id"],
                 NILAI_AWAL,
                 "CONTOH - 3.000 kg @ Rp25.000/kg; migrasi saldo awal perpetual",
+            ),
+        )
+
+    if plan["opening_modal_adjustment"]:
+        conn.execute(
+            """
+            INSERT INTO opening_balances
+                (period_id,account_id,saldo_debit,saldo_kredit,catatan)
+            VALUES (?,?,0,?,?)
+            ON CONFLICT(period_id,account_id) DO UPDATE SET
+                saldo_kredit = opening_balances.saldo_kredit + excluded.saldo_kredit,
+                catatan = CASE
+                    WHEN COALESCE(opening_balances.catatan, '') = ''
+                    THEN excluded.catatan
+                    ELSE opening_balances.catatan || ' | ' || excluded.catatan
+                END
+            """,
+            (
+                plan["period_oktober_id"],
+                plan["akun_modal_id"],
+                plan["opening_modal_adjustment"],
+                "CONTOH - pasangan Modal Disetor untuk saldo awal persediaan 3.000 kg",
             ),
         )
 
