@@ -254,3 +254,33 @@ def test_saldo_awal_tidak_boleh_dimasukkan_mundur_setelah_mutasi_masa_depan(tmp_
     catat_saldo_awal_persediaan(2, 1, 110, 25_000)
     with pytest.raises(ValueError, match="secara kronologis"):
         catat_saldo_awal_persediaan(1, 1, 100, 25_000)
+
+
+def test_saldo_terakhir_dipilih_berdasarkan_tanggal_bukan_id_insert(tmp_path, monkeypatch):
+    """Snapshot historis yang baru disisipkan tidak boleh menggantikan saldo terkini."""
+    buka_db = _siapkan_db_persediaan(tmp_path, monkeypatch)
+
+    koneksi = buka_db()
+    koneksi.executemany(
+        """
+        INSERT INTO inventory_movements
+            (id, item_id, journal_entry_id, tanggal, tipe_gerakan,
+             qty, harga_satuan, total_nilai, saldo_qty, saldo_nilai,
+             harga_rata2, keterangan)
+        VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (1, 73, "2026-11-14", "keluar", 1.5, 25_000, 37_500,
+             409.5, 10_237_500, 25_000, "Mutasi terbaru"),
+            (2, None, "2026-10-01", "saldo_awal", 3000, 25_000, 75_000_000,
+             3000, 75_000_000, 25_000, "Snapshot historis yang disisipkan belakangan"),
+        ],
+    )
+    koneksi.commit()
+    koneksi.close()
+
+    from services.inventory_service import ambil_saldo_persediaan
+    saldo = ambil_saldo_persediaan(1)
+
+    assert saldo["saldo_qty"] == 409.5
+    assert saldo["saldo_nilai"] == 10_237_500
