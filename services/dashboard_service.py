@@ -166,7 +166,9 @@ def ambil_stok_persediaan() -> list[dict]:
             SELECT im2.id
             FROM inventory_movements im2
             WHERE im2.item_id = im.item_id
-            ORDER BY im2.tanggal DESC, im2.id DESC
+            ORDER BY im2.tanggal DESC,
+                     COALESCE(im2.journal_entry_id, im2.id) DESC,
+                     im2.id DESC
             LIMIT 1
         )
         ORDER BY i.kode_item
