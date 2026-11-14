@@ -178,7 +178,9 @@ def main() -> None:
                 LEFT JOIN journal_entries je ON je.id = im.journal_entry_id
                 LEFT JOIN periods p ON p.id = je.period_id
                 WHERE im.item_id = ?
-                ORDER BY im.tanggal, im.id
+                ORDER BY im.tanggal,
+                         COALESCE(im.journal_entry_id, im.id),
+                         im.id
             """, (item["id"],)).fetchall()
 
             print("RIWAYAT KARTU PERSEDIAAN HSL-001:")
