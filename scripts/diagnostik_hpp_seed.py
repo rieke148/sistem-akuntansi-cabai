@@ -11,6 +11,13 @@ Script ini TIDAK mengubah database.
 """
 
 import re
+import sys
+from pathlib import Path
+
+ROOT_PROYEK = Path(__file__).resolve().parents[1]
+if str(ROOT_PROYEK) not in sys.path:
+    sys.path.insert(0, str(ROOT_PROYEK))
+
 from database.connection import PATH_DATABASE, get_connection
 
 
