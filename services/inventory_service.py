@@ -79,7 +79,7 @@ def catat_gerakan_masuk(
         row = koneksi.execute("""
             SELECT tanggal, saldo_qty, saldo_nilai
             FROM inventory_movements
-            WHERE item_id = ? ORDER BY tanggal DESC, id DESC LIMIT 1
+            WHERE item_id = ? ORDER BY tanggal DESC, COALESCE(journal_entry_id, id) DESC, id DESC LIMIT 1
         """, (item_id,)).fetchone()
 
         if row and tanggal < row["tanggal"]:
@@ -133,7 +133,7 @@ def catat_gerakan_keluar(
         row = koneksi.execute("""
             SELECT tanggal, saldo_qty, saldo_nilai, harga_rata2
             FROM inventory_movements
-            WHERE item_id = ? ORDER BY tanggal DESC, id DESC LIMIT 1
+            WHERE item_id = ? ORDER BY tanggal DESC, COALESCE(journal_entry_id, id) DESC, id DESC LIMIT 1
         """, (item_id,)).fetchone()
 
         if not row or float(row["saldo_qty"]) <= 0:
@@ -324,7 +324,7 @@ def ambil_saldo_persediaan(item_id: int) -> dict:
         row = koneksi.execute("""
             SELECT saldo_qty, saldo_nilai, harga_rata2
             FROM inventory_movements
-            WHERE item_id = ? ORDER BY tanggal DESC, id DESC LIMIT 1
+            WHERE item_id = ? ORDER BY tanggal DESC, COALESCE(journal_entry_id, id) DESC, id DESC LIMIT 1
         """, (item_id,)).fetchone()
     finally:
         koneksi.close()
@@ -347,7 +347,9 @@ def ambil_kartu_persediaan(item_id: int) -> pd.DataFrame:
                    saldo_qty, saldo_nilai, harga_rata2, keterangan
             FROM inventory_movements
             WHERE item_id = ?
-            ORDER BY tanggal ASC, id ASC
+            ORDER BY tanggal ASC,
+                     COALESCE(journal_entry_id, id) ASC,
+                     id ASC
         """, koneksi, params=(item_id,))
     finally:
         koneksi.close()
