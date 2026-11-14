@@ -86,11 +86,12 @@ def main() -> None:
             WHERE je.journal_type IN ('penjualan', 'penerimaan_kas')
               AND a.kode_akun = '4101'
               AND jl.kredit > 0
+              AND je.keterangan LIKE 'Penjualan cabai%'
             GROUP BY je.id, je.tanggal, je.no_bukti, je.journal_type, je.keterangan
             ORDER BY je.tanggal, je.id
         """).fetchall()
 
-        print(f"PENJUALAN CABAI (4101): {len(penjualan)} transaksi")
+        print(f"PENJUALAN CABAI (4101, deskripsi cabai): {len(penjualan)} transaksi")
         total_qty = 0.0
         belum_hpp = 0
         tidak_terbaca = 0
@@ -149,29 +150,29 @@ def main() -> None:
                 print(f"    {row['keterangan']}")
 
             saldo_awal = [m for m in movements if m["tipe_gerakan"] == "saldo_awal"]
-            if saldo_awal:
-                tanggal_awal = saldo_awal[0]["tanggal"]
-                periode = koneksi.execute("""
-                    SELECT id, tahun, bulan
-                    FROM periods
-                    WHERE tahun = 2026 AND bulan = 10
-                    ORDER BY id
-                    LIMIT 1
-                """).fetchone()
-                if periode:
-                    opening = koneksi.execute("""
-                        SELECT ob.saldo_debit, ob.saldo_kredit, ob.catatan
-                        FROM opening_balances ob
-                        JOIN accounts a ON a.id = ob.account_id
-                        WHERE ob.period_id = ? AND a.kode_akun = '1307'
-                    """, (periode["id"],)).fetchall()
-                    print()
-                    print("SALDO AWAL AKUN PERSEDIAAN 1307 (OKTOBER 2026):")
-                    for row in opening:
-                        print(
-                            f"  debit={row['saldo_debit']} | kredit={row['saldo_kredit']} | "
-                            f"catatan={row['catatan']}"
-                        )
+            print()
+            print("SALDO AWAL AKUN PERSEDIAAN 1307 (SEMUA PERIODE):")
+            opening = koneksi.execute("""
+                SELECT p.tahun, p.bulan, p.nama_bulan,
+                       ob.saldo_debit, ob.saldo_kredit, ob.catatan
+                FROM opening_balances ob
+                JOIN accounts a ON a.id = ob.account_id
+                JOIN periods p ON p.id = ob.period_id
+                WHERE a.kode_akun = '1307'
+                ORDER BY p.tahun, p.bulan
+            """).fetchall()
+            if not opening:
+                print("  TIDAK ADA SALDO AWAL AKUN 1307.")
+            for row in opening:
+                print(
+                    f"  {row['nama_bulan']} {row['tahun']} | "
+                    f"debit={row['saldo_debit']} | kredit={row['saldo_kredit']} | "
+                    f"catatan={row['catatan']}"
+                )
+            print(
+                f"Snapshot saldo_awal pada kartu item: "
+                f"{'ADA' if saldo_awal else 'TIDAK ADA'}"
+            )
             print()
 
         print("PENDAPATAN 4XXX NON-PENJUALAN (untuk cek peringatan yang terlalu luas):")
