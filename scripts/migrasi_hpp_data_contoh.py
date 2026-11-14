@@ -140,6 +140,13 @@ def hitung_saldo_awal_november(
         """,
         (period_november_id,),
     ).fetchall()
+    if existing_rows and not all(
+        row["catatan"] == MARKER_SALDO_AWAL_NOV for row in existing_rows
+    ):
+        raise ValueError(
+            "Sudah ada saldo awal November yang bukan hasil migrasi ini. "
+            "Migrasi tidak akan menimpa input manual; rekonsiliasi dahulu."
+        )
 
     # Saldo awal Oktober adalah titik awal perhitungan.
     saldo = {aid: 0 for aid in akun_by_id}
