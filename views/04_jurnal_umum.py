@@ -34,6 +34,52 @@ def _ambil_periode():
     return [dict(r) for r in rows]
 
 
+def _hitung_penjualan_tanpa_hpp(
+    period_id: int | None = None,
+    komoditas: str | None = None,
+) -> int:
+    """Hitung entri penjualan yang belum memiliki debit akun HPP 5108."""
+    kondisi = []
+    params = []
+    if period_id is not None:
+        kondisi.append("je.period_id = ?")
+        params.append(period_id)
+    if komoditas is not None:
+        kondisi.append("je.komoditas = ?")
+        params.append(komoditas)
+
+    tambahan = (" AND " + " AND ".join(kondisi)) if kondisi else ""
+    sql = f"""
+        SELECT COUNT(*) AS jumlah
+        FROM journal_entries je
+        WHERE je.journal_type IN ('penjualan', 'penerimaan_kas')
+        AND EXISTS (
+            SELECT 1
+            FROM journal_lines jl
+            JOIN accounts a ON jl.account_id = a.id
+            WHERE jl.journal_entry_id = je.id
+              AND a.kode_akun = '4101'
+              AND jl.kredit > 0
+        )
+        AND lower(je.keterangan) LIKE 'penjualan cabai%'
+        AND NOT EXISTS (
+            SELECT 1
+            FROM journal_lines jl
+            JOIN accounts a ON jl.account_id = a.id
+            WHERE jl.journal_entry_id = je.id
+              AND a.kode_akun = '5108'
+              AND jl.debit > 0
+        )
+        {tambahan}
+    """
+    koneksi = get_connection()
+    try:
+        row = koneksi.execute(sql, params).fetchone()
+        return int(row["jumlah"] or 0)
+    finally:
+        koneksi.close()
+
+
 # ================================================================
 # HALAMAN UTAMA
 # ================================================================
@@ -65,7 +111,14 @@ def tampilkan() -> None:
                 "Pembelian (PB)": "pembelian",
                 "Jurnal Umum (JU)": "umum",
             }
-            jenis_pilih = st.selectbox("Jenis Jurnal", list(JENIS_JURNAL.keys()))
+            jenis_pilih = st.selectbox(
+                "Jenis Jurnal",
+                list(JENIS_JURNAL.keys()),
+                help=(
+                    "HPP penjualan tunai berada pada Penerimaan Kas, sedangkan HPP penjualan tempo "
+                    "berada pada Penjualan. Pilih Semua Jenis untuk melihat keduanya."
+                ),
+            )
             journal_type_filter = JENIS_JURNAL[jenis_pilih]
 
         with kol3:
@@ -87,6 +140,26 @@ def tampilkan() -> None:
         journal_type=journal_type_filter,
         komoditas=komoditas_filter,
     )
+
+    if journal_type_filter == "umum":
+        st.info(
+            "HPP penjualan tidak dicatat sebagai jenis Jurnal Umum (JU). "
+            "HPP melekat pada transaksi penjualan tunai (Penerimaan Kas) atau "
+            "penjualan tempo (Penjualan). Pilih **Semua Jenis** untuk melihat seluruhnya."
+        )
+
+    jumlah_penjualan_tanpa_hpp = _hitung_penjualan_tanpa_hpp(
+        period_id=period_id_filter,
+        komoditas=komoditas_filter,
+    )
+    if jumlah_penjualan_tanpa_hpp:
+        st.warning(
+            f"Ditemukan **{jumlah_penjualan_tanpa_hpp} transaksi penjualan** yang belum memiliki "
+            "baris debit akun **5108 - HPP Penjualan Cabai**. Transaksi lama sebelum metode "
+            "perpetual diaktifkan tidak dihitung HPP-nya secara otomatis karena biaya perolehan "
+            "historis harus dapat diverifikasi. Pastikan saldo awal dan biaya persediaan benar "
+            "untuk transaksi baru."
+        )
 
     if df.empty:
         st.info("Tidak ada data jurnal dengan filter yang dipilih.")

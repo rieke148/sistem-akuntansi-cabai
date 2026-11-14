@@ -129,6 +129,99 @@ def nonaktifkan_akun(account_id: int) -> None:
     _eksekusi("UPDATE accounts SET aktif=0 WHERE id=?", (account_id,))
 
 
+def hapus_akun(account_id: int) -> None:
+    """
+    Menghapus akun secara permanen hanya jika belum direferensikan data lain.
+
+    Seluruh foreign key yang mengarah ke tabel accounts diperiksa secara
+    dinamis agar data jurnal, saldo awal, item, aset tetap, dan relasi akun
+    lain tidak kehilangan referensi. Akun yang sudah digunakan harus
+    dinonaktifkan, bukan dihapus.
+    """
+    if account_id <= 0:
+        raise ValueError("Akun yang dipilih tidak valid.")
+
+    # Nama relasi untuk menghasilkan pesan yang mudah dipahami pengguna.
+    label_relasi = {
+        "journal_lines.account_id": "baris jurnal",
+        "opening_balances.account_id": "saldo awal",
+        "items.account_id": "akun persediaan pada item",
+        "fixed_assets.account_id": "akun aset tetap",
+        "fixed_assets.account_akum_id": "akun akumulasi penyusutan",
+    }
+
+    koneksi = get_connection()
+    try:
+        # Menghindari perubahan data lain di antara pemeriksaan dan DELETE.
+        koneksi.execute("BEGIN IMMEDIATE")
+
+        akun = koneksi.execute(
+            "SELECT kode_akun, nama_akun FROM accounts WHERE id = ?",
+            (account_id,),
+        ).fetchone()
+
+        if akun is None:
+            raise ValueError("Akun yang ingin dihapus tidak ditemukan.")
+
+        tabel_rows = koneksi.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        ).fetchall()
+
+        pemakaian = []
+        for tabel_row in tabel_rows:
+            nama_tabel = tabel_row["name"]
+            foreign_keys = koneksi.execute(
+                f'PRAGMA foreign_key_list("{nama_tabel}")'
+            ).fetchall()
+
+            for fk in foreign_keys:
+                if fk["table"] != "accounts":
+                    continue
+
+                nama_kolom = fk["from"]
+                jumlah = koneksi.execute(
+                    f'SELECT COUNT(*) FROM "{nama_tabel}" '
+                    f'WHERE "{nama_kolom}" = ?',
+                    (account_id,),
+                ).fetchone()[0]
+
+                if jumlah:
+                    kunci_label = f"{nama_tabel}.{nama_kolom}"
+                    label = label_relasi.get(kunci_label, kunci_label)
+                    pemakaian.append(f"{jumlah} {label}")
+
+        if pemakaian:
+            detail_pemakaian = ", ".join(pemakaian)
+            raise ValueError(
+                f"Akun '{akun['kode_akun']} - {akun['nama_akun']}' tidak dapat "
+                f"dihapus karena masih digunakan pada {detail_pemakaian}. "
+                "Jika akun tidak digunakan lagi, ubah statusnya menjadi "
+                "nonaktif melalui form Edit Akun agar histori tetap tersimpan."
+            )
+
+        cursor = koneksi.execute(
+            "DELETE FROM accounts WHERE id = ?",
+            (account_id,),
+        )
+        if cursor.rowcount != 1:
+            raise ValueError("Akun gagal dihapus karena data sudah berubah.")
+
+        koneksi.commit()
+
+    except sqlite3.IntegrityError as error:
+        koneksi.rollback()
+        raise ValueError(
+            "Akun tidak dapat dihapus karena masih terhubung dengan data lain. "
+            "Nonaktifkan akun agar histori tetap aman."
+        ) from error
+    except Exception:
+        koneksi.rollback()
+        raise
+    finally:
+        koneksi.close()
+
+
 # ================================================================
 # PELANGGAN
 # ================================================================
@@ -196,13 +289,13 @@ def ubah_supplier(
 # ITEM PERSEDIAAN
 # ================================================================
 TIPE_ITEM = ["bahan", "hasil_panen"]
-KOMODITAS_ITEM = ["cabai", "selada", "melon"]
+KOMODITAS_ITEM = ["cabai"]
 
 
 def ambil_semua_item() -> pd.DataFrame:
     return _ambil_semua("""
         SELECT i.id, i.kode_item, i.nama_item, i.satuan, i.tipe, i.komoditas,
-               a.kode_akun as akun_persediaan, i.aktif
+               i.account_id, a.kode_akun as akun_persediaan, i.aktif
         FROM items i
         LEFT JOIN accounts a ON i.account_id = a.id
         ORDER BY i.tipe, i.kode_item
@@ -242,6 +335,68 @@ def ubah_item(
         "WHERE id=?",
         (nama_item.strip(), satuan.strip(), tipe, komoditas, account_id, int(aktif), item_id),
     )
+
+
+def hapus_item(item_id: int) -> None:
+    """
+    Menghapus item persediaan secara permanen jika belum memiliki riwayat stok.
+
+    Item yang sudah memiliki pergerakan persediaan tidak boleh dihapus karena
+    riwayat tersebut menjadi dasar audit kartu stok. Nonaktifkan item tersebut
+    melalui form Edit Item agar histori tetap tersimpan.
+
+    Args:
+        item_id: ID item yang akan dihapus.
+
+    Raises:
+        ValueError: Jika item tidak ditemukan atau sudah memiliki riwayat stok.
+    """
+    if item_id <= 0:
+        raise ValueError("Item yang dipilih tidak valid.")
+
+    koneksi = get_connection()
+    try:
+        item = koneksi.execute(
+            "SELECT kode_item, nama_item FROM items WHERE id = ?",
+            (item_id,),
+        ).fetchone()
+
+        if item is None:
+            raise ValueError("Item yang ingin dihapus tidak ditemukan.")
+
+        jumlah_riwayat = koneksi.execute(
+            "SELECT COUNT(*) FROM inventory_movements WHERE item_id = ?",
+            (item_id,),
+        ).fetchone()[0]
+
+        if jumlah_riwayat > 0:
+            raise ValueError(
+                f"Item '{item['kode_item']} - {item['nama_item']}' memiliki "
+                f"{jumlah_riwayat} riwayat pergerakan stok sehingga tidak dapat "
+                "dihapus permanen. Gunakan Edit Item lalu hilangkan centang "
+                "'Aktif?' agar item tidak digunakan lagi tanpa menghapus histori."
+            )
+
+        cursor = koneksi.execute(
+            "DELETE FROM items WHERE id = ?",
+            (item_id,),
+        )
+        if cursor.rowcount != 1:
+            raise ValueError("Item gagal dihapus karena data sudah berubah.")
+
+        koneksi.commit()
+
+    except sqlite3.IntegrityError as error:
+        koneksi.rollback()
+        raise ValueError(
+            "Item tidak dapat dihapus karena masih terhubung dengan data lain. "
+            "Nonaktifkan item agar riwayat tetap aman."
+        ) from error
+    except Exception:
+        koneksi.rollback()
+        raise
+    finally:
+        koneksi.close()
 
 
 # ================================================================

@@ -61,8 +61,8 @@ sistem-akuntansi-cabai/
 
 ### A. Mesin Jurnal & Pemetaan Transaksi (`services/transaction_service.py`)
 Setiap transaksi yang diinput pengguna dipetakan ke pasangan akun debit dan kredit:
-- **Penjualan Tunai**: Kas (D) / Penjualan (K)
-- **Penjualan Tempo**: Piutang Usaha (D) / Penjualan (K) + otomatis membuat entri di tabel `receivables` dengan jatuh tempo 7 hari.
+- **Penjualan Tunai**: Kas (D) / Penjualan (K), sekaligus HPP Penjualan Cabai (D) / Persediaan Cabai (K).
+- **Penjualan Tempo**: Piutang Usaha (D) / Penjualan (K), sekaligus HPP Penjualan Cabai (D) / Persediaan Cabai (K) + otomatis membuat entri di tabel `receivables` dengan jatuh tempo 7 hari.
 - **Terima Pelunasan Piutang**: Kas (D) / Piutang Usaha (K) + update sisa piutang di `receivables`.
 - **Setoran Modal**: Kas (D) / Modal Disetor (K).
 - **Pembelian Tunai**: Persediaan (D) / Kas (K).
@@ -73,8 +73,12 @@ Setiap transaksi yang diinput pengguna dipetakan ke pasangan akun debit dan kred
 
 ---
 
-### B. Kartu Persediaan Rata-Rata Bergerak (`services/inventory_service.py`)
-Mencatat mutasi persediaan secara *perpetual*:
+### B. Kartu Persediaan Perpetual — Rata-Rata Bergerak (`services/inventory_service.py`)
+Setiap pembelian, pemakaian, panen, dan penjualan langsung memperbarui kartu stok serta saldo akun persediaan. Penjualan cabai tidak menunggu akhir periode untuk menghitung HPP:
+- **Saldo Awal**: Kuantitas dan harga pokok diinput per item. Sistem mencatat gerakan `saldo_awal` dan menyelaraskan saldo debit pada `opening_balances`.
+- **Penjualan Tunai**: Kas (D), Penjualan (K), HPP Penjualan (D), Persediaan Cabai (K).
+- **Penjualan Tempo**: Piutang Usaha (D), Penjualan (K), HPP Penjualan (D), Persediaan Cabai (K).
+- **Akun HPP**: `5108 - HPP Penjualan Cabai`, bertipe Beban Produksi agar masuk ke laporan laba rugi dan penutupan periode.
 - **Saat Barang Masuk**:
   $$\text{Saldo Qty Baru} = \text{Saldo Qty Lama} + \text{Qty Masuk}$$
   $$\text{Saldo Nilai Baru} = \text{Saldo Nilai Lama} + (\text{Qty Masuk} \times \text{Harga Satuan})$$
@@ -83,7 +87,13 @@ Mencatat mutasi persediaan secara *perpetual*:
   $$\text{Total Nilai Keluar} = \text{Qty Keluar} \times \text{Harga Rata-Rata Terakhir}$$
   $$\text{Saldo Qty Baru} = \text{Saldo Qty Lama} - \text{Qty Keluar}$$
   $$\text{Saldo Nilai Baru} = \text{Saldo Nilai Lama} - \text{Total Nilai Keluar}$$
-  *(Harga rata-rata tidak berubah saat barang keluar).*
+  *(Harga rata-rata tidak berubah saat barang keluar, kecuali saldo menjadi nol).*
+
+**Contoh HPP penjualan**:
+Jika stok 100 kg dengan harga rata-rata Rp25.000/kg dan terjual 20 kg:
+- HPP = 20 × Rp25.000 = Rp500.000.
+- Jurnal: Dr HPP Penjualan Rp500.000 / Cr Persediaan Cabai Rp500.000.
+- Sisa stok = 80 kg dengan nilai Rp2.000.000.
 
 ---
 

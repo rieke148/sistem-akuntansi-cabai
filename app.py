@@ -17,7 +17,11 @@ CARA MENJALANKAN:
 
 import streamlit as st
 from database.connection import db_sudah_ada
-from database.schema import buat_semua_tabel
+from database.schema import (
+    buat_semua_tabel,
+    migrasikan_komoditas_cabai_saja,
+    pastikan_akun_hpp_penjualan_tersedia,
+)
 from database.seed import jalankan_seed
 from theme import NAMA_APLIKASI, NAMA_PERUSAHAAN, WARNA_PRIMER
 
@@ -47,6 +51,7 @@ def inisialisasi_database() -> bool:
     """
     # Langkah 1: Buat semua tabel (aman jika sudah ada — IF NOT EXISTS)
     buat_semua_tabel()
+    migrasikan_komoditas_cabai_saja()
 
     # Pastikan periode dasar (2025-2027) tersedia
     from services.period_service import pastikan_periode_dasar_tersedia
@@ -62,7 +67,11 @@ def inisialisasi_database() -> bool:
     if jumlah_akun == 0:
         # Database kosong → isi dengan data contoh
         jalankan_seed()
+        pastikan_akun_hpp_penjualan_tersedia()
         return True  # seed baru dijalankan
+
+    # Database lama mungkin belum memiliki akun HPP penjualan cabai.
+    pastikan_akun_hpp_penjualan_tersedia()
     return False  # sudah ada data
 
 

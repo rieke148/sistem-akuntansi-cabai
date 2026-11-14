@@ -1,7 +1,7 @@
 # 🌶️ Sistem Informasi Siklus Akuntansi
 ### PT Sari Subur Langgeng Jaya Hidroponik Farm
 
-Aplikasi web sistem informasi siklus akuntansi terpadu berbasis Python dan Streamlit, dibangun khusus untuk usaha budidaya cabai rawit hidroponik dan tanaman pendamping (selada & melon) di Ungaran Barat, Kabupaten Semarang.
+Aplikasi web sistem informasi siklus akuntansi terpadu berbasis Python dan Streamlit, dibangun khusus untuk usaha budidaya cabai rawit hidroponik di Ungaran Barat, Kabupaten Semarang.
 
 ---
 
@@ -28,7 +28,7 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
 
 1. **Dashboard Visual & Metrik Eksekutif**:
    - Saldo Kas riil, piutang tempo jatuh tempo (< 7 hari), status stok persediaan.
-   - Grafik interaktif tren penjualan per komoditas (Cabai, Selada, Melon) dan perbandingan Penjualan vs Beban operasional.
+   - Grafik interaktif tren penjualan cabai dan perbandingan Penjualan vs Beban operasional.
    - Pemilih periode fleksibel terpadu di bagian atas dashboard.
 
 2. **Master Data Terpadu (10 Tab)**:
@@ -46,8 +46,11 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
    - Buku Besar utama saldo berjalan dengan filter periode.
    - Buku Besar Pembantu Piutang (dengan analisis umur piutang / aging), Persediaan, dan Aset Tetap.
 
-6. **Kartu Persediaan Moving Average**:
-   - Kartu persediaan perpetual menggunakan metode rata-rata bergerak (*moving average*) untuk bahan produksi (bibit, pupuk, bambu, mulsa, pestisida) dan hasil panen cabai.
+6. **Kartu Persediaan Perpetual — Moving Average**:
+   - Pembelian, pemakaian bahan, panen, dan penjualan langsung memperbarui kuantitas serta nilai persediaan.
+   - Penjualan tunai dan tempo otomatis membentuk jurnal HPP Penjualan Cabai (Dr 5108) / Persediaan Cabai (Cr akun persediaan item).
+   - HPP dihitung dengan rata-rata bergerak. Penjualan yang melebihi stok yang tersedia ditolak.
+   - Saldo awal dimasukkan per item (kuantitas fisik × harga pokok per satuan) melalui Master Data → Saldo Awal Persediaan.
 
 7. **Penggajian & Slip Upah**:
    - Perhitungan upah harian pekerja tetap (Rp90.000/hari) dan pekerja tambahan (Rp120.000/hari) per periode 2 mingguan, cetak slip upah, dan pencatatan akrual utang gaji.
@@ -168,7 +171,7 @@ Aplikasi ini telah dioptimalkan untuk deployment ke **Streamlit Community Cloud*
 
 ## 🧪 Pengujian Otomatis (Testing)
 
-Proyek ini dilengkapi dengan 204 tes otomatis menggunakan `pytest` yang memvalidasi seluruh formula akuntansi, keseimbangan jurnal, neraca saldo, neraca lajur, laporan keuangan, kartu persediaan, manajemen periode, dan siklus akuntansi end-to-end:
+Proyek ini dilengkapi dengan rangkaian tes otomatis menggunakan `pytest` untuk memvalidasi formula akuntansi, keseimbangan jurnal, neraca saldo, neraca lajur, laporan keuangan, mutasi persediaan perpetual, HPP penjualan, manajemen periode, dan siklus akuntansi end-to-end:
 
 ```bash
 # Jalankan seluruh test suite

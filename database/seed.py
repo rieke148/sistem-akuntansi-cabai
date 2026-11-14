@@ -14,6 +14,7 @@ Dipanggil oleh : app.py (saat startup, jika db kosong)
 """
 
 import sqlite3
+import re
 from datetime import date, timedelta
 from database.connection import get_connection
 
@@ -115,6 +116,7 @@ def jalankan_seed() -> None:
 
     # ===== F. TRANSAKSI OKTOBER 2026 =====
     _seed_transaksi(cursor, period_id, akun, pelanggan, supplier, item, pekerja)
+    _seed_hpp_penjualan(cursor, period_id, akun, item)
 
     koneksi.commit()
     tutup_connection(koneksi)
@@ -200,8 +202,6 @@ def _seed_bagan_akun(cursor: sqlite3.Cursor) -> dict:
 
         # --- PENDAPATAN (4xxx) ---
         ("4101", "Penjualan Cabai Rawit", "Pendapatan", "Kredit", 0),
-        ("4102", "Penjualan Selada", "Pendapatan", "Kredit", 0),
-        ("4103", "Penjualan Melon", "Pendapatan", "Kredit", 0),
         ("4901", "Pendapatan Lain-lain", "Pendapatan", "Kredit", 0),
 
         # --- BEBAN PRODUKSI (5xxx) ---
@@ -212,6 +212,7 @@ def _seed_bagan_akun(cursor: sqlite3.Cursor) -> dict:
         ("5105", "Beban Upah Langsung", "Beban Produksi", "Debit", 0),
         ("5106", "Beban Penyusutan Aset Produksi", "Beban Produksi", "Debit", 0),
         ("5107", "Beban Amortisasi Plastik Mulsa", "Beban Produksi", "Debit", 0),
+        ("5108", "HPP Penjualan Cabai", "Beban Produksi", "Debit", 0),
 
         # --- BEBAN OPERASIONAL (6xxx) ---
         ("6101", "Beban Listrik", "Beban Operasional", "Debit", 0),
@@ -300,13 +301,12 @@ def _seed_item(cursor: sqlite3.Cursor, akun: dict) -> dict:
 
 
 def _seed_pekerja(cursor: sqlite3.Cursor) -> dict:
-    """Membuat data pekerja. 4 pekerja cabai + 1 selada/melon."""
+    """Membuat data 4 pekerja yang terlibat dalam budidaya cabai."""
     pekerja_list = [
         ("Ahmad Suparto", "tetap", 90000, "cabai"),
         ("Budi Santoso", "tetap", 90000, "cabai"),
         ("Cahyo Wibowo", "tetap", 90000, "cabai"),
         ("Dian Rahayu", "tetap", 90000, "cabai"),
-        ("Eko Prasetyo", "tetap", 90000, "selada"),
     ]
     result = {}
     for nama, tipe, upah, komoditas in pekerja_list:
@@ -406,7 +406,7 @@ def _seed_saldo_awal(
     SEMUA ANGKA ADALAH CONTOH — user wajib mengganti dengan data asli.
 
     Kas: Rp500.000.000 (CONTOH)
-    Modal Disetor: Rp3.410.000.000 (CONTOH — total aset tetap + kas awal)
+    Modal Disetor: Rp3.460.000.000 (CONTOH — aset tetap + kas awal + persediaan cabai)
     """
     catatan = "⚠️ CONTOH - ganti dengan data asli"
     # Debit: Kas
@@ -449,12 +449,20 @@ def _seed_saldo_awal(
         "saldo_kredit": 0,
         "catatan": catatan,
     })
-    # Kredit: Modal Disetor (selisih = jumlah semua aset)
+    # Debit: Persediaan Cabai Rawit (saldo stok contoh untuk penjualan seed).
+    _insert(cursor, "opening_balances", {
+        "period_id": period_id,
+        "account_id": akun["1307"],
+        "saldo_debit": 75_000_000,
+        "saldo_kredit": 0,
+        "catatan": "⚠️ CONTOH - 3.000 kg @ Rp25.000/kg; ganti dengan stok dan harga pokok aktual",
+    })
+    # Kredit: Modal Disetor (disesuaikan dengan total aset termasuk persediaan cabai).
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
         "account_id": akun["3101"],
         "saldo_debit": 0,
-        "saldo_kredit": 3_385_000_000,
+        "saldo_kredit": 3_460_000_000,
         "catatan": catatan,
     })
 
@@ -493,6 +501,21 @@ def _seed_transaksi(
     UTANG_GAJI = akun["2201"]
 
     no = 1  # nomor urut bukti
+
+    # Stok awal hasil panen untuk data contoh saja.
+    # Nilai Rp25.000/kg dan kuantitas 3.000 kg wajib diganti dengan data aktual.
+    _insert(cursor, "inventory_movements", {
+        "item_id": item["HSL-001"],
+        "tanggal": "2026-10-01",
+        "tipe_gerakan": "saldo_awal",
+        "qty": 3000,
+        "harga_satuan": 25000,
+        "total_nilai": 75_000_000,
+        "saldo_qty": 3000,
+        "saldo_nilai": 75_000_000,
+        "harga_rata2": 25000,
+        "keterangan": "CONTOH - saldo awal hasil panen cabai; verifikasi stok dan HPP aktual",
+    })
 
     def nb(prefix: str) -> str:
         """Generate nomor bukti."""
@@ -899,6 +922,93 @@ def _seed_transaksi(
         "harga_rata2": 0,
         "keterangan": "Pemakaian ke blok A",
     })
+
+
+def _seed_hpp_penjualan(
+    cursor: sqlite3.Cursor,
+    period_id: int,
+    akun: dict,
+    item: dict,
+) -> None:
+    """
+    Menambahkan HPP dan mutasi keluar untuk seluruh penjualan contoh.
+
+    Data contoh dimulai dengan 3.000 kg hasil panen @ Rp25.000/kg.
+    Semua kuantitas dan harga pokok ini merupakan asumsi contoh, bukan data observasi.
+    """
+    item_id = item["HSL-001"]
+    akun_hpp_id = akun["5108"]
+    akun_persediaan_id = akun["1307"]
+
+    saldo = cursor.execute("""
+        SELECT saldo_qty, saldo_nilai, harga_rata2
+        FROM inventory_movements
+        WHERE item_id = ?
+        ORDER BY id DESC LIMIT 1
+    """, (item_id,)).fetchone()
+    saldo_qty = float(saldo["saldo_qty"])
+    saldo_nilai = int(saldo["saldo_nilai"])
+    harga_rata2 = int(saldo["harga_rata2"])
+
+    penjualan = cursor.execute("""
+        SELECT id, tanggal, keterangan
+        FROM journal_entries
+        WHERE period_id = ? AND keterangan LIKE 'Penjualan cabai%'
+        ORDER BY tanggal, id
+    """, (period_id,)).fetchall()
+
+    for transaksi in penjualan:
+        cocok = re.search(r"(\d+(?:[.,]\d+)?)\s*kg\s*@", transaksi["keterangan"])
+        if not cocok:
+            raise ValueError(
+                f"Kuantitas penjualan tidak dapat dibaca dari: {transaksi['keterangan']}"
+            )
+        qty = float(cocok.group(1).replace(",", "."))
+        if qty <= 0 or qty - saldo_qty > 1e-9:
+            raise ValueError("Stok contoh tidak cukup untuk seluruh transaksi penjualan seed.")
+
+        if abs(qty - saldo_qty) <= 1e-9:
+            hpp = saldo_nilai
+            saldo_qty_baru = 0.0
+            saldo_nilai_baru = 0
+            harga_rata2_baru = 0
+        else:
+            hpp = int(qty * harga_rata2)
+            saldo_qty_baru = saldo_qty - qty
+            saldo_nilai_baru = saldo_nilai - hpp
+            harga_rata2_baru = harga_rata2
+
+        # Jurnal perpetual: Dr HPP Penjualan / Cr Persediaan Cabai.
+        _insert(cursor, "journal_lines", {
+            "journal_entry_id": transaksi["id"],
+            "account_id": akun_hpp_id,
+            "debit": hpp,
+            "kredit": 0,
+        })
+        _insert(cursor, "journal_lines", {
+            "journal_entry_id": transaksi["id"],
+            "account_id": akun_persediaan_id,
+            "debit": 0,
+            "kredit": hpp,
+        })
+
+        _insert(cursor, "inventory_movements", {
+            "item_id": item_id,
+            "journal_entry_id": transaksi["id"],
+            "tanggal": transaksi["tanggal"],
+            "tipe_gerakan": "keluar",
+            "qty": qty,
+            "harga_satuan": harga_rata2,
+            "total_nilai": hpp,
+            "saldo_qty": saldo_qty_baru,
+            "saldo_nilai": saldo_nilai_baru,
+            "harga_rata2": harga_rata2_baru,
+            "keterangan": "HPP penjualan cabai - " + transaksi["keterangan"],
+        })
+
+        saldo_qty = saldo_qty_baru
+        saldo_nilai = saldo_nilai_baru
+        harga_rata2 = harga_rata2_baru
 
 
 def tutup_connection(koneksi: sqlite3.Connection) -> None:

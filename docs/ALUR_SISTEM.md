@@ -21,10 +21,10 @@
         ▼                                                             ▼
 [5 Jenis Jurnal]                                            [Kartu Persediaan]
   • Jurnal Penjualan (tempo)                                 (services/inventory_service.py)
-  • Jurnal Penerimaan Kas (tunai, piutang, modal)            Metode Rata-rata Bergerak
-  • Jurnal Pengeluaran Kas (beli bahan, upah, beban)         Stok Bahan & Panen Cabai
-  • Jurnal Pembelian (kredit)
-  • Jurnal Umum (pemakaian bahan, memorial)
+  • Jurnal Penerimaan Kas (tunai, piutang, modal)            Sistem Perpetual
+  • Jurnal Pengeluaran Kas (beli bahan, upah, beban)         Metode Rata-rata Bergerak
+  • Jurnal Pembelian (kredit)                                Stok Bahan & Hasil Panen Cabai
+  • Jurnal Umum (pemakaian bahan, memorial)                  HPP dan stok berkurang saat penjualan
         │
         ▼
 [Posting Buku Besar & BB Pembantu]
@@ -94,20 +94,23 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
   8. Pencatatan Hasil Panen Cabai
   9. Biaya Operasional (BBM, Listrik, Sewa Traktor)
   10. Pembelian Aset Tetap Tunai
-- Fitur **Pratinjau Jurnal Interaktif**: Mengharuskan Total Debit == Total Kredit sebelum disimpan.
+- Fitur **Pratinjau Jurnal Interaktif**: Mengharuskan Total Debit == Total Kredit sebelum disimpan. Pratinjau penjualan juga menampilkan HPP dan pengurangan persediaan berdasarkan rata-rata bergerak; stok tidak mencukupi akan ditolak.
 
 ### Fase 3 — Jurnal Umum & 4 Jurnal Khusus
 - **Jurnal Umum** (`views/04_jurnal_umum.py`): Format kronologis dengan kolom Tanggal, No Bukti, Keterangan, Ref Akun, Debit, dan Kredit.
 - **Jurnal Khusus** (`views/05_jurnal_khusus.py`): 4 tab format kolom akuntansi:
-  - *Sales Journal*: Piutang Usaha (D) / Penjualan (K)
+  - *Sales Journal*: Piutang Usaha (D) / Penjualan (K), serta HPP Penjualan (D) / Persediaan Cabai (K).
   - *Purchase Journal*: Persediaan (D) / Utang Usaha (K)
-  - *Cash Receipt Journal*: Kas (D), Piutang (K), Penjualan (K), Lain-lain (K)
+  - *Cash Receipt Journal*: Kas (D), Piutang (K), Penjualan (K), Lain-lain (K), dengan kolom tambahan HPP (D) / Persediaan Cabai (K) yang tidak dihitung sebagai sumber kas.
   - *Cash Payment Journal*: Kas (K), Persediaan (D), Beban Upah (D), Beban Lain (D)
 
 ### Fase 4 — Buku Besar, BB Pembantu & Kartu Persediaan
 - **Buku Besar**: Menampilkan saldo berjalan per akun dengan saldo awal dan mutasi debit/kredit.
 - **BB Pembantu**: Rincian piutang per pelanggan (dilengkapi analisa umur piutang / aging), stok persediaan, dan buku pembantu aset tetap.
-- **Kartu Persediaan**: Metode Rata-rata Bergerak (*moving average*) mencatat pergerakan masuk, keluar, dan sisa saldo kuantitas serta saldo nilai.
+- **Kartu Persediaan**: Sistem perpetual dengan metode rata-rata bergerak (*moving average*). Pembelian, saldo awal, pemakaian bahan, panen, dan penjualan langsung memperbarui saldo kuantitas serta nilai.
+- **Saldo Awal Persediaan**: Kuantitas fisik dan harga pokok dimasukkan per item. Sistem mencatat mutasi `saldo_awal` dan menyelaraskan saldo akun persediaan pada `opening_balances`.
+- **Penjualan Cabai**: Setiap penjualan memeriksa ketersediaan stok dan membentuk dua pasangan jurnal: Kas/Piutang terhadap Penjualan, serta HPP Penjualan terhadap Persediaan Cabai.
+- **Validasi**: Penjualan atau pemakaian yang melebihi stok ditolak. Mutasi per item harus dicatat kronologis agar rata-rata bergerak akurat.
 
 ### Fase 5 — Neraca Saldo, Penggajian & Penyesuaian
 - **Neraca Saldo**: Menghitung saldo seluruh akun dan memvalidasi keseimbangan Debit == Kredit.
@@ -124,12 +127,12 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 - **Jurnal Penutup**: Menutup akun nominal (4, 5, 6) ke Ikhtisar L/R, memindahkan laba ke Laba Ditahan, dan mengunci periode ke status `tutup`.
 
 ### Fase 7 — Dashboard, Ekspor Dokumen & Cadangan
-- **Dashboard Eksekutif**: Metrik kas, piutang jatuh tempo, grafik komoditas (Cabai, Selada, Melon), grafik Penjualan vs Beban, dan tabel status stok.
+- **Dashboard Eksekutif**: Metrik kas, piutang jatuh tempo, grafik penjualan cabai, grafik Penjualan vs Beban, dan tabel status stok.
 - **Ekspor Dokumen**: Ekspor laporan keuangan ke Excel (.xlsx) multi-sheet dan PDF (.pdf) bebas error unicode.
 - **Backup & Restore**: Cadangkan database SQLite (`.db`) atau seluruh tabel ke Excel, serta restore data secara aman.
 
 ### Fase 8 — Pengujian Menyeluruh, Kerapian Kode, Manajemen Periode & Kesiapan Deploy
 - **Pemilih Periode Fleksibel & Kalender**: Komponen terpadu `selector_periode` dipasang di seluruh menu dengan dukungan multi-periode (2025-2027), preset cepat (Bulan Ini, Bulan Lalu, Tahun Ini, Tahun Lalu, Observasi Okt 2026), dan pemilih kalender manual yang otomatis membuat periode jika belum terdaftar.
-- **Test Suite 100% Passed**: 204 tes otomatis mencakup unit tests, period service tests, dan end-to-end accounting cycle test.
+- **Test Suite Pytest**: mencakup unit tests, validasi jurnal, persediaan perpetual dan HPP penjualan, period service tests, serta end-to-end accounting cycle test. Jalankan `pytest tests/ -v` untuk memeriksa seluruh tes sebelum merge.
 - **100% Python Murni**: Bebas dari tag HTML/CSS/JS mentah. Seluruh antarmuka menggunakan widget native Streamlit dan wrapper `streamlit-antd-components`.
 - **Kesiapan Streamlit Community Cloud**: Konfigurasi `.streamlit/config.toml`, dependency dipin di `requirements.txt`, penanganan database otomatis saat cold-start, dan file path berbasis `pathlib.Path` yang agnostik terhadap OS.

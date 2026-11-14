@@ -89,12 +89,23 @@ def _tab_laba_rugi(period_id: int) -> None:
 
     st.markdown("")
 
-    # Beban Produksi
-    sac.divider(label="Beban Produksi", align="left")
-    for item in data["beban_produksi"]:
+    # HPP Penjualan
+    sac.divider(label="Harga Pokok Penjualan (HPP)", align="left")
+    for item in data["hpp_penjualan"]:
         _baris_rupiah(item["nama_akun"], item["jumlah"], indent=1)
     _garis_tipis()
-    _baris_rupiah("Sub-total Beban Produksi", data["total_beban_produksi"])
+    _baris_rupiah("Total HPP Penjualan", data["total_hpp_penjualan"])
+    _baris_rupiah("LABA KOTOR", data["laba_kotor"], bold=True)
+
+    st.markdown("")
+
+    # Beban produksi selain HPP
+    sac.divider(label="Beban Produksi Lain", align="left")
+    for item in data["beban_produksi_lain"]:
+        _baris_rupiah(item["nama_akun"], item["jumlah"], indent=1)
+    _garis_tipis()
+    _baris_rupiah("Sub-total Beban Produksi Lain", data["total_beban_produksi_lain"])
+    _baris_rupiah("Total Beban Produksi (termasuk HPP)", data["total_beban_produksi"])
 
     st.markdown("")
 
@@ -354,19 +365,31 @@ def _ambil_neraca_saldo_df(period_id: int) -> pd.DataFrame:
         SELECT a.kode_akun AS "Kode Akun",
                a.nama_akun AS "Nama Akun",
                a.kategori AS "Kategori",
-               COALESCE(ob.saldo_debit, 0) + COALESCE(SUM(CASE WHEN jl.debit > 0 THEN jl.debit ELSE 0 END), 0) AS "Debit",
-               COALESCE(ob.saldo_kredit, 0) + COALESCE(SUM(CASE WHEN jl.kredit > 0 THEN jl.kredit ELSE 0 END), 0) AS "Kredit"
+               COALESCE(ob.saldo_debit, 0) + COALESCE(mutasi.total_debit, 0) AS "Debit",
+               COALESCE(ob.saldo_kredit, 0) + COALESCE(mutasi.total_kredit, 0) AS "Kredit"
         FROM accounts a
-        LEFT JOIN opening_balances ob ON a.id = ob.account_id AND ob.period_id = ?
-        LEFT JOIN journal_lines jl ON a.id = jl.account_id
-        LEFT JOIN journal_entries je ON jl.journal_entry_id = je.id AND je.period_id = ?
+        LEFT JOIN opening_balances ob
+            ON a.id = ob.account_id AND ob.period_id = ?
+        LEFT JOIN (
+            SELECT jl.account_id,
+                   SUM(jl.debit) AS total_debit,
+                   SUM(jl.kredit) AS total_kredit
+            FROM journal_lines jl
+            JOIN journal_entries je ON jl.journal_entry_id = je.id
+            WHERE je.period_id = ?
+            GROUP BY jl.account_id
+        ) mutasi ON mutasi.account_id = a.id
         WHERE a.aktif = 1
-        GROUP BY a.id, a.kode_akun, a.nama_akun, a.kategori, ob.saldo_debit, ob.saldo_kredit
-        HAVING COALESCE(ob.saldo_debit, 0) + COALESCE(ob.saldo_kredit, 0)
-             + COALESCE(SUM(COALESCE(jl.debit, 0)), 0) + COALESCE(SUM(COALESCE(jl.kredit, 0)), 0) > 0
+          AND (
+              COALESCE(ob.saldo_debit, 0) + COALESCE(ob.saldo_kredit, 0)
+              + COALESCE(mutasi.total_debit, 0) + COALESCE(mutasi.total_kredit, 0)
+          ) > 0
         ORDER BY a.kode_akun
     """
-    rows = conn.execute(sql, (period_id, period_id)).fetchall()
+    try:
+        rows = conn.execute(sql, (period_id, period_id)).fetchall()
+    finally:
+        conn.close()
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame([dict(r) for r in rows])
@@ -385,10 +408,17 @@ def _ambil_laporan_lengkap_dict(period_id: int) -> dict[str, pd.DataFrame]:
         baris_lr.append({"Komponen": "Pendapatan", "Akun": it["nama_akun"], "Jumlah (Rp)": it["jumlah"]})
     baris_lr.append({"Komponen": "Total Pendapatan", "Akun": "", "Jumlah (Rp)": lr["total_pendapatan"]})
 
-    baris_lr.append({"Komponen": "BEBAN PRODUKSI", "Akun": "", "Jumlah (Rp)": ""})
-    for it in lr["beban_produksi"]:
-        baris_lr.append({"Komponen": "Beban Produksi", "Akun": it["nama_akun"], "Jumlah (Rp)": it["jumlah"]})
-    baris_lr.append({"Komponen": "Total Beban Produksi", "Akun": "", "Jumlah (Rp)": lr["total_beban_produksi"]})
+    baris_lr.append({"Komponen": "HARGA POKOK PENJUALAN", "Akun": "", "Jumlah (Rp)": ""})
+    for it in lr["hpp_penjualan"]:
+        baris_lr.append({"Komponen": "HPP Penjualan", "Akun": it["nama_akun"], "Jumlah (Rp)": it["jumlah"]})
+    baris_lr.append({"Komponen": "Total HPP Penjualan", "Akun": "", "Jumlah (Rp)": lr["total_hpp_penjualan"]})
+    baris_lr.append({"Komponen": "LABA KOTOR", "Akun": "", "Jumlah (Rp)": lr["laba_kotor"]})
+
+    baris_lr.append({"Komponen": "BEBAN PRODUKSI LAIN", "Akun": "", "Jumlah (Rp)": ""})
+    for it in lr["beban_produksi_lain"]:
+        baris_lr.append({"Komponen": "Beban Produksi Lain", "Akun": it["nama_akun"], "Jumlah (Rp)": it["jumlah"]})
+    baris_lr.append({"Komponen": "Total Beban Produksi Lain", "Akun": "", "Jumlah (Rp)": lr["total_beban_produksi_lain"]})
+    baris_lr.append({"Komponen": "Total Beban Produksi (termasuk HPP)", "Akun": "", "Jumlah (Rp)": lr["total_beban_produksi"]})
 
     baris_lr.append({"Komponen": "BEBAN OPERASIONAL", "Akun": "", "Jumlah (Rp)": ""})
     for it in lr["beban_operasional"]:

@@ -142,8 +142,6 @@ def render_filter_komoditas(key: str = "filter_komoditas") -> str:
         items=[
             sac.SegmentedItem(label="Semua", icon="grid"),
             sac.SegmentedItem(label="Cabai", icon="fire"),
-            sac.SegmentedItem(label="Selada", icon="leaf"),
-            sac.SegmentedItem(label="Melon", icon="emoji-smile"),
         ],
         label="Filter Komoditas",
         color=WARNA_PRIMER,

@@ -103,16 +103,23 @@ def ambil_piutang_overdue(hari_ini: date | None = None) -> list[dict]:
 # ---------------------------------------------------------------
 def ambil_ringkasan_penjualan_beban(period_id: int) -> dict[str, int]:
     """
-    Menghitung total penjualan (akun 4xxx kredit) dan
-    total beban (akun 5xxx debit) dari jurnal periode ini.
+    Menghitung penjualan, HPP Penjualan (akun 5108), dan total beban produksi.
+
+    Laba kotor dihitung sebagai penjualan dikurangi HPP Penjualan saja;
+    beban produksi lainnya tetap disajikan terpisah.
 
     Returns:
-        dict: 'penjualan', 'beban', 'laba_kotor'
+        dict: 'penjualan', 'hpp_penjualan', 'laba_kotor',
+              'beban', 'beban_produksi_lain', 'laba_setelah_beban_produksi'
     """
     sql = """
         SELECT
-            SUM(CASE WHEN a.kode_akun LIKE '4%' AND jl.kredit > 0 THEN jl.kredit ELSE 0 END) AS penjualan,
-            SUM(CASE WHEN a.kode_akun LIKE '5%' AND jl.debit > 0 THEN jl.debit ELSE 0 END) AS beban
+            SUM(CASE WHEN a.kode_akun LIKE '4%' AND jl.kredit > 0
+                     THEN jl.kredit ELSE 0 END) AS penjualan,
+            SUM(CASE WHEN a.kode_akun LIKE '5%' AND jl.debit > 0
+                     THEN jl.debit ELSE 0 END) AS beban,
+            SUM(CASE WHEN a.kode_akun = '5108' AND jl.debit > 0
+                     THEN jl.debit ELSE 0 END) AS hpp_penjualan
         FROM journal_lines jl
         JOIN journal_entries je ON jl.journal_entry_id = je.id
         JOIN accounts a ON jl.account_id = a.id
@@ -120,13 +127,22 @@ def ambil_ringkasan_penjualan_beban(period_id: int) -> dict[str, int]:
           AND je.no_bukti NOT LIKE 'JP-%'
     """
     conn = get_connection()
-    row = conn.execute(sql, (period_id,)).fetchone()
+    try:
+        row = conn.execute(sql, (period_id,)).fetchone()
+    finally:
+        conn.close()
+
     penjualan = int(row["penjualan"] or 0)
     beban = int(row["beban"] or 0)
+    hpp_penjualan = int(row["hpp_penjualan"] or 0)
+    beban_produksi_lain = beban - hpp_penjualan
     return {
         "penjualan": penjualan,
+        "hpp_penjualan": hpp_penjualan,
+        "laba_kotor": penjualan - hpp_penjualan,
         "beban": beban,
-        "laba_kotor": penjualan - beban,
+        "beban_produksi_lain": beban_produksi_lain,
+        "laba_setelah_beban_produksi": penjualan - beban,
     }
 
 
@@ -136,7 +152,7 @@ def ambil_ringkasan_penjualan_beban(period_id: int) -> dict[str, int]:
 def ambil_stok_persediaan() -> list[dict]:
     """
     Mengembalikan saldo stok terakhir per item dari inventory_movements.
-    Mengambil baris terakhir (ID terbesar) per item.
+    Mengambil mutasi terakhir berdasarkan tanggal, lalu ID sebagai pemecah seri.
 
     Returns:
         List dict: kode_item, nama_item, satuan, saldo_qty, saldo_nilai
@@ -147,9 +163,13 @@ def ambil_stok_persediaan() -> list[dict]:
         FROM inventory_movements im
         JOIN items i ON im.item_id = i.id
         WHERE im.id = (
-            SELECT MAX(im2.id)
+            SELECT im2.id
             FROM inventory_movements im2
             WHERE im2.item_id = im.item_id
+            ORDER BY im2.tanggal DESC,
+                     COALESCE(im2.journal_entry_id, im2.id) DESC,
+                     im2.id DESC
+            LIMIT 1
         )
         ORDER BY i.kode_item
     """

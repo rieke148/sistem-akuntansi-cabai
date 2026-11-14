@@ -114,8 +114,8 @@ def _tampilkan_jurnal_penjualan(period_id: int | None) -> None:
     """
     st.subheader("📋 Sales Journal — Jurnal Penjualan Tempo")
     st.caption(
-        "Mencatat penjualan yang pembayarannya ditangguhkan (tempo/kredit). "
-        "Debit ke Piutang Usaha, Kredit ke Penjualan."
+        "Mencatat penjualan tempo dan pencatatan perpetualnya: Piutang (D) / Penjualan (K), "
+        "serta HPP Penjualan (D) / Persediaan Cabai (K)."
     )
 
     df = ambil_jurnal_penjualan(period_id)
@@ -125,7 +125,7 @@ def _tampilkan_jurnal_penjualan(period_id: int | None) -> None:
         return
 
     # Kolom angka untuk dihitung totalnya
-    kolom_angka = ["piutang_d", "penjualan_k"]
+    kolom_angka = ["piutang_d", "penjualan_k", "hpp_d", "persediaan_k"]
     total = hitung_total_kolom(df, kolom_angka)
 
     # Tambah kolom Ref (sudah diposting otomatis)
@@ -149,11 +149,14 @@ def _tampilkan_jurnal_penjualan(period_id: int | None) -> None:
         "ref": "Ref",
         "piutang_d": "Piutang Usaha (D)",
         "penjualan_k": "Penjualan (K)",
+        "hpp_d": "HPP Penjualan (D)",
+        "persediaan_k": "Persediaan Cabai (K)",
     })
 
     kolom_tampil = [
         "Tanggal", "No. Faktur", "Pelanggan", "Jatuh Tempo",
         "Ref", "Piutang Usaha (D)", "Penjualan (K)",
+        "HPP Penjualan (D)", "Persediaan Cabai (K)",
     ]
 
     st.dataframe(
@@ -177,22 +180,31 @@ def _tampilkan_jurnal_penjualan(period_id: int | None) -> None:
         label_map={
             "piutang_d": "Total Piutang (D)",
             "penjualan_k": "Total Penjualan (K)",
+            "hpp_d": "Total HPP Penjualan (D)",
+            "persediaan_k": "Total Persediaan Cabai (K)",
         },
     )
 
-    # Validasi: piutang_d harus == penjualan_k
-    if total["piutang_d"] == total["penjualan_k"]:
+    # Validasi kedua pasangan: Piutang = Penjualan dan HPP = Persediaan.
+    pasangan_penjualan_seimbang = total["piutang_d"] == total["penjualan_k"]
+    pasangan_hpp_seimbang = total["hpp_d"] == total["persediaan_k"]
+    if pasangan_penjualan_seimbang and pasangan_hpp_seimbang:
         sac.alert(
             label="Jurnal Seimbang ✅",
-            description=f"Total Piutang = Total Penjualan = {format_rupiah(total['piutang_d'])}",
+            description=(
+                f"Piutang = Penjualan = {format_rupiah(total['piutang_d'])}; "
+                f"HPP = Persediaan = {format_rupiah(total['hpp_d'])}"
+            ),
             color="success", icon=True,
         )
     else:
         sac.alert(
             label="Peringatan: Kolom Tidak Seimbang",
             description=(
-                f"Piutang (D): {format_rupiah(total['piutang_d'])} ≠ "
-                f"Penjualan (K): {format_rupiah(total['penjualan_k'])}"
+                f"Piutang (D): {format_rupiah(total['piutang_d'])} | "
+                f"Penjualan (K): {format_rupiah(total['penjualan_k'])} | "
+                f"HPP (D): {format_rupiah(total['hpp_d'])} | "
+                f"Persediaan (K): {format_rupiah(total['persediaan_k'])}"
             ),
             color="warning", icon=True,
         )
@@ -310,7 +322,7 @@ def _tampilkan_jurnal_penerimaan_kas(period_id: int | None) -> None:
         _tampilkan_pesan_kosong("Penerimaan Kas")
         return
 
-    kolom_angka = ["kas_d", "piutang_k", "penjualan_k", "lain_lain_k"]
+    kolom_angka = ["kas_d", "piutang_k", "penjualan_k", "lain_lain_k", "hpp_d", "persediaan_k"]
     total = hitung_total_kolom(df, kolom_angka)
 
     df["ref"] = "✓"
@@ -327,11 +339,14 @@ def _tampilkan_jurnal_penerimaan_kas(period_id: int | None) -> None:
         "piutang_k": "Piutang (K)",
         "penjualan_k": "Penjualan (K)",
         "lain_lain_k": "Lain-lain (K)",
+        "hpp_d": "HPP Penjualan (D)",
+        "persediaan_k": "Persediaan Cabai (K)",
     })
 
     kolom_tampil = [
         "Tanggal", "No. Bukti", "Keterangan", "Pihak Terkait",
         "Ref", "Kas (D)", "Piutang (K)", "Penjualan (K)", "Lain-lain (K)",
+        "HPP Penjualan (D)", "Persediaan Cabai (K)",
     ]
 
     st.dataframe(
@@ -357,10 +372,14 @@ def _tampilkan_jurnal_penerimaan_kas(period_id: int | None) -> None:
             "piutang_k": "Piutang (K)",
             "penjualan_k": "Penjualan (K)",
             "lain_lain_k": "Lain-lain (K)",
+            "hpp_d": "HPP Penjualan (D)",
+            "persediaan_k": "Persediaan Cabai (K)",
         },
     )
 
-    # Validasi: kas_d == piutang_k + penjualan_k + lain_lain_k
+    # HPP dan pengurangan persediaan merupakan jurnal perpetual pendamping,
+    # bukan komponen yang membentuk penerimaan kas.
+    # Validasi penerimaan kas tetap: kas_d == piutang_k + penjualan_k + lain_lain_k
     total_kredit = total["piutang_k"] + total["penjualan_k"] + total["lain_lain_k"]
     if total["kas_d"] == total_kredit:
         sac.alert(

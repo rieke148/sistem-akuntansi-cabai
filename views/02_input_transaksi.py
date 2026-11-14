@@ -21,6 +21,7 @@ import pandas as pd
 import streamlit_antd_components as sac
 from database.connection import get_connection
 from services import transaction_service as ts
+from services.inventory_service import hitung_nilai_keluar
 from utils.formatting import format_rupiah, format_tanggal
 from utils.ui_components import divider_dengan_judul, selector_periode
 from theme import WARNA_PRIMER, WARNA_SUKSES, WARNA_BAHAYA
@@ -67,12 +68,12 @@ def _ambil_items(tipe: str | None = None):
     koneksi = get_connection()
     if tipe:
         rows = koneksi.execute(
-            "SELECT id, nama_item AS nama, satuan FROM items WHERE tipe = ? AND aktif = 1 ORDER BY nama_item",
+            "SELECT id, nama_item AS nama, satuan, account_id FROM items WHERE tipe = ? AND aktif = 1 ORDER BY nama_item",
             (tipe,)
         ).fetchall()
     else:
         rows = koneksi.execute(
-            "SELECT id, nama_item AS nama, satuan, tipe FROM items WHERE aktif = 1 ORDER BY nama_item"
+            "SELECT id, nama_item AS nama, satuan, tipe, account_id FROM items WHERE aktif = 1 ORDER BY nama_item"
         ).fetchall()
     koneksi.close()
     return [dict(r) for r in rows]
@@ -116,21 +117,10 @@ def _cari_akun_by_kode(kode: str) -> int | None:
 
 
 def _cari_akun_penjualan(komoditas: str) -> int | None:
-    """
-    Mengembalikan account_id akun penjualan sesuai komoditas.
-    - cabai  → 4101 (Penjualan Cabai Rawit)
-    - selada → 4102 (Penjualan Selada)
-    - melon  → 4103 (Penjualan Melon)
-    - umum   → 4901 (Pendapatan Lain-lain)
-    """
-    peta = {
-        "cabai": "4101",
-        "selada": "4102",
-        "melon": "4103",
-        "umum": "4901",
-    }
-    kode = peta.get(komoditas, "4101")
-    return _cari_akun_by_kode(kode)
+    """Mengembalikan akun pendapatan untuk penjualan cabai."""
+    if komoditas != "cabai":
+        return None
+    return _cari_akun_by_kode("4101")
 
 
 def _bersihkan_pratinjau():
@@ -217,6 +207,10 @@ def _form_penjualan_tunai(period_id: int):
 
     customers = _ambil_customers()
     nama_customers = [f"{c['nama']}" for c in customers]
+    items_panen = _ambil_items("hasil_panen")
+    if not items_panen:
+        st.warning("Belum ada item hasil panen cabai. Tambahkan item hasil panen di Master Data dan hubungkan ke akun persediaan.")
+        return
 
     with st.form("form_penjualan_tunai"):
         kol1, kol2 = st.columns(2)
@@ -234,7 +228,13 @@ def _form_penjualan_tunai(period_id: int):
             harga_per_kg = st.number_input(
                 "Harga per kg (Rp)", min_value=1000, step=500, value=50000
             )
-            komoditas = st.selectbox("Komoditas", ["cabai", "selada", "melon", "umum"])
+            komoditas = "cabai"
+            st.text_input("Komoditas", value="Cabai", disabled=True)
+            item_panen_idx = st.selectbox(
+                "Persediaan Cabai yang Dijual",
+                range(len(items_panen)),
+                format_func=lambda i: f"{items_panen[i]['nama']} ({items_panen[i]['satuan']})",
+            )
 
         keterangan = st.text_input("Keterangan Tambahan", placeholder="(opsional)")
         st.caption(f"**Total: {format_rupiah(int(jumlah_kg * harga_per_kg))}**")
@@ -247,7 +247,7 @@ def _form_penjualan_tunai(period_id: int):
             return
 
         akun_kas_id = _cari_akun_by_kode("1101")
-        # Pilih akun penjualan berdasarkan komoditas yang dipilih
+        # Gunakan akun penjualan cabai
         akun_jual_id = _cari_akun_penjualan(komoditas)
 
         if not akun_kas_id or not akun_jual_id:
@@ -255,9 +255,29 @@ def _form_penjualan_tunai(period_id: int):
             return
 
         total = int(jumlah_kg * harga_per_kg)
+        item_panen = items_panen[item_panen_idx]
+        if not item_panen.get("account_id"):
+            st.error("Item hasil panen belum dihubungkan ke akun persediaan.")
+            return
+        akun_hpp_id = _cari_akun_by_kode("5108")
+        if not akun_hpp_id:
+            st.error("Akun HPP Penjualan Cabai (5108) belum tersedia.")
+            return
+        try:
+            hasil_hpp = hitung_nilai_keluar(item_panen["id"], jumlah_kg)
+        except ValueError as e:
+            st.error(str(e))
+            return
+        total_hpp = int(hasil_hpp["total_keluar"])
+        if total_hpp <= 0:
+            st.error("Harga pokok persediaan belum tersedia. Periksa saldo awal atau harga pokok hasil panen.")
+            return
+
         baris = [
             {"account_id": akun_kas_id, "debit": total, "kredit": 0},
             {"account_id": akun_jual_id, "debit": 0, "kredit": total},
+            {"account_id": akun_hpp_id, "debit": total_hpp, "kredit": 0},
+            {"account_id": item_panen["account_id"], "debit": 0, "kredit": total_hpp},
         ]
 
         st.session_state["pratinjau_baris"] = baris
@@ -272,6 +292,8 @@ def _form_penjualan_tunai(period_id: int):
             "akun_penjualan_id": akun_jual_id,
             "komoditas": komoditas,
             "keterangan_tambahan": keterangan,
+            "item_panen_id": item_panen["id"],
+            "hpp_estimasi": total_hpp,
         }
 
     # Tampilkan pratinjau jika ada
@@ -289,6 +311,7 @@ def _form_penjualan_tunai(period_id: int):
                     harga_per_kg=p["harga_per_kg"], akun_kas_id=p["akun_kas_id"],
                     akun_penjualan_id=p["akun_penjualan_id"],
                     komoditas=p["komoditas"], keterangan_tambahan=p["keterangan_tambahan"],
+                    item_panen_id=p["item_panen_id"], hpp_estimasi=p["hpp_estimasi"],
                 )
                 st.success(f"✅ Penjualan tunai ke **{p['pelanggan']}** berhasil disimpan!")
                 _bersihkan_pratinjau()
@@ -307,8 +330,12 @@ def _form_penjualan_tempo(period_id: int):
     st.subheader("📋 Penjualan Tempo (Kredit)")
 
     customers = _ambil_customers()
+    items_panen = _ambil_items("hasil_panen")
     if not customers:
         st.warning("Belum ada data pelanggan. Tambahkan di menu Master Data > Pelanggan.")
+        return
+    if not items_panen:
+        st.warning("Belum ada item hasil panen cabai. Tambahkan item hasil panen di Master Data.")
         return
 
     with st.form("form_penjualan_tempo"):
@@ -320,7 +347,13 @@ def _form_penjualan_tempo(period_id: int):
                 options=range(len(customers)),
                 format_func=lambda i: customers[i]["nama"],
             )
-            komoditas = st.selectbox("Komoditas", ["cabai", "selada", "melon", "umum"])
+            komoditas = "cabai"
+            st.text_input("Komoditas", value="Cabai", disabled=True)
+            item_panen_idx = st.selectbox(
+                "Persediaan Cabai yang Dijual",
+                range(len(items_panen)),
+                format_func=lambda i: f"{items_panen[i]['nama']} ({items_panen[i]['satuan']})",
+            )
         with kol2:
             jumlah_kg = st.number_input("Jumlah (kg)", min_value=0.1, step=0.1, value=1.0)
             harga_per_kg = st.number_input(
@@ -340,9 +373,29 @@ def _form_penjualan_tempo(period_id: int):
             st.error("Akun Piutang (1201) atau Akun Penjualan tidak ditemukan.")
             return
 
+        item_panen = items_panen[item_panen_idx]
+        if not item_panen.get("account_id"):
+            st.error("Item hasil panen belum dihubungkan ke akun persediaan.")
+            return
+        akun_hpp_id = _cari_akun_by_kode("5108")
+        if not akun_hpp_id:
+            st.error("Akun HPP Penjualan Cabai (5108) belum tersedia.")
+            return
+        try:
+            hasil_hpp = hitung_nilai_keluar(item_panen["id"], jumlah_kg)
+        except ValueError as e:
+            st.error(str(e))
+            return
+        total_hpp = int(hasil_hpp["total_keluar"])
+        if total_hpp <= 0:
+            st.error("Harga pokok persediaan belum tersedia. Periksa saldo awal atau harga pokok hasil panen.")
+            return
+
         baris = [
             {"account_id": akun_piutang_id, "debit": total, "kredit": 0},
             {"account_id": akun_jual_id, "debit": 0, "kredit": total},
+            {"account_id": akun_hpp_id, "debit": total_hpp, "kredit": 0},
+            {"account_id": item_panen["account_id"], "debit": 0, "kredit": total_hpp},
         ]
         st.session_state["pratinjau_baris"] = baris
         st.session_state["pratinjau_params"] = {
@@ -356,6 +409,8 @@ def _form_penjualan_tempo(period_id: int):
             "akun_piutang_id": akun_piutang_id,
             "akun_penjualan_id": akun_jual_id,
             "komoditas": komoditas,
+            "item_panen_id": item_panen["id"],
+            "hpp_estimasi": total_hpp,
         }
 
     if "pratinjau_baris" in st.session_state and st.session_state.get("pratinjau_params", {}).get("jenis") == "penjualan_tempo":
@@ -373,6 +428,7 @@ def _form_penjualan_tempo(period_id: int):
                     akun_piutang_id=p["akun_piutang_id"],
                     akun_penjualan_id=p["akun_penjualan_id"],
                     komoditas=p["komoditas"],
+                    item_panen_id=p["item_panen_id"], hpp_estimasi=p["hpp_estimasi"],
                 )
                 st.success(f"✅ Penjualan tempo ke **{p['pelanggan_nama']}** berhasil disimpan!")
                 _bersihkan_pratinjau()
@@ -797,7 +853,8 @@ def _form_pemakaian_bahan(period_id: int):
             )
             return
 
-        total_nilai = int(qty * saldo["harga_rata2"])
+        hasil_hpp = hitung_nilai_keluar(item["id"], qty)
+        total_nilai = int(hasil_hpp["total_keluar"])
 
         # Ambil akun persediaan dari account_id item (sesuai mapping di master data)
         # Jika item tidak punya account_id, fallback ke 1301
@@ -828,6 +885,7 @@ def _form_pemakaian_bahan(period_id: int):
             "qty": qty,
             "akun_beban_id": akun_beban_id,
             "akun_persediaan_id": akun_persediaan_id,
+            "hpp_estimasi": total_nilai,
             "blok_nama": blok_nama,
             "keterangan": keterangan,
         }
@@ -846,6 +904,7 @@ def _form_pemakaian_bahan(period_id: int):
                     akun_beban_id=p["akun_beban_id"],
                     akun_persediaan_id=p["akun_persediaan_id"],
                     blok_nama=p["blok_nama"], keterangan=p["keterangan"],
+                    hpp_estimasi=p["hpp_estimasi"],
                 )
                 st.success("✅ Pemakaian bahan berhasil dicatat!")
                 _bersihkan_pratinjau()

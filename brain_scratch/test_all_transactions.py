@@ -103,7 +103,7 @@ except Exception as e:
 print("\n=== TEST 2: Penjualan Tempo ===")
 try:
     akun_piutang = get_account_id("1201")
-    akun_jual = get_account_id("4102")
+    akun_jual = get_account_id("4101")
     customer_id = get_customer_id()
     result = ts.catat_penjualan_tempo(
         period_id=period_id,
@@ -113,11 +113,11 @@ try:
         harga_per_kg=55000,
         akun_piutang_id=akun_piutang,
         akun_penjualan_id=akun_jual,
-        komoditas="selada"
+        komoditas="cabai"
     )
-    print_ok(f"Penjualan tempo selada: {result}")
+    print_ok(f"Penjualan tempo cabai: {result}")
 except Exception as e:
-    print_fail("Penjualan tempo selada", e)
+    print_fail("Penjualan tempo cabai", e)
 
 # --- TEST 3: Beli Bahan Tunai ---
 print("\n=== TEST 3: Beli Bahan Tunai ===")

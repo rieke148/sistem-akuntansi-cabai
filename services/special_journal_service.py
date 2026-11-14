@@ -65,7 +65,12 @@ def ambil_jurnal_penjualan(period_id: int | None = None) -> pd.DataFrame:
                      THEN jl.debit  ELSE 0 END) AS piutang_d,
             -- Penjualan (K): kredit ke akun pendapatan (4xxx)
             SUM(CASE WHEN a.kode_akun LIKE '4%'  AND jl.kredit > 0
-                     THEN jl.kredit ELSE 0 END) AS penjualan_k
+                     THEN jl.kredit ELSE 0 END) AS penjualan_k,
+            -- HPP (D) dan Persediaan Cabai (K) dicatat bersamaan dengan penjualan.
+            SUM(CASE WHEN a.kode_akun = '5108' AND jl.debit > 0
+                     THEN jl.debit ELSE 0 END) AS hpp_d,
+            SUM(CASE WHEN a.kode_akun LIKE '13%' AND jl.kredit > 0
+                     THEN jl.kredit ELSE 0 END) AS persediaan_k
         FROM journal_entries je
         JOIN journal_lines jl ON je.id = jl.journal_entry_id
         JOIN accounts a ON jl.account_id = a.id
@@ -178,9 +183,15 @@ def ambil_jurnal_penerimaan_kas(period_id: int | None = None) -> pd.DataFrame:
             -- Penjualan (K): kredit ke akun pendapatan (4xxx)
             SUM(CASE WHEN a.kode_akun LIKE '4%'   AND jl.kredit > 0
                      THEN jl.kredit ELSE 0 END) AS penjualan_k,
-            -- Lain-lain (K): kredit ke akun selain piutang dan penjualan
+            -- HPP dan persediaan dipisahkan agar tidak dianggap sumber penerimaan kas.
+            SUM(CASE WHEN a.kode_akun = '5108' AND jl.debit > 0
+                     THEN jl.debit ELSE 0 END) AS hpp_d,
+            SUM(CASE WHEN a.kode_akun LIKE '13%' AND jl.kredit > 0
+                     THEN jl.kredit ELSE 0 END) AS persediaan_k,
+            -- Lain-lain tidak mencakup persediaan karena bukan sumber penerimaan kas.
             SUM(CASE WHEN a.kode_akun NOT LIKE '110%'
                           AND a.kode_akun NOT LIKE '12%'
+                          AND a.kode_akun NOT LIKE '13%'
                           AND a.kode_akun NOT LIKE '4%'
                           AND jl.kredit > 0
                      THEN jl.kredit ELSE 0 END) AS lain_lain_k

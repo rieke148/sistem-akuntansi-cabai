@@ -390,6 +390,61 @@ class TestLaporanKeuangan:
         # Penjualan 10jt
         assert data["total_pendapatan"] == 10000000
 
+    def test_hpp_muncul_dari_jurnal_umum_sampai_laporan_dan_jurnal_penutup(
+        self, mock_db, db_path
+    ):
+        """Akun HPP 5108 mengalir ke jurnal, NS, lajur, L/R, dan jurnal penutup."""
+        koneksi = sqlite3.connect(str(db_path))
+        koneksi.row_factory = sqlite3.Row
+        koneksi.execute(
+            "INSERT INTO accounts (id, kode_akun, nama_akun, kategori, saldo_normal) "
+            "VALUES (12, '5108', 'HPP Penjualan Cabai', 'Beban Produksi', 'Debit')"
+        )
+        koneksi.execute(
+            "INSERT INTO accounts (id, kode_akun, nama_akun, kategori, saldo_normal) "
+            "VALUES (13, '1307', 'Persediaan Hasil Panen', 'Aset', 'Debit')"
+        )
+        koneksi.executemany(
+            "INSERT INTO journal_lines (journal_entry_id, account_id, debit, kredit) "
+            "VALUES (1, ?, ?, ?)",
+            [(12, 2_000_000, 0), (13, 0, 2_000_000)],
+        )
+        koneksi.commit()
+        koneksi.close()
+
+        from services.journal_service import ambil_semua_jurnal
+        from services.trial_balance_service import hitung_neraca_saldo
+        from services.closing_service import preview_jurnal_penutup
+
+        # Jurnal Umum mengambil semua baris akun, termasuk akun HPP.
+        df_jurnal = ambil_semua_jurnal(period_id=1)
+        assert "5108" in df_jurnal["kode_akun"].tolist()
+
+        # Neraca Saldo menampilkan HPP sebagai akun beban bersaldo debit.
+        df_ns = hitung_neraca_saldo(1, termasuk_penyesuaian=True)
+        baris_ns = df_ns[df_ns["kode_akun"] == "5108"]
+        assert not baris_ns.empty
+        assert int(baris_ns.iloc[0]["debit"]) == 2_000_000
+
+        # Neraca Lajur mengarahkan HPP ke kolom Laba Rugi, bukan Neraca.
+        df_lajur = buat_neraca_lajur(1)
+        baris_lajur = df_lajur[df_lajur["kode_akun"] == "5108"].iloc[0]
+        assert int(baris_lajur["lr_debit"]) == 2_000_000
+        assert int(baris_lajur["neraca_debit"]) == 0
+
+        # Laporan Laba Rugi memisahkan HPP dari beban produksi lainnya.
+        data_lr = susun_laporan_laba_rugi(1)
+        assert data_lr["total_hpp_penjualan"] == 2_000_000
+        assert data_lr["total_beban_produksi_lain"] == 1_000_000
+        assert data_lr["laba_kotor"] == 8_000_000
+        assert data_lr["laba_bersih"] == 7_000_000
+
+        # Jurnal penutup mengkredit akun HPP saat menutup akun beban.
+        rencana = preview_jurnal_penutup(1, "2026-10-31")
+        jurnal_tutup_beban = next(j for j in rencana if j["no_bukti"].endswith("-2"))
+        akun_kredit = [baris["akun"] for baris in jurnal_tutup_beban["lines"] if baris["kredit"] > 0]
+        assert "5108" in akun_kredit
+
     def test_laba_rugi_total_beban(self, mock_db):
         """Total beban harus sesuai dengan jurnal penyesuaian."""
         data = susun_laporan_laba_rugi(1)

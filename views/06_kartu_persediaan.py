@@ -69,6 +69,7 @@ def _tampilkan_tabel_kartu(df: pd.DataFrame, satuan: str) -> None:
 
     # Format tipe gerakan
     df_tampil["tipe_gerakan"] = df_tampil["tipe_gerakan"].map({
+        "saldo_awal": "⚖ Saldo Awal",
         "masuk": "⬆ Masuk",
         "keluar": "⬇ Keluar",
     }).fillna(df_tampil["tipe_gerakan"])
@@ -131,7 +132,10 @@ def _tampilkan_grafik_saldo(df: pd.DataFrame, satuan: str) -> None:
 def tampilkan() -> None:
     """Fungsi utama halaman Kartu Persediaan."""
     st.title("📦 Kartu Persediaan")
-    st.caption("Riwayat gerakan masuk/keluar persediaan dengan saldo berjalan (metode rata-rata bergerak).")
+    st.caption(
+        "Persediaan dicatat dengan sistem perpetual dan metode rata-rata bergerak. "
+        "Setiap pembelian, pemakaian, panen, dan penjualan langsung memperbarui saldo stok."
+    )
 
     # Ambil data semua item
     semua_items = _ambil_daftar_items()
@@ -196,7 +200,7 @@ def tampilkan() -> None:
     if not df.empty:
         st.caption(
             f"Total **{len(df)} gerakan** tercatat untuk item ini. "
-            f"Metode penilaian: **Rata-Rata Bergerak (Moving Average)**."
+            f"Metode pencatatan: **Perpetual** | Penilaian: **Rata-Rata Bergerak (Moving Average)**."
         )
     _tampilkan_tabel_kartu(df, satuan)
 

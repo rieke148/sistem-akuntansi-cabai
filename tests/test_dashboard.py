@@ -61,8 +61,8 @@ def _buat_schema(koneksi: sqlite3.Connection) -> None:
             journal_type  TEXT NOT NULL
                 CHECK (journal_type IN ('penjualan','penerimaan_kas','pengeluaran_kas','pembelian','umum')),
             keterangan    TEXT,
-            komoditas     TEXT NOT NULL DEFAULT 'umum'
-                CHECK (komoditas IN ('cabai','selada','melon','umum')),
+            komoditas     TEXT NOT NULL DEFAULT 'cabai'
+                CHECK (komoditas IN ('cabai','umum')),
             pihak_terkait TEXT,
             dibuat_pada   TEXT DEFAULT (datetime('now'))
         );
@@ -113,7 +113,7 @@ def _buat_schema(koneksi: sqlite3.Connection) -> None:
             nama_item TEXT NOT NULL,
             satuan    TEXT NOT NULL,
             tipe      TEXT NOT NULL,
-            komoditas TEXT NOT NULL DEFAULT 'umum',
+            komoditas TEXT NOT NULL DEFAULT 'cabai',
             account_id INTEGER,
             aktif     INTEGER NOT NULL DEFAULT 1
         );
@@ -337,7 +337,7 @@ class TestRingkasanPenjualanBeban:
     def test_mengembalikan_dict(self, db):
         result = ambil_ringkasan_penjualan_beban(db)
         assert isinstance(result, dict)
-        for key in ["penjualan", "beban", "laba_kotor"]:
+        for key in ["penjualan", "hpp_penjualan", "beban", "beban_produksi_lain", "laba_kotor"]:
             assert key in result
 
     def test_penjualan_benar(self, db):
@@ -352,11 +352,46 @@ class TestRingkasanPenjualanBeban:
 
     def test_laba_kotor_benar(self, db):
         result = ambil_ringkasan_penjualan_beban(db)
-        assert result["laba_kotor"] == result["penjualan"] - result["beban"]
+        assert result["laba_kotor"] == result["penjualan"] - result["hpp_penjualan"]
+
+    def test_hpp_penjualan_dihitung_terpisah(self, db, tmp_path):
+        """HPP dipisahkan dari beban produksi lainnya untuk menghitung laba kotor."""
+        koneksi = sqlite3.connect(str(tmp_path / "test_dashboard.db"))
+        koneksi.execute(
+            "INSERT INTO accounts (kode_akun, nama_akun, kategori, saldo_normal) VALUES "
+            "('5108', 'HPP Penjualan Cabai', 'Beban Produksi', 'Debit')"
+        )
+        koneksi.execute(
+            "INSERT INTO accounts (kode_akun, nama_akun, kategori, saldo_normal) VALUES "
+            "('1307', 'Persediaan Hasil Panen', 'Aset', 'Debit')"
+        )
+        hpp_id = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun='5108'"
+        ).fetchone()[0]
+        persediaan_id = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun='1307'"
+        ).fetchone()[0]
+        entry_id = koneksi.execute(
+            "SELECT id FROM journal_entries WHERE no_bukti='PJ-001'"
+        ).fetchone()[0]
+        koneksi.executemany(
+            "INSERT INTO journal_lines (journal_entry_id, account_id, debit, kredit) VALUES (?,?,?,?)",
+            [(entry_id, hpp_id, 300_000, 0), (entry_id, persediaan_id, 0, 300_000)],
+        )
+        koneksi.commit()
+        koneksi.close()
+
+        result = ambil_ringkasan_penjualan_beban(db)
+        assert result["hpp_penjualan"] == 300_000
+        assert result["beban"] == 800_000
+        assert result["beban_produksi_lain"] == 500_000
+        assert result["laba_kotor"] == 4_700_000
+        assert result["laba_setelah_beban_produksi"] == 4_200_000
 
     def test_semua_nilai_integer(self, db):
         result = ambil_ringkasan_penjualan_beban(db)
-        for key in ["penjualan", "beban", "laba_kotor"]:
+        for key in ["penjualan", "hpp_penjualan", "beban", "beban_produksi_lain",
+                    "laba_kotor", "laba_setelah_beban_produksi"]:
             assert isinstance(result[key], int)
 
 
@@ -383,6 +418,34 @@ class TestAmbilStokPersediaan:
         result = ambil_stok_persediaan()
         assert result[0]["saldo_qty"] == 100
         assert result[0]["saldo_nilai"] == 500_000
+
+
+    def test_stok_dashboard_memilih_tanggal_terbaru_bukan_id_terbesar(self, db, tmp_path):
+        """Snapshot historis ber-ID besar tidak boleh menggantikan mutasi terbaru."""
+        koneksi = sqlite3.connect(str(tmp_path / "test_dashboard.db"))
+        koneksi.execute(
+            """
+            UPDATE inventory_movements
+            SET journal_entry_id=73, tanggal='2026-11-14',
+                saldo_qty=409.5, saldo_nilai=10_237_500, harga_rata2=25_000
+            WHERE item_id=1
+            """
+        )
+        koneksi.execute(
+            """
+            INSERT INTO inventory_movements
+                (id, item_id, tanggal, tipe_gerakan, qty, harga_satuan,
+                 total_nilai, saldo_qty, saldo_nilai, harga_rata2, keterangan)
+            VALUES (999, 1, '2026-10-01', 'saldo_awal', 3000, 25000,
+                    75000000, 3000, 75000000, 25000, 'Snapshot historis')
+            """
+        )
+        koneksi.commit()
+        koneksi.close()
+
+        hasil = ambil_stok_persediaan()
+        assert hasil[0]["saldo_qty"] == 409.5
+        assert hasil[0]["saldo_nilai"] == 10_237_500
 
 
 # ---------------------------------------------------------------------------
