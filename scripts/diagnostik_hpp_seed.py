@@ -14,7 +14,7 @@ import re
 from database.connection import PATH_DATABASE, get_connection
 
 
-POLA_QTY = re.compile(r"(\\d+(?:[.,]\\d+)?)\\s*kg\\s*@", re.IGNORECASE)
+POLA_QTY = re.compile(r"(\d+(?:[.,]\d+)?)\s*kg\s*@", re.IGNORECASE)
 
 
 def main() -> None:
