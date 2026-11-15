@@ -41,7 +41,7 @@ sistem-akuntansi-cabai/
 │   ├── 05_jurnal_khusus.py     # 4 Jurnal khusus format kolom akuntansi
 │   ├── 06_kartu_persediaan.py  # Kartu stok bahan & hasil panen cabai
 │   ├── 07_buku_besar.py        # Buku besar saldo berjalan per akun
-│   ├── 08_buku_besar_pembantu.py # BB pembantu piutang & umur piutang
+│   ├── 08_buku_besar_pembantu.py # BB pembantu piutang usaha & utang usaha
 │   ├── 09_neraca_saldo.py      # Neraca saldo sebelum penyesuaian
 │   ├── 10_ayat_penyesuaian.py  # Form & pembuatan ayat penyesuaian
 │   ├── 11_neraca_lajur.py      # Kertas kerja 10 kolom
