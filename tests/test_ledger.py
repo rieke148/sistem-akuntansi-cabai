@@ -15,7 +15,6 @@ Mencakup pengujian:
 """
 
 import sqlite3
-import pytest
 from unittest.mock import patch
 
 # ============================================================
@@ -538,9 +537,6 @@ class TestAmbilBbPiutang:
 
         assert df.empty
         conn.close()
-
-
-# ============================================================
 
 
 # ============================================================
