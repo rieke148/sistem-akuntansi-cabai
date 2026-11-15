@@ -29,7 +29,7 @@
         ▼
 [Posting Buku Besar & BB Pembantu]
   • Buku Besar Utama (services/ledger_service.py)
-  • BB Pembantu Piutang, Persediaan, Aset Tetap (services/subsidiary_service.py)
+  • BB Pembantu Piutang Usaha dan Utang Usaha (services/subsidiary_service.py)
         │
         ▼
 [Neraca Saldo Sebelum Penyesuaian] (services/trial_balance_service.py)
@@ -106,7 +106,7 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 
 ### Fase 4 — Buku Besar, BB Pembantu & Kartu Persediaan
 - **Buku Besar**: Menampilkan saldo berjalan per akun dengan saldo awal dan mutasi debit/kredit.
-- **BB Pembantu**: Rincian piutang per pelanggan (dilengkapi analisa umur piutang / aging), stok persediaan, dan buku pembantu aset tetap.
+- **BB Pembantu**: Rincian piutang usaha per pelanggan (dilengkapi analisis umur piutang / aging) dan utang usaha per supplier/transaksi. Kartu persediaan ditampilkan terpisah pada menu Kartu Persediaan; aset tetap dikelola melalui Master Data dan Ayat Penyesuaian.
 - **Kartu Persediaan**: Sistem perpetual dengan metode rata-rata bergerak (*moving average*). Pembelian, saldo awal, pemakaian bahan, panen, dan penjualan langsung memperbarui saldo kuantitas serta nilai.
 - **Saldo Awal Persediaan**: Kuantitas fisik dan harga pokok dimasukkan per item. Sistem mencatat mutasi `saldo_awal` dan menyelaraskan saldo akun persediaan pada `opening_balances`.
 - **Penjualan Cabai**: Setiap penjualan memeriksa ketersediaan stok dan membentuk dua pasangan jurnal: Kas/Piutang terhadap Penjualan, serta HPP Penjualan terhadap Persediaan Cabai.
