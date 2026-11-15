@@ -13,7 +13,7 @@ KONSEP BUKU BESAR PEMBANTU:
   BB Pembantu merupakan rincian (sub-ledger) dari akun kontrol di Buku Besar.
   - BB Piutang → rincian akun 1201 (Piutang Usaha) per pelanggan
   - BB Utang → rincian akun 2101 (Utang Usaha) per supplier/transaksi
-  Total rincian BB Pembantu direkonsiliasi dengan saldo akun kontrol di Buku Besar.
+  Rincian BB Pembantu digunakan untuk menelusuri saldo akun kontrol di Buku Besar.
 """
 
 import pandas as pd
