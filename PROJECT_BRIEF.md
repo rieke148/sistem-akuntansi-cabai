@@ -23,7 +23,7 @@ Bagian ini adalah peta arsitektur. Jangan mengubah struktur folder, nama tabel, 
         +--> Jurnal Umum (saldo awal, pemakaian bahan, penyesuaian, penutup)
         |
         v
-[Posting] -> Buku Besar (BB)  +  Buku Besar Pembantu (Piutang, Persediaan, Aset Tetap)
+[Posting] -> Buku Besar (BB)  +  Buku Besar Pembantu (Piutang Usaha dan Utang Usaha)
         |                          ^
         |                          +-- Kartu Persediaan (stok bahan & hasil panen)
         v
@@ -194,7 +194,7 @@ Bangun "Sistem Informasi Siklus Akuntansi" untuk usaha budidaya cabai rawit PT S
    - Cash Payment Journal: kolom Kas (K), Persediaan/Pembelian (D), Beban Upah (D), Beban lain (D), Lain-lain (D).
 6. Kartu Persediaan per item (masuk, keluar, saldo; metode rata-rata bergerak) untuk bahan; plus kartu stok hasil panen cabai (kg). Catatan: bahan dibeli sesuai kebutuhan, jadi saldo akhir bisa nol. Itu normal dan tetap ditampilkan benar.
 7. Buku Besar per akun (saldo berjalan), bisa filter periode.
-8. Buku Besar Pembantu: Piutang per pelanggan (dengan umur piutang/jatuh tempo), Persediaan per item, Aset Tetap (harga, akumulasi, nilai buku), Utang (kosong kalau tak ada).
+8. Buku Besar Pembantu: Piutang Usaha per pelanggan (dengan umur piutang/jatuh tempo) dan Utang Usaha per supplier/transaksi (kosong kalau tidak ada transaksi kredit). Kartu persediaan disajikan terpisah pada menu Kartu Persediaan; rincian aset tetap dikelola melalui Master Data dan Ayat Penyesuaian.
 9. Neraca Saldo (sebelum penyesuaian).
 10. Ayat Penyesuaian: penyusutan semua aset tetap (garis lurus), amortisasi plastik mulsa (1,5 th), akrual upah belum dibayar, bahan terpakai/stok opname, akrual listrik (jika belum dibayar), alokasi biaya bersama untuk kegiatan budidaya cabai. Tiap ayat bisa dilihat rumusnya.
 11. Neraca Lajur 10 kolom (NS, Penyesuaian, NS Disesuaikan, Laba Rugi, Neraca).
