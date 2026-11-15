@@ -44,7 +44,8 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
 
 5. **Buku Besar & Buku Besar Pembantu**:
    - Buku Besar utama saldo berjalan dengan filter periode.
-   - Buku Besar Pembantu Piutang (dengan analisis umur piutang / aging), Persediaan, dan Aset Tetap.
+   - Buku Besar Pembantu Piutang Usaha (analisis umur piutang / aging) dan Utang Usaha per supplier.
+   - Kartu persediaan tersedia terpisah pada menu Kartu Persediaan; data aset tetap tetap dikelola pada Master Data dan penyusutannya pada Ayat Penyesuaian.
 
 6. **Kartu Persediaan Perpetual — Moving Average**:
    - Pembelian, pemakaian bahan, panen, dan penjualan langsung memperbarui kuantitas serta nilai persediaan.
