@@ -51,6 +51,11 @@ MARKER_SALDO_AWAL_NOV = (
     "MIGRASI DATA CONTOH - saldo akhir Oktober 2026; "
     "laba/rugi Oktober ditutup ke laba ditahan"
 )
+NO_BUKTI_JURNAL_SALDO_AWAL = "MIG-HSL001-OPEN-20261001"
+KETERANGAN_JURNAL_SALDO_AWAL = (
+    "MIGRASI DATA CONTOH - saldo awal persediaan HSL-001 "
+    "3.000 kg @ Rp25.000/kg"
+)
 POLA_QTY = re.compile(r"(\d+(?:[.,]\d+)?)\s*kg\s*@", re.IGNORECASE)
 
 
@@ -90,6 +95,136 @@ def saldo_akun_jurnal(
     return int(row["debit"]), int(row["kredit"])
 
 
+def rencana_jurnal_saldo_awal_persediaan(
+    conn: sqlite3.Connection,
+    period_oktober_id: int,
+    akun_inv_id: int,
+    akun_modal_id: int,
+    saldo_awal_1307_sudah_ada: bool,
+) -> dict:
+    """
+    Memilih satu sumber saldo persediaan awal tanpa menimpa data lama.
+
+    Saldo awal yang sudah tercatat akan dipertahankan. Jika belum ada,
+    helper memeriksa jurnal pembukaan yang pernah dibuat agar tidak terjadi
+    duplikasi sebelum merencanakan jurnal baru.
+    """
+    marker = conn.execute(
+        """
+        SELECT id,period_id,tanggal,no_bukti
+        FROM journal_entries
+        WHERE no_bukti=?
+        """,
+        (NO_BUKTI_JURNAL_SALDO_AWAL,),
+    ).fetchone()
+
+    kandidat = conn.execute(
+        """
+        SELECT DISTINCT je.id,je.period_id,je.tanggal,je.no_bukti
+        FROM journal_entries je
+        JOIN journal_lines jl ON jl.journal_entry_id=je.id
+        WHERE je.period_id=? AND je.tanggal=? AND jl.account_id=?
+        ORDER BY je.id
+        """,
+        (period_oktober_id, TANGGAL_AWAL_OKTOBER, akun_inv_id),
+    ).fetchall()
+
+    def jurnal_valid(entry: sqlite3.Row) -> bool:
+        baris = conn.execute(
+            """
+            SELECT account_id,debit,kredit
+            FROM journal_lines
+            WHERE journal_entry_id=?
+            ORDER BY id
+            """,
+            (int(entry["id"]),),
+        ).fetchall()
+        nilai = sorted(
+            (
+                int(row["account_id"]),
+                int(row["debit"]),
+                int(row["kredit"]),
+            )
+            for row in baris
+        )
+        diharapkan = sorted([
+            (akun_inv_id, NILAI_AWAL, 0),
+            (akun_modal_id, 0, NILAI_AWAL),
+        ])
+        return (
+            int(entry["period_id"]) == period_oktober_id
+            and entry["tanggal"] == TANGGAL_AWAL_OKTOBER
+            and len(nilai) == 2
+            and nilai == diharapkan
+        )
+
+    if marker:
+        if not jurnal_valid(marker):
+            raise ValueError(
+                "Nomor bukti jurnal saldo awal persediaan sudah digunakan "
+                "untuk transaksi lain. Data tidak diubah."
+            )
+        if saldo_awal_1307_sudah_ada:
+            raise ValueError(
+                "Saldo persediaan 1307 sudah tercatat sekaligus melalui jurnal "
+                "pembukaan. Ada risiko penghitungan ganda; rekonsiliasi dahulu."
+            )
+        return {
+            "source": "jurnal_tersimpan",
+            "entry_id": int(marker["id"]),
+            "entry_to_insert": None,
+        }
+
+    jurnal_ekuivalen = [entry for entry in kandidat if jurnal_valid(entry)]
+    if len(jurnal_ekuivalen) > 1:
+        raise ValueError(
+            "Ditemukan lebih dari satu jurnal pembukaan persediaan yang setara. "
+            "Migrasi dihentikan agar tidak terjadi penghitungan ganda."
+        )
+    if jurnal_ekuivalen:
+        if saldo_awal_1307_sudah_ada:
+            raise ValueError(
+                "Saldo awal 1307 dan jurnal pembukaan ekuivalen sama-sama ada. "
+                "Rekonsiliasi dahulu sebelum migrasi."
+            )
+        return {
+            "source": "jurnal_tersimpan",
+            "entry_id": int(jurnal_ekuivalen[0]["id"]),
+            "entry_to_insert": None,
+        }
+
+    if saldo_awal_1307_sudah_ada:
+        return {
+            "source": "saldo_awal_tersimpan",
+            "entry_id": None,
+            "entry_to_insert": None,
+        }
+
+    if kandidat:
+        raise ValueError(
+            "Ada jurnal lain yang menyentuh akun persediaan 1307 pada "
+            "1 Oktober 2026, tetapi bukan jurnal pembukaan yang dapat dikenali. "
+            "Periksa transaksi tersebut agar saldo awal tidak bertumpuk."
+        )
+
+    return {
+        "source": "jurnal_baru",
+        "entry_id": None,
+        "entry_to_insert": {
+            "period_id": period_oktober_id,
+            "tanggal": TANGGAL_AWAL_OKTOBER,
+            "no_bukti": NO_BUKTI_JURNAL_SALDO_AWAL,
+            "journal_type": "umum",
+            "keterangan": KETERANGAN_JURNAL_SALDO_AWAL,
+            "komoditas": "cabai",
+            "pihak_terkait": None,
+            "akun_debit_id": akun_inv_id,
+            "akun_kredit_id": akun_modal_id,
+            "nilai": NILAI_AWAL,
+        },
+    }
+
+
 def parse_qty(teks: str, no_bukti: str) -> float:
     match = POLA_QTY.search(teks or "")
     if not match:
@@ -112,6 +247,7 @@ def hitung_saldo_awal_november(
     hpp_to_add: list[dict],
     legacy: list[dict],
     nilai_persediaan_awal_november: int,
+    jurnal_saldo_awal_baru: bool = False,
 ) -> dict:
     """
     Bentuk saldo awal November dari posisi akhir Oktober.
@@ -163,30 +299,6 @@ def hitung_saldo_awal_november(
         saldo[aid] = saldo.get(aid, 0) + int(row["saldo_debit"]) - int(row["saldo_kredit"])
 
     inv_opening_exists = any(int(r["account_id"]) == akun_inv_id for r in opening_rows)
-    opening_modal_adjustment = 0
-    if not inv_opening_exists:
-        # Database seed versi lama sudah memuat aset awal selain stok cabai,
-        # tetapi belum memuat akun 1307 dan belum memasukkan stok tersebut
-        # ke Modal Disetor. Tambahkan kedua sisi agar neraca pembukaan tetap
-        # seimbang. Jangan lakukan koreksi otomatis bila saldo dasar sendiri
-        # sudah tidak seimbang.
-        total_dasar_debit = sum(int(r["saldo_debit"]) for r in opening_rows)
-        total_dasar_kredit = sum(int(r["saldo_kredit"]) for r in opening_rows)
-        if total_dasar_debit != total_dasar_kredit:
-            raise ValueError(
-                "Saldo awal Oktober yang tersimpan sudah tidak seimbang "
-                "sebelum stok contoh ditambahkan: "
-                f"debit {total_dasar_debit:,}, kredit {total_dasar_kredit:,}. "
-                "Rekonsiliasi saldo awal secara manual."
-            )
-        if modal_id is None:
-            raise ValueError(
-                "Akun Modal Disetor (3101) tidak ditemukan; pasangan saldo awal "
-                "persediaan tidak dapat dibentuk dengan aman."
-            )
-        saldo[akun_inv_id] = saldo.get(akun_inv_id, 0) + NILAI_AWAL
-        saldo[modal_id] = saldo.get(modal_id, 0) - NILAI_AWAL
-        opening_modal_adjustment = NILAI_AWAL
 
     # Mutasi semua jurnal bertanggal Oktober, termasuk yang saat ini salah periode.
     journal_rows = conn.execute(
@@ -204,6 +316,14 @@ def hitung_saldo_awal_november(
         aid = int(row["account_id"])
         saldo[aid] = saldo.get(aid, 0) + int(row["debit"]) - int(row["kredit"])
 
+    # Simulasikan jurnal pembukaan yang direncanakan, tanpa menyimpan perubahan
+    # ke database selama pratinjau.
+    if jurnal_saldo_awal_baru:
+        if modal_id is None:
+            raise ValueError("Akun Modal Disetor (3101) tidak ditemukan.")
+        saldo[akun_inv_id] = saldo.get(akun_inv_id, 0) + NILAI_AWAL
+        saldo[modal_id] = saldo.get(modal_id, 0) - NILAI_AWAL
+
     # Masukkan pasangan jurnal HPP yang masih akan dibuat untuk penjualan Oktober.
     sale_by_id = {int(s["id"]): s for s in sales}
     for row in hpp_to_add:
@@ -220,17 +340,16 @@ def hitung_saldo_awal_november(
             saldo[akun_penjualan_id] = saldo.get(akun_penjualan_id, 0) - nilai_net_debit
             saldo[akun_lain_id] = saldo.get(akun_lain_id, 0) + nilai_net_debit
 
-    # Validasi saldo awal Oktober setelah saldo persediaan contoh ditambahkan.
+    # Saldo awal yang sudah tersimpan harus seimbang apa adanya.
+    # Jurnal pembukaan baru direncanakan terpisah sehingga baris saldo awal
+    # yang sudah ada tidak ditimpa atau ditambahkan ulang.
     total_opening_debit = sum(int(r["saldo_debit"]) for r in opening_rows)
     total_opening_kredit = sum(int(r["saldo_kredit"]) for r in opening_rows)
-    if not inv_opening_exists:
-        total_opening_debit += NILAI_AWAL
-        total_opening_kredit += opening_modal_adjustment
     if total_opening_debit != total_opening_kredit:
         raise ValueError(
-            "Saldo awal Oktober tidak seimbang setelah saldo persediaan contoh "
-            f"diperhitungkan: debit {total_opening_debit:,}, "
-            f"kredit {total_opening_kredit:,}. Rekonsiliasi dahulu."
+            "Saldo awal Oktober yang tersimpan tidak seimbang: "
+            f"debit {total_opening_debit:,}, kredit {total_opening_kredit:,}. "
+            "Data tidak diubah; rekonsiliasi dahulu."
         )
 
     # Pendapatan dan beban ditutup ke laba ditahan. Akun 3301 (jika digunakan)
@@ -317,7 +436,6 @@ def hitung_saldo_awal_november(
         "total_kredit": total_kredit,
         "laba_bersih_oktober": laba_bersih_oktober,
         "nilai_persediaan": nilai_buku_persediaan,
-        "opening_modal_adjustment": opening_modal_adjustment,
     }
 
 
@@ -780,6 +898,15 @@ def build_plan(conn: sqlite3.Connection) -> dict:
     ).fetchall()
     legacy = [dict(r) for r in legacy]
 
+    aid_modal = akun_id(conn, "3101")
+    opening_source = rencana_jurnal_saldo_awal_persediaan(
+        conn=conn,
+        period_oktober_id=pid_okt,
+        akun_inv_id=aid_inv,
+        akun_modal_id=aid_modal,
+        saldo_awal_1307_sudah_ada=ob is not None,
+    )
+
     saldo_nov = hitung_saldo_awal_november(
         conn=conn,
         period_oktober_id=pid_okt,
@@ -792,6 +919,7 @@ def build_plan(conn: sqlite3.Connection) -> dict:
         hpp_to_add=hpp_to_add,
         legacy=legacy,
         nilai_persediaan_awal_november=int(nov_opening_value),
+        jurnal_saldo_awal_baru=(opening_source["source"] == "jurnal_baru"),
     )
 
     return {
@@ -801,8 +929,8 @@ def build_plan(conn: sqlite3.Connection) -> dict:
         "period_november_label": periode_nov["nama_bulan"],
         "item_id": item_id,
         "akun_inv_id": aid_inv,
-        "akun_modal_id": akun_id(conn, "3101"),
-        "opening_modal_adjustment": saldo_nov["opening_modal_adjustment"],
+        "akun_modal_id": aid_modal,
+        "opening_source": opening_source,
         "akun_hpp_id": aid_hpp,
         "akun_lain_id": aid_lain,
         "opening_balance_exists": ob is not None,
@@ -858,14 +986,15 @@ def print_plan(plan: dict) -> None:
         "  Snapshot kartu: "
         + ("sudah ada" if plan["opening_movement_oktober_exists"] else "akan ditambahkan")
     )
-    print(
-        "  Saldo awal akun 1307: "
-        + ("sudah ada" if plan["opening_balance_exists"] else "akan ditambahkan")
-    )
-    if plan["opening_modal_adjustment"]:
+    sumber_saldo = plan["opening_source"]["source"]
+    if sumber_saldo == "saldo_awal_tersimpan":
+        print("  Saldo akun 1307: sudah tercatat; data lama dipertahankan")
+    elif sumber_saldo == "jurnal_tersimpan":
+        print("  Saldo akun 1307: sudah tercatat melalui jurnal; tidak digandakan")
+    else:
         print(
-            "  Kredit Modal Disetor (3101) yang akan ditambahkan: "
-            + rupiah(plan["opening_modal_adjustment"])
+            "  Saldo akun 1307: akan ditambahkan melalui satu jurnal pembukaan "
+            "(debit 1307 / kredit 3101)"
         )
     print()
     print("PENJUALAN CABAI DAN HPP:")
@@ -963,41 +1092,47 @@ def apply_plan(conn: sqlite3.Connection, plan: dict) -> None:
             (plan["period_november_id"], int(row["id"])),
         )
 
-    if not plan["opening_balance_exists"]:
-        conn.execute(
+    jurnal_baru = plan["opening_source"]["entry_to_insert"]
+    if jurnal_baru is not None:
+        cursor = conn.execute(
             """
-            INSERT INTO opening_balances
-                (period_id,account_id,saldo_debit,saldo_kredit,catatan)
-            VALUES (?,?,?,0,?)
+            INSERT INTO journal_entries
+                (period_id,tanggal,no_bukti,journal_type,keterangan,komoditas,pihak_terkait)
+            VALUES (?,?,?,?,?,?,?)
             """,
             (
-                plan["period_oktober_id"],
-                plan["akun_inv_id"],
-                NILAI_AWAL,
-                "CONTOH - 3.000 kg @ Rp25.000/kg; migrasi saldo awal perpetual",
+                jurnal_baru["period_id"],
+                jurnal_baru["tanggal"],
+                jurnal_baru["no_bukti"],
+                jurnal_baru["journal_type"],
+                jurnal_baru["keterangan"],
+                jurnal_baru["komoditas"],
+                jurnal_baru["pihak_terkait"],
             ),
         )
-
-    if plan["opening_modal_adjustment"]:
-        conn.execute(
+        entry_id = int(cursor.lastrowid)
+        conn.executemany(
             """
-            INSERT INTO opening_balances
-                (period_id,account_id,saldo_debit,saldo_kredit,catatan)
-            VALUES (?,?,0,?,?)
-            ON CONFLICT(period_id,account_id) DO UPDATE SET
-                saldo_kredit = opening_balances.saldo_kredit + excluded.saldo_kredit,
-                catatan = CASE
-                    WHEN COALESCE(opening_balances.catatan, '') = ''
-                    THEN excluded.catatan
-                    ELSE opening_balances.catatan || ' | ' || excluded.catatan
-                END
+            INSERT INTO journal_lines
+                (journal_entry_id,account_id,debit,kredit,keterangan)
+            VALUES (?,?,?,?,?)
             """,
-            (
-                plan["period_oktober_id"],
-                plan["akun_modal_id"],
-                plan["opening_modal_adjustment"],
-                "CONTOH - pasangan Modal Disetor untuk saldo awal persediaan 3.000 kg",
-            ),
+            [
+                (
+                    entry_id,
+                    jurnal_baru["akun_debit_id"],
+                    jurnal_baru["nilai"],
+                    0,
+                    "Saldo awal persediaan cabai 3.000 kg @ Rp25.000/kg",
+                ),
+                (
+                    entry_id,
+                    jurnal_baru["akun_kredit_id"],
+                    0,
+                    jurnal_baru["nilai"],
+                    "Pasangan modal untuk saldo awal persediaan cabai",
+                ),
+            ],
         )
 
     # Saldo awal November semua akun permanen, dihitung dari saldo akhir Oktober.
@@ -1147,6 +1282,10 @@ def main() -> None:
     print()
     print("MIGRASI SELESAI.")
     print(f"Jurnal HPP ditambahkan: {len(latest_plan['hpp_to_add'])}")
+    print(
+        "Jurnal pembukaan persediaan ditambahkan: "
+        + str(int(latest_plan["opening_source"]["entry_to_insert"] is not None))
+    )
     print(f"Mutasi kartu ditambahkan: {len(latest_plan['inserts'])}")
     print(
         "Saldo awal persediaan November: "
