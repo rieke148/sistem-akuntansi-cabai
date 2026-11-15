@@ -123,10 +123,10 @@ def rencana_jurnal_saldo_awal_persediaan(
         SELECT DISTINCT je.id,je.period_id,je.tanggal,je.no_bukti
         FROM journal_entries je
         JOIN journal_lines jl ON jl.journal_entry_id=je.id
-        WHERE je.period_id=? AND je.tanggal=? AND jl.account_id=?
+        WHERE je.tanggal=? AND jl.account_id=?
         ORDER BY je.id
         """,
-        (period_oktober_id, TANGGAL_AWAL_OKTOBER, akun_inv_id),
+        (TANGGAL_AWAL_OKTOBER, akun_inv_id),
     ).fetchall()
 
     def jurnal_valid(entry: sqlite3.Row) -> bool:
