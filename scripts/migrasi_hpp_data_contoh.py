@@ -298,8 +298,6 @@ def hitung_saldo_awal_november(
         aid = int(row["account_id"])
         saldo[aid] = saldo.get(aid, 0) + int(row["saldo_debit"]) - int(row["saldo_kredit"])
 
-    inv_opening_exists = any(int(r["account_id"]) == akun_inv_id for r in opening_rows)
-
     # Mutasi semua jurnal bertanggal Oktober, termasuk yang saat ini salah periode.
     journal_rows = conn.execute(
         """
