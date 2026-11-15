@@ -164,18 +164,13 @@ def rencana_jurnal_saldo_awal_persediaan(
                 "Nomor bukti jurnal saldo awal persediaan sudah digunakan "
                 "untuk transaksi lain. Data tidak diubah."
             )
-        if saldo_awal_1307_sudah_ada:
-            raise ValueError(
-                "Saldo persediaan 1307 sudah tercatat sekaligus melalui jurnal "
-                "pembukaan. Ada risiko penghitungan ganda; rekonsiliasi dahulu."
-            )
-        return {
-            "source": "jurnal_tersimpan",
-            "entry_id": int(marker["id"]),
-            "entry_to_insert": None,
-        }
 
     jurnal_ekuivalen = [entry for entry in kandidat if jurnal_valid(entry)]
+    if marker and len(jurnal_ekuivalen) == 0:
+        raise ValueError(
+            "Jurnal dengan nomor bukti migrasi tidak ditemukan pada daftar "
+            "jurnal pembukaan. Data tidak diubah."
+        )
     if len(jurnal_ekuivalen) > 1:
         raise ValueError(
             "Ditemukan lebih dari satu jurnal pembukaan persediaan yang setara. "
@@ -186,6 +181,11 @@ def rencana_jurnal_saldo_awal_persediaan(
             raise ValueError(
                 "Saldo awal 1307 dan jurnal pembukaan ekuivalen sama-sama ada. "
                 "Rekonsiliasi dahulu sebelum migrasi."
+            )
+        if marker and int(jurnal_ekuivalen[0]["id"]) != int(marker["id"]):
+            raise ValueError(
+                "Nomor bukti migrasi dan jurnal pembukaan ekuivalen tidak "
+                "merujuk pada transaksi yang sama. Rekonsiliasi dahulu."
             )
         return {
             "source": "jurnal_tersimpan",
