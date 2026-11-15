@@ -5,7 +5,9 @@ import pytest
 from scripts.migrasi_hpp_data_contoh import (
     MARKER_SALDO_AWAL_NOV,
     NILAI_AWAL,
+    NO_BUKTI_JURNAL_SALDO_AWAL,
     hitung_saldo_awal_november,
+    rencana_jurnal_saldo_awal_persediaan,
 )
 
 
@@ -29,7 +31,13 @@ def _buat_db_carry_forward():
         );
         CREATE TABLE journal_entries (
             id INTEGER PRIMARY KEY,
-            tanggal TEXT NOT NULL
+            period_id INTEGER NOT NULL,
+            tanggal TEXT NOT NULL,
+            no_bukti TEXT NOT NULL UNIQUE,
+            journal_type TEXT NOT NULL,
+            keterangan TEXT NOT NULL,
+            komoditas TEXT,
+            pihak_terkait TEXT
         );
         CREATE TABLE journal_lines (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,9 +67,9 @@ def _buat_db_carry_forward():
             (1, 4, 0, 1100, 'Modal awal Oktober');
 
         INSERT INTO journal_entries VALUES
-            (101, '2026-10-10'),
-            (102, '2026-10-15'),
-            (103, '2026-10-20');
+            (101, 1, '2026-10-10', 'J-101', 'umum', 'Penjualan cabai 4 kg @', 'cabai', NULL),
+            (102, 1, '2026-10-15', 'J-102', 'umum', 'Penjualan selada', 'umum', NULL),
+            (103, 1, '2026-10-20', 'J-103', 'umum', 'Beban operasional', 'cabai', NULL);
         INSERT INTO journal_lines
             (journal_entry_id, account_id, debit, kredit)
         VALUES
@@ -75,7 +83,11 @@ def _buat_db_carry_forward():
     return conn
 
 
-def _hitung(conn, nilai_persediaan_awal_november=900):
+def _hitung(
+    conn,
+    nilai_persediaan_awal_november=900,
+    jurnal_saldo_awal_baru=False,
+):
     return hitung_saldo_awal_november(
         conn=conn,
         period_oktober_id=1,
@@ -92,6 +104,7 @@ def _hitung(conn, nilai_persediaan_awal_november=900):
             "kredit": 40,
         }],
         nilai_persediaan_awal_november=nilai_persediaan_awal_november,
+        jurnal_saldo_awal_baru=jurnal_saldo_awal_baru,
     )
 
 
@@ -122,29 +135,164 @@ def test_saldo_awal_november_membawa_akun_permanen_dan_menutup_laba_rugi():
         conn.close()
 
 
-def test_saldo_awal_lama_menambahkan_persediaan_dan_modal_disetor_seimbang():
+def test_seed_lama_merencanakan_jurnal_tanpa_mengubah_saldo_awal_tersimpan():
     conn = _buat_db_carry_forward()
     try:
-        # Simulasikan seed lama: baris persediaan 1307 belum ada dan Modal
-        # Disetor baru sebesar saldo aset lama tanpa stok cabai.
         conn.execute("DELETE FROM opening_balances WHERE account_id=2")
         conn.execute(
             "UPDATE opening_balances SET saldo_kredit=100 WHERE account_id=4"
         )
 
+        saldo_sebelum = [
+            tuple(row)
+            for row in conn.execute(
+                """
+                SELECT account_id,saldo_debit,saldo_kredit
+                FROM opening_balances
+                WHERE period_id=1
+                ORDER BY account_id
+                """
+            ).fetchall()
+        ]
+
+        rencana = rencana_jurnal_saldo_awal_persediaan(
+            conn=conn,
+            period_oktober_id=1,
+            akun_inv_id=2,
+            akun_modal_id=4,
+            saldo_awal_1307_sudah_ada=False,
+        )
+        assert rencana["source"] == "jurnal_baru"
+        assert rencana["entry_to_insert"]["no_bukti"] == NO_BUKTI_JURNAL_SALDO_AWAL
+        assert rencana["entry_to_insert"]["nilai"] == NILAI_AWAL
+
         hasil = _hitung(
             conn,
             nilai_persediaan_awal_november=NILAI_AWAL - 100,
+            jurnal_saldo_awal_baru=True,
         )
         saldo = {
             row["account_id"]: (row["saldo_debit"], row["saldo_kredit"])
             for row in hasil["rows"]
         }
-
         assert saldo[2] == (NILAI_AWAL - 100, 0)
         assert saldo[4] == (0, NILAI_AWAL + 100)
-        assert hasil["opening_modal_adjustment"] == NILAI_AWAL
         assert hasil["total_debit"] == hasil["total_kredit"]
+
+        saldo_sesudah = [
+            tuple(row)
+            for row in conn.execute(
+                """
+                SELECT account_id,saldo_debit,saldo_kredit
+                FROM opening_balances
+                WHERE period_id=1
+                ORDER BY account_id
+                """
+            ).fetchall()
+        ]
+        assert saldo_sesudah == saldo_sebelum
+    finally:
+        conn.close()
+
+
+def test_saldo_awal_1307_yang_sudah_ada_tidak_membuat_jurnal_ganda():
+    conn = _buat_db_carry_forward()
+    try:
+        rencana = rencana_jurnal_saldo_awal_persediaan(
+            conn=conn,
+            period_oktober_id=1,
+            akun_inv_id=2,
+            akun_modal_id=4,
+            saldo_awal_1307_sudah_ada=True,
+        )
+        assert rencana["source"] == "saldo_awal_tersimpan"
+        assert rencana["entry_to_insert"] is None
+    finally:
+        conn.close()
+
+
+def test_jurnal_pembukaan_yang_sudah_ada_dikenali_dan_tidak_digandakan():
+    conn = _buat_db_carry_forward()
+    try:
+        conn.execute("DELETE FROM opening_balances WHERE account_id=2")
+        conn.execute(
+            """
+            INSERT INTO journal_entries
+                (id,period_id,tanggal,no_bukti,journal_type,keterangan,komoditas)
+            VALUES (104,1,'2026-10-01','J-OPEN-OLD','umum','Saldo awal stok cabai','cabai')
+            """
+        )
+        conn.executemany(
+            """
+            INSERT INTO journal_lines
+                (journal_entry_id,account_id,debit,kredit)
+            VALUES (?,?,?,?)
+            """,
+            [(104,2,NILAI_AWAL,0),(104,4,0,NILAI_AWAL)],
+        )
+        rencana = rencana_jurnal_saldo_awal_persediaan(
+            conn=conn,
+            period_oktober_id=1,
+            akun_inv_id=2,
+            akun_modal_id=4,
+            saldo_awal_1307_sudah_ada=False,
+        )
+        assert rencana["source"] == "jurnal_tersimpan"
+        assert rencana["entry_id"] == 104
+        assert rencana["entry_to_insert"] is None
+    finally:
+        conn.close()
+
+
+def test_jurnal_pembukaan_menolak_duplikasi_dengan_saldo_awal():
+    conn = _buat_db_carry_forward()
+    try:
+        conn.execute(
+            """
+            INSERT INTO journal_entries
+                (id,period_id,tanggal,no_bukti,journal_type,keterangan,komoditas)
+            VALUES (104,1,'2026-10-01','J-OPEN-OLD','umum','Saldo awal stok cabai','cabai')
+            """
+        )
+        conn.executemany(
+            """
+            INSERT INTO journal_lines
+                (journal_entry_id,account_id,debit,kredit)
+            VALUES (?,?,?,?)
+            """,
+            [(104,2,NILAI_AWAL,0),(104,4,0,NILAI_AWAL)],
+        )
+        with pytest.raises(ValueError, match="sama-sama ada"):
+            rencana_jurnal_saldo_awal_persediaan(
+                conn=conn,
+                period_oktober_id=1,
+                akun_inv_id=2,
+                akun_modal_id=4,
+                saldo_awal_1307_sudah_ada=True,
+            )
+    finally:
+        conn.close()
+
+
+def test_jurnal_pembukaan_menolak_nomor_bukti_yang_sudah_dipakai():
+    conn = _buat_db_carry_forward()
+    try:
+        conn.execute(
+            """
+            INSERT INTO journal_entries
+                (id,period_id,tanggal,no_bukti,journal_type,keterangan,komoditas)
+            VALUES (104,1,'2026-10-02',?,'umum','Transaksi lain','cabai')
+            """,
+            (NO_BUKTI_JURNAL_SALDO_AWAL,),
+        )
+        with pytest.raises(ValueError, match="sudah digunakan"):
+            rencana_jurnal_saldo_awal_persediaan(
+                conn=conn,
+                period_oktober_id=1,
+                akun_inv_id=2,
+                akun_modal_id=4,
+                saldo_awal_1307_sudah_ada=False,
+            )
     finally:
         conn.close()
 
