@@ -718,6 +718,7 @@ def build_plan(conn: sqlite3.Connection) -> dict:
                 updates.append({
                     "id": int(existing["id"]),
                     "tanggal": tanggal,
+                    "journal_entry_id": None,
                     "tipe_gerakan": "saldo_awal",
                     **payload,
                 })
@@ -747,6 +748,7 @@ def build_plan(conn: sqlite3.Connection) -> dict:
                 updates.append({
                     "id": mid,
                     "tanggal": m["tanggal"],
+                    "journal_entry_id": m["journal_entry_id"],
                     "tipe_gerakan": "masuk",
                     "qty": qty,
                     "harga_satuan": unit,
@@ -804,9 +806,23 @@ def build_plan(conn: sqlite3.Connection) -> dict:
             ),
         }
         if m is not None:
+            if (
+                not math.isclose(
+                    float(m["qty"]), qty_out, abs_tol=1e-9, rel_tol=0
+                )
+                or int(m["harga_satuan"]) != int(unit_before)
+                or int(m["total_nilai"]) != int(hpp)
+            ):
+                raise ValueError(
+                    f"Mutasi persediaan lama ID {m['id']} untuk "
+                    f"{sale['no_bukti']} memiliki kuantitas, harga satuan, "
+                    "atau nilai transaksi yang berbeda dari hasil hitung. "
+                    "Data lama tidak akan ditimpa; rekonsiliasi dahulu."
+                )
             updates.append({
                 "id": int(m["id"]),
                 "tanggal": m["tanggal"],
+                "journal_entry_id": m["journal_entry_id"],
                 "tipe_gerakan": "keluar",
                 **payload,
             })
@@ -978,7 +994,7 @@ def print_plan(plan: dict) -> None:
     )
     print()
     print("SALDO AWAL CONTOH PER 1 OKTOBER:")
-    print(f"  HSL-001: {QTY_AWAL:,.1f} kg @ {rupiah(HARGA_AWAL)}/kg".replace(",", "."))
+    print(f"  HSL-001: {QTY_AWAL:,.0f} kg @ {rupiah(HARGA_AWAL)}/kg".replace(",", "."))
     print(f"  Nilai: {rupiah(NILAI_AWAL)}")
     print(
         "  Snapshot kartu: "
@@ -1028,8 +1044,23 @@ def print_plan(plan: dict) -> None:
     print(f"  Kuantitas: {plan['ending_qty']:,.4f} kg".replace(",", "."))
     print(f"  Nilai: {rupiah(plan['ending_value'])}")
     print(f"  Rata-rata: {rupiah(plan['ending_avg'])}/kg")
-    print(f"  Mutasi diperbarui: {len(plan['updates'])}")
-    print(f"  Mutasi ditambahkan: {len(plan['inserts'])}")
+    print(f"  Mutasi lama yang saldo berjalannya dihitung ulang: {len(plan['updates'])}")
+    print(f"  Mutasi baru yang akan ditambahkan: {len(plan['inserts'])}")
+    if plan["updates"]:
+        print("  Rincian mutasi lama (data transaksi dipertahankan):")
+        for row in plan["updates"]:
+            print(
+                f"    ID {row['id']} | {row['tanggal']} | "
+                f"{row['tipe_gerakan']} | "
+                f"{row['qty']:g} kg @ {rupiah(row['harga_satuan'])} | "
+                f"nilai {rupiah(row['total_nilai'])} | "
+                f"saldo {row['saldo_qty']:g} kg / {rupiah(row['saldo_nilai'])}"
+            )
+    print(
+        "  Pengaman: kuantitas, harga satuan, dan nilai transaksi pada mutasi "
+        "lama tidak diubah. Jika data keluar berbeda dari hasil perhitungan, "
+        "pratinjau dihentikan untuk rekonsiliasi."
+    )
     print()
     print(
         f"ENTRI OKTOBER YANG DIPINDAHKAN KE {plan['period_oktober_label']}: "
