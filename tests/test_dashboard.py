@@ -350,6 +350,35 @@ class TestRingkasanPenjualanBeban:
         result = ambil_ringkasan_penjualan_beban(db)
         assert result["beban"] == 500_000
 
+    def test_pendapatan_lain_tidak_dihitung_sebagai_penjualan_cabai(self, db, tmp_path):
+        """Pendapatan lain-lain bukan penjualan cabai untuk KPI dashboard."""
+        koneksi = sqlite3.connect(str(tmp_path / "test_dashboard.db"))
+        koneksi.execute(
+            "INSERT INTO accounts (kode_akun, nama_akun, kategori, saldo_normal) "
+            "VALUES ('4901', 'Pendapatan Lain-lain', 'Pendapatan', 'Kredit')"
+        )
+        pendapatan_lain_id = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun='4901'"
+        ).fetchone()[0]
+        koneksi.execute(
+            """INSERT INTO journal_entries
+               (period_id, tanggal, no_bukti, journal_type, keterangan, komoditas)
+               VALUES (?, '2026-10-20', 'JU-4901', 'umum',
+                       'Pendapatan lain-lain', 'umum')""",
+            (db,),
+        )
+        entry_id = koneksi.execute("SELECT last_insert_rowid()").fetchone()[0]
+        koneksi.execute(
+            """INSERT INTO journal_lines
+               (journal_entry_id, account_id, debit, kredit) VALUES (?,?,?,?)""",
+            (entry_id, pendapatan_lain_id, 0, 9_000_000),
+        )
+        koneksi.commit()
+        koneksi.close()
+
+        result = ambil_ringkasan_penjualan_beban(db)
+        assert result["penjualan"] == 5_000_000
+
     def test_laba_kotor_benar(self, db):
         result = ambil_ringkasan_penjualan_beban(db)
         assert result["laba_kotor"] == result["penjualan"] - result["hpp_penjualan"]
