@@ -48,9 +48,9 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
    - Kartu persediaan tersedia terpisah pada menu Kartu Persediaan; data aset tetap tetap dikelola pada Master Data dan penyusutannya pada Ayat Penyesuaian.
 
 6. **Kartu Persediaan Perpetual — Moving Average**:
-   - Enam jenis bahan produksi memakai satu akun GL: **1301 — Persediaan Bahan Produksi**. Persediaan hasil panen memakai akun tersendiri: **1307 — Persediaan Cabai**. Kartu stok tetap terpisah per item agar satuan dan harga pokok masing-masing tidak tercampur.
+   - Seluruh item bahan produksi dan hasil panen memakai satu akun GL: **1140 — Persediaan**. Kartu stok tetap terpisah per item agar satuan, kuantitas, dan harga pokok masing-masing tidak tercampur.
    - Pembelian, pemakaian bahan, panen, dan penjualan langsung memperbarui kuantitas serta nilai persediaan.
-   - Penjualan tunai dan tempo otomatis membentuk jurnal HPP Penjualan Cabai (Dr 5108) / Persediaan Cabai (Cr akun persediaan item).
+   - Penjualan tunai dan tempo otomatis membentuk jurnal Harga Pokok Penjualan (Dr 5110) / Persediaan (Cr 1140).
    - HPP dihitung dengan rata-rata bergerak. Penjualan yang melebihi stok yang tersedia ditolak.
    - Saldo awal dimasukkan per item (kuantitas fisik × harga pokok per satuan) melalui Master Data → Saldo Awal Persediaan.
 
