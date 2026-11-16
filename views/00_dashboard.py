@@ -35,11 +35,11 @@ def _tampilkan_metrik_utama(period_id: int) -> None:
     kol1, kol2, kol3, kol4, kol5 = st.columns(5)
     with kol1:
         st.metric(
-            label="💵 Total Kas & Bank",
+            label="💵 Total Kas",
             value=format_rupiah(kas_bank["total"]),
-            delta=f"Kas {format_rupiah(kas_bank['kas'])} | Bank {format_rupiah(kas_bank['bank'])}",
+            delta=f"Kas 1110: {format_rupiah(kas_bank['kas'])}",
             delta_color="off",
-            help="Saldo Kas Tunai (1101) + Bank BRI (1102) periode ini",
+            help="Saldo akun Kas (1110) pada periode ini",
         )
     with kol2:
         jml_overdue = len(overdue)
