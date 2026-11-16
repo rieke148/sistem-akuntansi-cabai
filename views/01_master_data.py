@@ -475,7 +475,7 @@ def _tab_pekerja() -> None:
                 upah_default = upah_tetap if tipe == "tetap" else upah_tambahan
                 upah = st.number_input("Upah Harian (Rp) *", min_value=1,
                                        value=upah_default, step=5000)
-                 if st.form_submit_button("💾 Simpan", use_container_width=True):
+                if st.form_submit_button("💾 Simpan", use_container_width=True):
                     try:
                         svc.tambah_pekerja(nama, tipe, upah, "cabai")
                         st.success(f"Pekerja '{nama}' berhasil ditambahkan!")
