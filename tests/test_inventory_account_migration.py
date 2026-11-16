@@ -56,6 +56,10 @@ def _database_lama(tmp_path, monkeypatch):
             tipe TEXT NOT NULL,
             account_id INTEGER REFERENCES accounts(id)
         );
+        CREATE TABLE inventory_movements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_id INTEGER NOT NULL REFERENCES items(id)
+        );
 
         INSERT INTO accounts
             (id, kode_akun, nama_akun, kategori, saldo_normal)
@@ -98,6 +102,9 @@ def _database_lama(tmp_path, monkeypatch):
             (5, 'BHN-005', 'Plastik mulsa', 'roll', 'bahan', 5),
             (6, 'BHN-006', 'Bambu', 'batang', 'bahan', 6),
             (7, 'HSL-001', 'Cabai', 'kg', 'hasil_panen', 7);
+
+        INSERT INTO inventory_movements (item_id)
+        VALUES (1), (2), (3), (4), (5), (6), (7);
     """)
     koneksi.commit()
     koneksi.close()
@@ -155,6 +162,12 @@ def test_migrasi_menyatukan_enam_akun_bahan_dan_mempertahankan_cabai(tmp_path, m
     assert [r["kode_akun"] for r in item] == [
         "1301", "1301", "1301", "1301", "1301", "1301", "1307"
     ]
+
+    # Pergerakan stok tiap item tidak boleh hilang atau digabung menjadi satu.
+    mutasi = koneksi.execute(
+        "SELECT item_id FROM inventory_movements ORDER BY item_id"
+    ).fetchall()
+    assert [r["item_id"] for r in mutasi] == [1, 2, 3, 4, 5, 6, 7]
     assert koneksi.execute("PRAGMA foreign_key_check").fetchall() == []
     koneksi.close()
 

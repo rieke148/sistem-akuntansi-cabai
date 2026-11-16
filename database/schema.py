@@ -332,9 +332,9 @@ def buat_semua_tabel() -> None:
 
 
 def _gabungkan_saldo_awal_akun(
-    koneksi: sqlite3.Connection, account_id_lama: int, account_id_cabai: int
+    koneksi: sqlite3.Connection, account_id_lama: int, account_id_tujuan: int
 ) -> None:
-    """Gabungkan saldo awal akun lama ke akun penjualan cabai tanpa kehilangan nilai."""
+    """Gabungkan saldo awal akun lama ke akun tujuan tanpa kehilangan nilai."""
     rows = koneksi.execute(
         "SELECT id, period_id, saldo_debit, saldo_kredit, catatan "
         "FROM opening_balances WHERE account_id = ?",
@@ -345,7 +345,7 @@ def _gabungkan_saldo_awal_akun(
         tujuan = koneksi.execute(
             "SELECT id, saldo_debit, saldo_kredit, catatan "
             "FROM opening_balances WHERE period_id = ? AND account_id = ?",
-            (row["period_id"], account_id_cabai),
+            (row["period_id"], account_id_tujuan),
         ).fetchone()
 
         if tujuan:
@@ -366,7 +366,7 @@ def _gabungkan_saldo_awal_akun(
         else:
             koneksi.execute(
                 "UPDATE opening_balances SET account_id = ? WHERE id = ?",
-                (account_id_cabai, row["id"]),
+                (account_id_tujuan, row["id"]),
             )
 
 
