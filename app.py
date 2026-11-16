@@ -20,7 +20,6 @@ from database.connection import db_sudah_ada
 from database.schema import (
     buat_semua_tabel,
     migrasikan_komoditas_cabai_saja,
-    migrasikan_akun_persediaan_bahan_produksi,
     migrasikan_coa_cabai_baru,
     pastikan_akun_hpp_penjualan_tersedia,
 )
@@ -85,7 +84,7 @@ def inisialisasi_database() -> bool:
     # Langkah 1: Buat semua tabel (aman jika sudah ada — IF NOT EXISTS)
     buat_semua_tabel()
     migrasikan_komoditas_cabai_saja()
-    migrasikan_akun_persediaan_bahan_produksi()
+    # Migrasi tunggal ini mencakup pemetaan semua kode akun lama ke COA CSV terbaru.
     migrasikan_coa_cabai_baru()
 
     # Pastikan periode dasar (2025-2027) tersedia
