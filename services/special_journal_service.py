@@ -253,7 +253,7 @@ def ambil_jurnal_pengeluaran_kas(period_id: int | None = None) -> pd.DataFrame:
             -- Beban Gaji (D): debit ke akun Beban Gaji (6110)
             SUM(CASE WHEN a.kode_akun = '6110'    AND jl.debit  > 0
                      THEN jl.debit  ELSE 0 END) AS beban_upah_d,
-            -- HPP (D): debit ke beban produksi selain upah (5102-5107)
+            -- HPP (D): debit ke akun Harga Pokok Penjualan (5110)
             SUM(CASE WHEN a.kode_akun = '5110'
                           AND jl.debit > 0
                      THEN jl.debit ELSE 0 END) AS beban_produksi_d,
