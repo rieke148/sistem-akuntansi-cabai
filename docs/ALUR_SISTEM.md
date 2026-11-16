@@ -59,7 +59,7 @@
         │
         ▼
 [Dashboard, Backup & Export]       (views/00_dashboard.py, views/14_backup_export.py)
-  • Dashboard Visual: Saldo Kas, Piutang Jatuh Tempo, Stok, Grafik Per Komoditas & Beban
+  • Dashboard Visual: Saldo Kas, Piutang Jatuh Tempo, Stok, Grafik Tren Penjualan Cabai & Penjualan vs Beban
   • Backup Database (.db) & Export Multi-Sheet Excel (.xlsx) / PDF (.pdf)
 ```
 
