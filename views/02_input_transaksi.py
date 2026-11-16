@@ -68,12 +68,12 @@ def _ambil_items(tipe: str | None = None):
     koneksi = get_connection()
     if tipe:
         rows = koneksi.execute(
-            "SELECT id, nama_item AS nama, satuan, account_id FROM items WHERE tipe = ? AND aktif = 1 ORDER BY nama_item",
+            "SELECT id, kode_item, nama_item AS nama, satuan, account_id FROM items WHERE tipe = ? AND aktif = 1 ORDER BY nama_item",
             (tipe,)
         ).fetchall()
     else:
         rows = koneksi.execute(
-            "SELECT id, nama_item AS nama, satuan, tipe, account_id FROM items WHERE aktif = 1 ORDER BY nama_item"
+            "SELECT id, kode_item, nama_item AS nama, satuan, tipe, account_id FROM items WHERE aktif = 1 ORDER BY nama_item"
         ).fetchall()
     koneksi.close()
     return [dict(r) for r in rows]
@@ -120,7 +120,7 @@ def _cari_akun_penjualan(komoditas: str) -> int | None:
     """Mengembalikan akun pendapatan untuk penjualan cabai."""
     if komoditas != "cabai":
         return None
-    return _cari_akun_by_kode("4101")
+    return _cari_akun_by_kode("4110")
 
 
 def _bersihkan_pratinjau():
@@ -246,7 +246,7 @@ def _form_penjualan_tunai(period_id: int):
             st.error("Nama pelanggan wajib diisi.")
             return
 
-        akun_kas_id = _cari_akun_by_kode("1101")
+        akun_kas_id = _cari_akun_by_kode("1110")
         # Gunakan akun penjualan cabai
         akun_jual_id = _cari_akun_penjualan(komoditas)
 
@@ -259,9 +259,9 @@ def _form_penjualan_tunai(period_id: int):
         if not item_panen.get("account_id"):
             st.error("Item hasil panen belum dihubungkan ke akun persediaan.")
             return
-        akun_hpp_id = _cari_akun_by_kode("5108")
+        akun_hpp_id = _cari_akun_by_kode("5110")
         if not akun_hpp_id:
-            st.error("Akun HPP Penjualan Cabai (5108) belum tersedia.")
+            st.error("Akun Harga Pokok Penjualan (5110) belum tersedia.")
             return
         try:
             hasil_hpp = hitung_nilai_keluar(item_panen["id"], jumlah_kg)
@@ -366,7 +366,7 @@ def _form_penjualan_tempo(period_id: int):
 
     if pratinjau_btn:
         customer = customers[customer_idx]
-        akun_piutang_id = _cari_akun_by_kode("1201")
+        akun_piutang_id = _cari_akun_by_kode("1120")
         akun_jual_id = _cari_akun_penjualan(komoditas)
 
         if not akun_piutang_id or not akun_jual_id:
@@ -530,7 +530,7 @@ def _form_setoran_modal(period_id: int):
 
     if pratinjau_btn:
         akun_kas_id = _cari_akun_by_kode("1101")
-        akun_modal_id = _cari_akun_by_kode("3101")
+        akun_modal_id = _cari_akun_by_kode("3110")
 
         baris = [
             {"account_id": akun_kas_id, "debit": jumlah, "kredit": 0},
@@ -607,7 +607,7 @@ def _form_beli_bahan_tunai(period_id: int):
             qty = st.number_input("Kuantitas", min_value=0.1, step=0.1, value=1.0)
             harga_satuan = st.number_input("Harga Satuan (Rp)", min_value=1000, step=500, value=10000)
 
-            st.caption("Akun otomatis: 1301 - Persediaan Bahan Produksi")
+            st.caption("Akun otomatis: 1140 - Persediaan")
 
         keterangan = st.text_input("Keterangan", placeholder="(opsional)")
         total = int(qty * harga_satuan)
@@ -722,7 +722,7 @@ def _form_beli_kredit(period_id: int):
             )
             return
 
-        akun_utang_id = _cari_akun_by_kode("2101")
+        akun_utang_id = _cari_akun_by_kode("2110")
 
         baris = [
             {"account_id": akun_persediaan_id, "debit": total, "kredit": 0},
@@ -801,15 +801,15 @@ def _form_pemakaian_bahan(period_id: int):
                 blok_nama = st.text_input("Blok Lahan", placeholder="Nama blok")
         with kol2:
             qty = st.number_input("Kuantitas Pakai", min_value=0.1, step=0.1, value=1.0)
-            if akun_beban_opts:
-                akun_beban_idx = st.selectbox(
-                    "Akun Beban",
-                    range(len(akun_beban_opts)),
-                    format_func=lambda i: f"{akun_beban_opts[i]['kode_akun']} - {akun_beban_opts[i]['nama_akun']}",
-                )
-                akun_beban_id = akun_beban_opts[akun_beban_idx]["id"]
+            kode_item_dipilih = items_bahan[item_idx]["kode_item"]
+            # Mulsa dipindahkan ke Perlengkapan (1130); bahan produksi lain
+            # dibebankan ke Harga Pokok Penjualan (5110).
+            kode_akun_pemakaian = "1130" if kode_item_dipilih == "BHN-005" else "5110"
+            akun_beban_id = _cari_akun_by_kode(kode_akun_pemakaian)
+            if kode_akun_pemakaian == "1130":
+                st.caption("Akun otomatis: Perlengkapan (1130) — pemakaian plastik mulsa")
             else:
-                akun_beban_id = None
+                st.caption("Akun otomatis: Harga Pokok Penjualan (5110)")
 
         keterangan = st.text_input("Keterangan", placeholder="(opsional)")
         st.caption("ℹ️ Nilai jurnal dihitung otomatis dari harga rata-rata persediaan.")
@@ -817,7 +817,7 @@ def _form_pemakaian_bahan(period_id: int):
 
     if pratinjau_btn:
         if not akun_beban_id:
-            st.error("Pilih akun beban produksi.")
+            st.error("Akun pemakaian item belum tersedia. Periksa COA 1130 atau 5110.")
             return
 
         item = items_bahan[item_idx]
@@ -843,7 +843,7 @@ def _form_pemakaian_bahan(period_id: int):
         total_nilai = int(hasil_hpp["total_keluar"])
 
         # Ambil akun persediaan dari account_id item (sesuai mapping di master data)
-        # Jika item tidak punya account_id, fallback ke 1301
+        # Jika item tidak punya account_id, fallback ke 1140
         koneksi_tmp = get_connection()
         row_item = koneksi_tmp.execute(
             "SELECT account_id FROM items WHERE id=?", (item["id"],)
@@ -916,8 +916,8 @@ def _form_catat_panen(period_id: int):
         return
 
     # Akun persediaan panen (kode 130x, khusus hasil panen)
-    # 1307 = Persediaan Cabai Rawit (kg) — akun khusus hasil panen
-    akun_panen_opts = [a for a in _ambil_akun("Aset") if a["kode_akun"].startswith("130")]
+    # 1140 = Persediaan — digunakan oleh bahan dan hasil panen
+    akun_panen_opts = [a for a in _ambil_akun("Aset") if a["kode_akun"] == "1140"]
 
     with st.form("form_panen"):
         kol1, kol2 = st.columns(2)
@@ -963,10 +963,10 @@ def _form_catat_panen(period_id: int):
             return
 
         item = items_panen[item_idx]
-        # Akun lawan panen: Beban Bahan Produksi Lain (5104)
+        # Akun lawan panen: Harga Pokok Penjualan (5110)
         # sesuai brief: Panen → Dr Persediaan Hasil / Kr Beban Pokok Produksi
-        # Gunakan 5104 (Beban Bahan Produksi Lain) sebagai akun HPP panen
-        akun_hpp_id = _cari_akun_by_kode("5104") or _cari_akun_by_kode("5101")
+        # Gunakan 5110 (Harga Pokok Penjualan) sebagai akun lawan panen
+        akun_hpp_id = _cari_akun_by_kode("5110")
 
         if not akun_hpp_id:
             st.error("Akun Beban Produksi tidak ditemukan. Periksa master data.")
@@ -1024,11 +1024,11 @@ def _form_biaya_operasional(period_id: int):
 
     # Mapping jenis biaya ke kode akun (sesuai COA)
     JENIS_BIAYA = {
-        "Listrik": "6101",           # Beban Listrik
-        "BBM Pengiriman": "6102",    # Beban BBM Pengiriman
-        "BBM Operasional": "6103",   # Beban BBM Operasional
-        "Sewa Traktor": "6104",      # Beban Sewa Traktor (bukan 5106!)
-        "Upah Tenaga Kerja": "5105", # Beban Upah Langsung (bukan 5101/Bibit)
+        "Listrik": "6130",           # Beban Listrik
+        "BBM Pengiriman": "6140",    # Beban BBM Pengiriman
+        "BBM Operasional": "6150",   # Beban BBM Operasional
+        "Sewa Traktor": "6120",      # Beban Sewa Traktor (bukan 5106!)
+        "Upah Tenaga Kerja": "6110", # Beban Upah Langsung (bukan 5101/Bibit)
         "Lainnya": None,
     }
 
@@ -1113,9 +1113,9 @@ def _form_pembelian_aset(period_id: int):
     # Tidak termasuk akun kontra (kode berakhir 'K')
     akun_aset_opts = [
         a for a in _ambil_akun("Aset")
-        if (a["kode_akun"].startswith("14") or a["kode_akun"].startswith("15"))
+        if a["kode_akun"] in ("1210", "1220", "1230", "1240", "1250")
         and not a["kode_akun"].endswith("K")
-        and not a["kode_akun"].startswith("16")  # 16xx = perlengkapan mulsa
+        
     ]
 
     with st.form("form_beli_aset"):
