@@ -377,7 +377,7 @@ def _form_penjualan_tempo(period_id: int):
         if not item_panen.get("account_id"):
             st.error("Item hasil panen belum dihubungkan ke akun persediaan.")
             return
-        akun_hpp_id = _cari_akun_by_kode("5108")
+        akun_hpp_id = _cari_akun_by_kode("5110")
         if not akun_hpp_id:
             st.error("Akun HPP Penjualan Cabai (5108) belum tersedia.")
             return
@@ -472,8 +472,8 @@ def _form_terima_piutang(period_id: int):
         pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
 
     if pratinjau_btn:
-        akun_kas_id = _cari_akun_by_kode("1101")
-        akun_piutang_id = _cari_akun_by_kode("1201")
+        akun_kas_id = _cari_akun_by_kode("1110")
+        akun_piutang_id = _cari_akun_by_kode("1120")
         baris_piutang = df_piutang.iloc[piutang_idx]
 
         baris = [
@@ -529,7 +529,7 @@ def _form_setoran_modal(period_id: int):
         pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
 
     if pratinjau_btn:
-        akun_kas_id = _cari_akun_by_kode("1101")
+        akun_kas_id = _cari_akun_by_kode("1110")
         akun_modal_id = _cari_akun_by_kode("3110")
 
         baris = [
@@ -624,7 +624,7 @@ def _form_beli_bahan_tunai(period_id: int):
             )
             return
 
-        akun_kas_id = _cari_akun_by_kode("1101")
+        akun_kas_id = _cari_akun_by_kode("1110")
 
         baris = [
             {"account_id": akun_persediaan_id, "debit": total, "kredit": 0},
@@ -852,7 +852,7 @@ def _form_pemakaian_bahan(period_id: int):
         if row_item and row_item["account_id"]:
             akun_persediaan_id = row_item["account_id"]
         else:
-            akun_persediaan_id = _cari_akun_by_kode("1301")  # fallback
+            akun_persediaan_id = _cari_akun_by_kode("1140")  # fallback
 
         if not akun_persediaan_id:
             st.error("Akun persediaan tidak ditemukan. Periksa master data item.")
@@ -915,7 +915,7 @@ def _form_catat_panen(period_id: int):
         st.warning("Belum ada data item hasil panen. Tambahkan di Master Data > Item.")
         return
 
-    # Akun persediaan panen (kode 130x, khusus hasil panen)
+    # Akun persediaan bahan dan hasil panen sama-sama 1140.
     # 1140 = Persediaan — digunakan oleh bahan dan hasil panen
     akun_panen_opts = [a for a in _ambil_akun("Aset") if a["kode_akun"] == "1140"]
 
@@ -1061,7 +1061,7 @@ def _form_biaya_operasional(period_id: int):
             st.error("Akun beban tidak ditemukan. Periksa master data COA.")
             return
 
-        akun_kas_id = _cari_akun_by_kode("1101")
+        akun_kas_id = _cari_akun_by_kode("1110")
 
         baris = [
             {"account_id": akun_beban_id, "debit": jumlah, "kredit": 0},
@@ -1109,13 +1109,12 @@ def _form_pembelian_aset(period_id: int):
     """Form pembelian aset tetap secara tunai."""
     st.subheader("🏗️ Pembelian Aset Tetap")
 
-    # Akun aset tetap: kode 14xx (perlengkapan) dan 15xx (aset tetap besar)
+    # Akun aset tetap sesuai COA: 1210 dan 1220–1250.
     # Tidak termasuk akun kontra (kode berakhir 'K')
     akun_aset_opts = [
         a for a in _ambil_akun("Aset")
         if a["kode_akun"] in ("1210", "1220", "1230", "1240", "1250")
-        and not a["kode_akun"].endswith("K")
-        
+
     ]
 
     with st.form("form_beli_aset"):
@@ -1147,7 +1146,7 @@ def _form_pembelian_aset(period_id: int):
             st.error("Pilih akun aset tetap.")
             return
 
-        akun_kas_id = _cari_akun_by_kode("1101")
+        akun_kas_id = _cari_akun_by_kode("1110")
 
         baris = [
             {"account_id": akun_aset_id, "debit": jumlah, "kredit": 0},
