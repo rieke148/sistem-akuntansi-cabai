@@ -790,7 +790,7 @@ def migrasikan_coa_cabai_baru() -> None:
                     """
                     UPDATE accounts
                     SET nama_akun = ?, kategori = ?, saldo_normal = ?,
-                        is_kontra = ?, aktif = 1
+                        is_kontra = ?
                     WHERE id = ?
                     """,
                     (nama, kategori, saldo_normal, is_kontra, akun_id),
