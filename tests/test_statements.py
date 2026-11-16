@@ -102,9 +102,9 @@ def _isi_data_contoh(koneksi: sqlite3.Connection) -> None:
     """
     Mengisi data contoh minimal untuk pengujian:
     - 1 periode
-    - Akun: Kas, Piutang, Modal Disetor, Laba Ditahan, Ikhtisar L/R,
+    - Akun: Kas, Piutang, Modal Pribadi, Laba, Ikhtisar L/R,
             Penjualan, Beban Upah, Beban Penyusutan
-    - Opening balance: Kas 500jt (D), Modal Disetor 500jt (K)
+    - Opening balance: Kas 500jt (D), Modal Pribadi 500jt (K)
     - Jurnal biasa: penjualan Rp10jt tunai
     - Jurnal penyesuaian (PA-): penyusutan Rp1jt
     """
@@ -116,8 +116,8 @@ def _isi_data_contoh(koneksi: sqlite3.Connection) -> None:
             (3,  '1250', 'Peralatan',              'Aset',              'Debit'),
             (4,  '1251','Akumulasi Penyusutan',   'Aset',              'Kredit'),
             (5,  '2110', 'Utang Usaha',            'Liabilitas',        'Kredit'),
-            (6,  '3110', 'Modal Disetor',          'Ekuitas',           'Kredit'),
-            (7,  '3120', 'Laba Ditahan',           'Ekuitas',           'Kredit'),
+            (6,  '3110', 'Modal Pribadi',          'Ekuitas',           'Kredit'),
+            (7,  '3120', 'Laba',           'Ekuitas',           'Kredit'),
             (8,  '3130', 'Ikhtisar Laba Rugi',     'Ekuitas',           'Debit'),
             (9,  '4110', 'Penjualan',              'Pendapatan',        'Kredit'),
             (10, '6160', 'Beban Penyusutan',       'Beban Operasional', 'Debit'),
@@ -127,10 +127,10 @@ def _isi_data_contoh(koneksi: sqlite3.Connection) -> None:
         INSERT INTO periods (id, tahun, bulan, nama_bulan, status) VALUES
             (1, 2026, 10, 'Oktober', 'buka');
 
-        -- Saldo awal: Kas 500jt (D), Modal Disetor 500jt (K)
+        -- Saldo awal: Kas 500jt (D), Modal Pribadi 500jt (K)
         INSERT INTO opening_balances (period_id, account_id, saldo_debit, saldo_kredit) VALUES
             (1, 1, 500000000, 0),    -- Kas 500jt debit
-            (1, 6, 0, 500000000);   -- Modal Disetor 500jt kredit
+            (1, 6, 0, 500000000);   -- Modal Pribadi 500jt kredit
 
         -- Jurnal biasa: penjualan tunai Rp10jt
         INSERT INTO journal_entries (id, period_id, tanggal, no_bukti, journal_type, keterangan)
@@ -467,7 +467,7 @@ class TestLaporanKeuangan:
     def test_perubahan_ekuitas_modal_awal(self, mock_db):
         """Modal awal harus diambil dari opening_balances."""
         data = susun_laporan_perubahan_ekuitas(1, laba_bersih=9000000)
-        # Modal Disetor 500jt dari opening_balances
+        # Modal Pribadi 500jt dari opening_balances
         assert data["modal_disetor_awal"] == 500000000
 
     def test_perubahan_ekuitas_modal_akhir(self, mock_db):
@@ -545,7 +545,7 @@ class TestJurnalPenutup:
         assert "6160" in kode_kredit  # Beban Penyusutan di-kredit
 
     def test_preview_jurnal_3_pindah_laba(self, mock_db):
-        """Jurnal ketiga: Dr Ikhtisar L/R | Cr Laba Ditahan (saat laba)."""
+        """Jurnal ketiga: Dr Ikhtisar L/R | Cr Laba (saat laba)."""
         rencana = preview_jurnal_penutup(1, "2026-10-31")
         j3 = rencana[2]
         assert "JP-1-3" in j3["no_bukti"]
@@ -553,7 +553,7 @@ class TestJurnalPenutup:
         kode_debit = [l["akun"] for l in lines if l["debit"] > 0]
         kode_kredit = [l["akun"] for l in lines if l["kredit"] > 0]
         assert "3130" in kode_debit  # Ikhtisar L/R di-debit (tutup)
-        assert "3120" in kode_kredit  # Laba Ditahan di-kredit
+        assert "3120" in kode_kredit  # Laba di-kredit
 
     def test_jurnal_penutup_seimbang(self, mock_db):
         """Setiap jurnal penutup harus seimbang (debit == kredit)."""
