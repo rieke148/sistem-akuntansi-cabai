@@ -64,7 +64,7 @@ Setiap transaksi yang diinput pengguna dipetakan ke pasangan akun debit dan kred
 - **Penjualan Tunai**: Kas (D) / Penjualan (K), sekaligus HPP Penjualan Cabai (D) / Persediaan (1140) (K).
 - **Penjualan Tempo**: Piutang Usaha (D) / Penjualan (K), sekaligus HPP Penjualan Cabai (D) / Persediaan (1140) (K) + otomatis membuat entri di tabel `receivables` dengan jatuh tempo 7 hari.
 - **Terima Pelunasan Piutang**: Kas (D) / Piutang Usaha (K) + update sisa piutang di `receivables`.
-- **Setoran Modal**: Kas (D) / Modal Disetor (K).
+- **Setoran Modal**: Kas (1110) (D) / Modal Pribadi (3110) (K).
 - **Pembelian Tunai**: Persediaan (D) / Kas (K).
 - **Pembelian Kredit**: Persediaan (D) / Utang Usaha (K).
 - **Pemakaian Bahan**: Beban Bahan Produksi (D) / Persediaan (K).
@@ -124,7 +124,7 @@ Kertas kerja 10 kolom menghubungkan seluruh proses dari neraca saldo hingga lapo
 3. **Neraca Saldo Disesuaikan (Kolom 5-6)**:
    - Akun Debit Normal: $\text{NS Debit} + \text{Peny Debit} - \text{Peny Kredit}$
    - Akun Kredit Normal: $\text{NS Kredit} + \text{Peny Kredit} - \text{Peny Debit}$
-4. **Laba Rugi (Kolom 7-8)**: Akun nominal Pendapatan (4), Beban Produksi (5), Beban Operasional (6).
+4. **Laba Rugi (Kolom 7-8)**: Akun nominal Pendapatan (4xxx), HPP (5xxx), Beban Operasional (6xxx), dan Beban Lainnya (7xxx).
 5. **Neraca (Kolom 9-10)**: Akun riil Aset (1), Liabilitas (2), Ekuitas (3).
 - **Validasi Keseimbangan**:
   $$\text{Laba Bersih} = \sum \text{Kredit L/R} - \sum \text{Debit L/R}$$
@@ -134,7 +134,7 @@ Kertas kerja 10 kolom menghubungkan seluruh proses dari neraca saldo hingga lapo
 
 ### F. Laporan Keuangan (`services/statements_service.py`)
 1. **Laporan Laba Rugi**:
-   $$\text{Laba Bersih} = \text{Total Pendapatan} - (\text{Total Beban Produksi} + \text{Total Beban Operasional})$$
+   $\text{Laba Bersih} = \text{Penjualan Cabai} - \text{HPP} - \text{Beban Operasional} - \text{Beban Lain-lain}$
 2. **Laporan Perubahan Ekuitas**:
    $$\text{Modal Akhir} = \text{Modal Awal} + \text{Tambahan Setoran Modal} + \text{Laba Bersih}$$
 3. **Neraca (Bentuk Laporan)**:
@@ -152,7 +152,7 @@ Kertas kerja 10 kolom menghubungkan seluruh proses dari neraca saldo hingga lapo
 ### G. Jurnal Penutup & Penguncian Periode (`services/closing_service.py`)
 1. Menutup semua akun Pendapatan ke akun Ikhtisar Laba Rugi (3130).
 2. Menutup semua akun Beban ke akun Ikhtisar Laba Rugi (3130).
-3. Menutup saldo Ikhtisar Laba Rugi ke akun Laba Ditahan (3120).
+3. Menutup saldo Ikhtisar Laba Rugi (3130) ke akun Laba (3120).
 4. Mengubah status periode di database menjadi `tutup`.
 5. **Neraca Saldo Setelah Penutup**: Hanya memuat akun permanen (Aset, Liabilitas, Ekuitas); saldo seluruh akun pendapatan dan beban bernilai 0.
 
