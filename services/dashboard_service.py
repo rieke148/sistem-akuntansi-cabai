@@ -119,10 +119,10 @@ def ambil_ringkasan_penjualan_beban(period_id: int) -> dict[str, int]:
                           AND je.journal_type IN ('penjualan', 'penerimaan_kas')
                           AND jl.kredit > 0
                      THEN jl.kredit ELSE 0 END) AS penjualan,
-            SUM(CASE WHEN a.kode_akun LIKE '5%' AND jl.debit > 0
-                     THEN jl.debit ELSE 0 END) AS beban,
-            SUM(CASE WHEN a.kode_akun = '5110' AND jl.debit > 0
-                     THEN jl.debit ELSE 0 END) AS hpp_penjualan
+            SUM(CASE WHEN a.kode_akun LIKE '5%'
+                     THEN jl.debit - jl.kredit ELSE 0 END) AS beban,
+            SUM(CASE WHEN a.kode_akun = '5110'
+                     THEN jl.debit - jl.kredit ELSE 0 END) AS hpp_penjualan
         FROM journal_lines jl
         JOIN journal_entries je ON jl.journal_entry_id = je.id
         JOIN accounts a ON jl.account_id = a.id
