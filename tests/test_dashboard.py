@@ -20,7 +20,7 @@ from services.dashboard_service import (
     ambil_stok_persediaan,
     ambil_ringkasan_jurnal,
     cek_progress_siklus,
-    ambil_penjualan_per_komoditas,
+    ambil_tren_penjualan_cabai,
     ambil_period_id_aktif,
     ambil_info_periode,
 )
@@ -504,28 +504,77 @@ class TestCekProgressSiklus:
 
 
 # ---------------------------------------------------------------------------
-# TEST: ambil_penjualan_per_komoditas
+# TEST: ambil_tren_penjualan_cabai
 # ---------------------------------------------------------------------------
 
-class TestAmbilPenjualanPerKomoditas:
-    def test_mengembalikan_dataframe(self, db):
+class TestAmbilTrenPenjualanCabai:
+    def test_mengembalikan_dataframe_dengan_kolom_yang_benar(self, db):
         import pandas as pd
-        result = ambil_penjualan_per_komoditas(db)
+
+        result = ambil_tren_penjualan_cabai(db)
         assert isinstance(result, pd.DataFrame)
+        assert list(result.columns) == ["tanggal", "penjualan"]
 
-    def test_kolom_ada(self, db):
-        result = ambil_penjualan_per_komoditas(db)
-        if not result.empty:
-            assert "komoditas" in result.columns
-            assert "penjualan" in result.columns
+    def test_menggabungkan_penjualan_tunai_dan_tempo(self, db, tmp_path):
+        """Grafik harus memuat penjualan tunai dan tempo pada akun 4101."""
+        koneksi = sqlite3.connect(str(tmp_path / "test_dashboard.db"))
+        kas_id = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun='1101'"
+        ).fetchone()[0]
+        penjualan_id = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun='4101'"
+        ).fetchone()[0]
+        koneksi.execute(
+            """INSERT INTO journal_entries
+               (period_id, tanggal, no_bukti, journal_type, keterangan, komoditas)
+               VALUES (?, '2026-10-15', 'KM-003', 'penerimaan_kas',
+                       'Penjualan cabai tunai', 'cabai')""",
+            (db,),
+        )
+        entry_id = koneksi.execute("SELECT last_insert_rowid()").fetchone()[0]
+        koneksi.executemany(
+            """INSERT INTO journal_lines
+               (journal_entry_id, account_id, debit, kredit) VALUES (?,?,?,?)""",
+            [(entry_id, kas_id, 1_000_000, 0),
+             (entry_id, penjualan_id, 0, 1_000_000)],
+        )
+        koneksi.commit()
+        koneksi.close()
 
-    def test_penjualan_cabai(self, db):
-        result = ambil_penjualan_per_komoditas(db)
-        assert not result.empty
-        cabai_row = result[result["komoditas"] == "cabai"]
-        assert not cabai_row.empty
-        # 2jt + 3jt penjualan cabai
-        assert int(cabai_row["penjualan"].iloc[0]) == 5_000_000
+        result = ambil_tren_penjualan_cabai(db)
+        assert int(result["penjualan"].sum()) == 6_000_000
+        assert "2026-10-15" in result["tanggal"].tolist()
+
+    def test_jurnal_umum_bukan_penjualan_cabai(self, db, tmp_path):
+        """Entri bertanda umum tidak boleh ikut masuk ke grafik penjualan."""
+        koneksi = sqlite3.connect(str(tmp_path / "test_dashboard.db"))
+        penjualan_id = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun='4101'"
+        ).fetchone()[0]
+        koneksi.execute(
+            """INSERT INTO journal_entries
+               (period_id, tanggal, no_bukti, journal_type, keterangan, komoditas)
+               VALUES (?, '2026-10-20', 'JU-999', 'umum',
+                       'Jurnal umum nonpenjualan', 'umum')""",
+            (db,),
+        )
+        entry_id = koneksi.execute("SELECT last_insert_rowid()").fetchone()[0]
+        koneksi.execute(
+            """INSERT INTO journal_lines
+               (journal_entry_id, account_id, debit, kredit) VALUES (?,?,?,?)""",
+            (entry_id, penjualan_id, 0, 9_000_000),
+        )
+        koneksi.commit()
+        koneksi.close()
+
+        result = ambil_tren_penjualan_cabai(db)
+        assert int(result["penjualan"].sum()) == 5_000_000
+        assert "2026-10-20" not in result["tanggal"].tolist()
+
+    def test_periode_tanpa_penjualan_mengembalikan_dataframe_kosong(self, db):
+        result = ambil_tren_penjualan_cabai(999)
+        assert result.empty
+        assert list(result.columns) == ["tanggal", "penjualan"]
 
 
 # ---------------------------------------------------------------------------
