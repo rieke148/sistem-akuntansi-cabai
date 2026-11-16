@@ -183,7 +183,7 @@ def _tab_amortisasi(period_id: int, tanggal_penyesuaian: str, akun_ids: dict) ->
     st.subheader("🌿 Amortisasi Plastik Mulsa")
     st.caption(
         "Plastik mulsa digunakan selama 1,5 tahun (18 bulan). "
-        "Amortisasi = Total Harga ÷ 18 bulan."
+        "Nilainya dikurangi langsung dari Perlengkapan (1130)."
     )
 
     # Parameter amortisasi (bisa diubah user)
@@ -274,7 +274,7 @@ def _tab_akrual_upah(period_id: int, tanggal_penyesuaian: str, akun_ids: dict) -
     st.subheader("👷 Akrual Upah Belum Dibayar")
     st.caption(
         "Jika ada upah pekerja yang belum dibayar di akhir bulan, catat sebagai Utang Gaji. "
-        "Dr Beban Upah | Cr Utang Gaji"
+        "Dr Beban Gaji (6110) | Cr Utang Gaji (2210)"
     )
 
     st.info(
