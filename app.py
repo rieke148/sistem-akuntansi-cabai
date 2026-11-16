@@ -20,6 +20,7 @@ from database.connection import db_sudah_ada
 from database.schema import (
     buat_semua_tabel,
     migrasikan_komoditas_cabai_saja,
+    migrasikan_akun_persediaan_bahan_produksi,
     pastikan_akun_hpp_penjualan_tersedia,
 )
 from database.seed import jalankan_seed
@@ -83,6 +84,7 @@ def inisialisasi_database() -> bool:
     # Langkah 1: Buat semua tabel (aman jika sudah ada — IF NOT EXISTS)
     buat_semua_tabel()
     migrasikan_komoditas_cabai_saja()
+    migrasikan_akun_persediaan_bahan_produksi()
 
     # Pastikan periode dasar (2025-2027) tersedia
     from services.period_service import pastikan_periode_dasar_tersedia

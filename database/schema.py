@@ -586,6 +586,126 @@ def migrasikan_komoditas_cabai_saja() -> None:
 
 
 
+def migrasikan_akun_persediaan_bahan_produksi() -> None:
+    """
+    Menyatukan akun persediaan bahan lama (1301-1306) ke akun 1301.
+
+    Semua item bertipe 'bahan' diarahkan ke 1301 - Persediaan Bahan Produksi,
+    sedangkan item 'hasil_panen' diarahkan ke 1307 - Persediaan Cabai.
+    Baris jurnal dan saldo awal lama dipindahkan tanpa mengubah nilainya.
+    Kartu stok per item tidak digabung.
+    """
+    koneksi = get_connection()
+    try:
+        koneksi.execute("PRAGMA foreign_keys = OFF")
+        koneksi.execute("BEGIN IMMEDIATE")
+
+        kode_terkait = ("1301", "1302", "1303", "1304", "1305", "1306", "1307")
+        placeholders = ", ".join("?" for _ in kode_terkait)
+        akun_tersedia = koneksi.execute(
+            f"SELECT kode_akun FROM accounts WHERE kode_akun IN ({placeholders})",
+            kode_terkait,
+        ).fetchall()
+
+        # Database baru belum memiliki akun; biarkan seed membuat COA lengkap.
+        if not akun_tersedia:
+            koneksi.commit()
+            return
+
+        def pastikan_akun(kode: str, nama: str) -> int:
+            row = koneksi.execute(
+                "SELECT id FROM accounts WHERE kode_akun = ?", (kode,)
+            ).fetchone()
+            if row:
+                account_id = int(row["id"])
+                koneksi.execute(
+                    """
+                    UPDATE accounts
+                    SET nama_akun = ?, kategori = 'Aset',
+                        saldo_normal = 'Debit', is_kontra = 0, aktif = 1
+                    WHERE id = ?
+                    """,
+                    (nama, account_id),
+                )
+                return account_id
+
+            cursor = koneksi.execute(
+                """
+                INSERT INTO accounts
+                    (kode_akun, nama_akun, kategori, saldo_normal, is_kontra, aktif)
+                VALUES (?, ?, 'Aset', 'Debit', 0, 1)
+                """,
+                (kode, nama),
+            )
+            return int(cursor.lastrowid)
+
+        akun_bahan_id = pastikan_akun("1301", "Persediaan Bahan Produksi")
+        akun_cabai_id = pastikan_akun("1307", "Persediaan Cabai")
+
+        akun_lama = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun IN ('1302', '1303', '1304', '1305', '1306')"
+        ).fetchall()
+
+        tabel_rows = koneksi.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+        ).fetchall()
+
+        for akun in akun_lama:
+            account_id_lama = int(akun["id"])
+
+            # Pindahkan seluruh foreign key yang menunjuk akun lama. Saldo awal
+            # digabungkan per periode agar tidak bentrok dengan UNIQUE(period, account).
+            for tabel_row in tabel_rows:
+                nama_tabel = tabel_row["name"]
+                foreign_keys = koneksi.execute(
+                    f'PRAGMA foreign_key_list("{nama_tabel}")'
+                ).fetchall()
+
+                for fk in foreign_keys:
+                    if fk["table"] != "accounts":
+                        continue
+
+                    nama_kolom = fk["from"]
+                    if nama_tabel == "opening_balances" and nama_kolom == "account_id":
+                        _gabungkan_saldo_awal_akun(
+                            koneksi, account_id_lama, akun_bahan_id
+                        )
+                    else:
+                        koneksi.execute(
+                            f'UPDATE "{nama_tabel}" SET "{nama_kolom}" = ? '
+                            f'WHERE "{nama_kolom}" = ?',
+                            (akun_bahan_id, account_id_lama),
+                        )
+
+            koneksi.execute("DELETE FROM accounts WHERE id = ?", (account_id_lama,))
+
+        # Kunci pemetaan untuk item baru maupun item lama yang pernah salah akun.
+        koneksi.execute(
+            "UPDATE items SET account_id = ? WHERE tipe = 'bahan'",
+            (akun_bahan_id,),
+        )
+        koneksi.execute(
+            "UPDATE items SET account_id = ? WHERE tipe = 'hasil_panen'",
+            (akun_cabai_id,),
+        )
+
+        pelanggaran_fk = koneksi.execute("PRAGMA foreign_key_check").fetchall()
+        if pelanggaran_fk:
+            raise RuntimeError(
+                "Migrasi akun persediaan menemukan relasi database yang tidak valid. "
+                "Tidak ada perubahan yang disimpan."
+            )
+
+        koneksi.commit()
+    except Exception:
+        koneksi.rollback()
+        raise
+    finally:
+        koneksi.execute("PRAGMA foreign_keys = ON")
+        koneksi.close()
+
+
 def pastikan_akun_hpp_penjualan_tersedia() -> None:
     """
     Memastikan akun HPP Penjualan Cabai tersedia pada database lama maupun baru.

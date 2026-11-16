@@ -302,6 +302,28 @@ def ambil_semua_item() -> pd.DataFrame:
     """)
 
 
+def _ambil_id_akun_persediaan_otomatis(tipe: str) -> int:
+    """Mengunci akun persediaan berdasarkan tipe item."""
+    kode_akun = {"bahan": "1301", "hasil_panen": "1307"}.get(tipe)
+    if not kode_akun:
+        raise ValueError("Tipe item persediaan tidak dikenal.")
+
+    koneksi = get_connection()
+    try:
+        row = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun = ? AND aktif = 1",
+            (kode_akun,),
+        ).fetchone()
+    finally:
+        koneksi.close()
+
+    if not row:
+        raise ValueError(
+            f"Akun persediaan {kode_akun} belum tersedia. Periksa Bagan Akun."
+        )
+    return int(row["id"])
+
+
 def tambah_item(
     kode_item: str,
     nama_item: str,
@@ -314,6 +336,7 @@ def tambah_item(
         raise ValueError("Kode item tidak boleh kosong.")
     if not nama_item.strip():
         raise ValueError("Nama item tidak boleh kosong.")
+    account_id = _ambil_id_akun_persediaan_otomatis(tipe)
     _eksekusi(
         "INSERT INTO items (kode_item, nama_item, satuan, tipe, komoditas, account_id) "
         "VALUES (?, ?, ?, ?, ?, ?)",
@@ -330,6 +353,7 @@ def ubah_item(
     account_id: int | None,
     aktif: bool,
 ) -> None:
+    account_id = _ambil_id_akun_persediaan_otomatis(tipe)
     _eksekusi(
         "UPDATE items SET nama_item=?, satuan=?, tipe=?, komoditas=?, account_id=?, aktif=? "
         "WHERE id=?",

@@ -583,10 +583,6 @@ def _form_beli_bahan_tunai(period_id: int):
         st.warning("Belum ada data item bahan. Tambahkan di Master Data > Item.")
         return
 
-    # Map nama akun persediaan per item
-    akun_persediaan_opts = _ambil_akun("Aset")
-    akun_persediaan_opts = [a for a in akun_persediaan_opts if a["kode_akun"].startswith("13")]
-
     with st.form("form_beli_tunai"):
         kol1, kol2 = st.columns(2)
         with kol1:
@@ -611,15 +607,7 @@ def _form_beli_bahan_tunai(period_id: int):
             qty = st.number_input("Kuantitas", min_value=0.1, step=0.1, value=1.0)
             harga_satuan = st.number_input("Harga Satuan (Rp)", min_value=1000, step=500, value=10000)
 
-            if akun_persediaan_opts:
-                akun_persediaan_idx = st.selectbox(
-                    "Akun Persediaan",
-                    range(len(akun_persediaan_opts)),
-                    format_func=lambda i: f"{akun_persediaan_opts[i]['kode_akun']} - {akun_persediaan_opts[i]['nama_akun']}",
-                )
-                akun_persediaan_id = akun_persediaan_opts[akun_persediaan_idx]["id"]
-            else:
-                akun_persediaan_id = None
+            st.caption("Akun otomatis: 1301 - Persediaan Bahan Produksi")
 
         keterangan = st.text_input("Keterangan", placeholder="(opsional)")
         total = int(qty * harga_satuan)
@@ -627,12 +615,16 @@ def _form_beli_bahan_tunai(period_id: int):
         pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
 
     if pratinjau_btn:
+        item = items_bahan[item_idx]
+        akun_persediaan_id = item.get("account_id")
         if not akun_persediaan_id:
-            st.error("Akun persediaan tidak ditemukan.")
+            st.error(
+                "Item belum terhubung ke akun 1301 - Persediaan Bahan Produksi. "
+                "Periksa Master Data > Item."
+            )
             return
 
         akun_kas_id = _cari_akun_by_kode("1101")
-        item = items_bahan[item_idx]
 
         baris = [
             {"account_id": akun_persediaan_id, "debit": total, "kredit": 0},
@@ -690,8 +682,6 @@ def _form_beli_kredit(period_id: int):
         st.warning("Belum ada data item bahan.")
         return
 
-    akun_persediaan_opts = [a for a in _ambil_akun("Aset") if a["kode_akun"].startswith("13")]
-
     with st.form("form_beli_kredit"):
         kol1, kol2 = st.columns(2)
         with kol1:
@@ -715,15 +705,7 @@ def _form_beli_kredit(period_id: int):
             qty = st.number_input("Kuantitas", min_value=0.1, step=0.1, value=1.0)
             harga_satuan = st.number_input("Harga Satuan (Rp)", min_value=1000, step=500, value=10000)
 
-            if akun_persediaan_opts:
-                akun_persediaan_idx = st.selectbox(
-                    "Akun Persediaan",
-                    range(len(akun_persediaan_opts)),
-                    format_func=lambda i: f"{akun_persediaan_opts[i]['kode_akun']} - {akun_persediaan_opts[i]['nama_akun']}",
-                )
-                akun_persediaan_id = akun_persediaan_opts[akun_persediaan_idx]["id"]
-            else:
-                akun_persediaan_id = None
+            st.caption("Akun otomatis: 1301 - Persediaan Bahan Produksi")
 
         keterangan = st.text_input("Keterangan", placeholder="(opsional)")
         total = int(qty * harga_satuan)
@@ -731,12 +713,16 @@ def _form_beli_kredit(period_id: int):
         pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
 
     if pratinjau_btn:
+        item = items_bahan[item_idx]
+        akun_persediaan_id = item.get("account_id")
         if not akun_persediaan_id:
-            st.error("Akun persediaan tidak ditemukan.")
+            st.error(
+                "Item belum terhubung ke akun 1301 - Persediaan Bahan Produksi. "
+                "Periksa Master Data > Item."
+            )
             return
 
         akun_utang_id = _cari_akun_by_kode("2101")
-        item = items_bahan[item_idx]
 
         baris = [
             {"account_id": akun_persediaan_id, "debit": total, "kredit": 0},

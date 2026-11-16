@@ -169,13 +169,8 @@ def _seed_bagan_akun(cursor: sqlite3.Cursor) -> dict:
         ("1101", "Kas", "Aset", "Debit", 0),
         ("1102", "Bank BRI", "Aset", "Debit", 0),
         ("1201", "Piutang Usaha", "Aset", "Debit", 0),
-        ("1301", "Persediaan Bibit Cabai", "Aset", "Debit", 0),
-        ("1302", "Persediaan Pupuk", "Aset", "Debit", 0),
-        ("1303", "Persediaan Pupuk NPK", "Aset", "Debit", 0),
-        ("1304", "Persediaan Pestisida", "Aset", "Debit", 0),
-        ("1305", "Persediaan Plastik Mulsa", "Aset", "Debit", 0),
-        ("1306", "Persediaan Bambu", "Aset", "Debit", 0),
-        ("1307", "Persediaan Cabai Rawit (kg)", "Aset", "Debit", 0),
+        ("1301", "Persediaan Bahan Produksi", "Aset", "Debit", 0),
+        ("1307", "Persediaan Cabai", "Aset", "Debit", 0),
         ("1401", "Perlengkapan Pertanian", "Aset", "Debit", 0),
         ("1501", "Tanah", "Aset", "Debit", 0),
         ("1502", "Bangunan Kantor dan Gudang", "Aset", "Debit", 0),
@@ -279,11 +274,11 @@ def _seed_item(cursor: sqlite3.Cursor, akun: dict) -> dict:
     items_list = [
         # (kode, nama, satuan, tipe, komoditas, kode_akun)
         ("BHN-001", "Bibit Cabai Rawit", "batang", "bahan", "cabai", "1301"),
-        ("BHN-002", "Pupuk (Awal Tanam)", "karung", "bahan", "cabai", "1302"),
-        ("BHN-003", "Pupuk NPK", "paket/blok", "bahan", "cabai", "1303"),
-        ("BHN-004", "Pestisida", "paket/blok", "bahan", "cabai", "1304"),
-        ("BHN-005", "Plastik Mulsa", "roll (200m)", "bahan", "cabai", "1305"),
-        ("BHN-006", "Bambu", "batang", "bahan", "cabai", "1306"),
+        ("BHN-002", "Pupuk (Awal Tanam)", "karung", "bahan", "cabai", "1301"),
+        ("BHN-003", "Pupuk NPK", "paket/blok", "bahan", "cabai", "1301"),
+        ("BHN-004", "Pestisida", "paket/blok", "bahan", "cabai", "1301"),
+        ("BHN-005", "Plastik Mulsa", "roll (200m)", "bahan", "cabai", "1301"),
+        ("BHN-006", "Bambu", "batang", "bahan", "cabai", "1301"),
         ("HSL-001", "Cabai Rawit", "kg", "hasil_panen", "cabai", "1307"),
     ]
     result = {}
@@ -485,9 +480,9 @@ def _seed_transaksi(
     # -----------------------------------------------------------------
     KAS = akun["1101"]
     PIUTANG = akun["1201"]
-    PERSEDIAAN_PUPUK = akun["1302"]
-    PERSEDIAAN_PESTISIDA = akun["1304"]
-    PERSEDIAAN_BAMBU = akun["1306"]
+    PERSEDIAAN_BAHAN_PRODUKSI = akun["1301"]
+    
+    
     PENJUALAN = akun["4101"]
     BEBAN_PUPUK = akun["5102"]
     BEBAN_PESTISIDA = akun["5103"]
@@ -564,7 +559,7 @@ def _seed_transaksi(
     _buat_jurnal(cursor, period_id, "2026-10-06", nb("KK"),
                  "pengeluaran_kas",
                  "Beli pupuk awal tanam 4 karung di Toko Sido Panen",
-                 [{"account_id": PERSEDIAAN_PUPUK, "debit": jml, "kredit": 0},
+                 [{"account_id": PERSEDIAAN_BAHAN_PRODUKSI, "debit": jml, "kredit": 0},
                   {"account_id": KAS, "debit": 0, "kredit": jml}],
                  pihak_terkait="Toko Sido Panen")
     # Catat kartu persediaan
@@ -588,7 +583,7 @@ def _seed_transaksi(
     _buat_jurnal(cursor, period_id, "2026-10-07", nb("KK"),
                  "pengeluaran_kas",
                  "Beli pestisida 5 jenis untuk 1 blok di Toko Sido Panen",
-                 [{"account_id": PERSEDIAAN_PESTISIDA, "debit": jml, "kredit": 0},
+                 [{"account_id": PERSEDIAAN_BAHAN_PRODUKSI, "debit": jml, "kredit": 0},
                   {"account_id": KAS, "debit": 0, "kredit": jml}],
                  pihak_terkait="Toko Sido Panen")
     _insert(cursor, "inventory_movements", {
@@ -735,7 +730,7 @@ def _seed_transaksi(
     _buat_jurnal(cursor, period_id, "2026-10-18", nb("KK"),
                  "pengeluaran_kas",
                  "Beli 5.000 batang bambu untuk penyangga cabai @ Rp550",
-                 [{"account_id": PERSEDIAAN_BAMBU, "debit": jml, "kredit": 0},
+                 [{"account_id": PERSEDIAAN_BAHAN_PRODUKSI, "debit": jml, "kredit": 0},
                   {"account_id": KAS, "debit": 0, "kredit": jml}],
                  pihak_terkait="Toko Sido Panen")
     _insert(cursor, "inventory_movements", {
@@ -866,7 +861,7 @@ def _seed_transaksi(
     _buat_jurnal(cursor, period_id, "2026-10-25", nb("PB"),
                  "pembelian",
                  "[SIMULASI] Beli pupuk NPK 1 blok kredit dari Toko Sido Panen",
-                 [{"account_id": PERSEDIAAN_PESTISIDA, "debit": jml, "kredit": 0},
+                 [{"account_id": PERSEDIAAN_BAHAN_PRODUKSI, "debit": jml, "kredit": 0},
                   {"account_id": UTANG_USAHA, "debit": 0, "kredit": jml}],
                  pihak_terkait="Toko Sido Panen")
 
@@ -887,7 +882,7 @@ def _seed_transaksi(
                  "umum",
                  "Pemakaian pupuk ke blok A (penyesuaian persediaan)",
                  [{"account_id": BEBAN_PUPUK, "debit": jml, "kredit": 0},
-                  {"account_id": PERSEDIAAN_PUPUK, "debit": 0, "kredit": jml}])
+                  {"account_id": PERSEDIAAN_BAHAN_PRODUKSI, "debit": 0, "kredit": jml}])
     _insert(cursor, "inventory_movements", {
         "item_id": item["BHN-002"],
         "tanggal": "2026-10-31",
@@ -909,7 +904,7 @@ def _seed_transaksi(
                  "umum",
                  "Pemakaian pestisida blok A (penyesuaian persediaan)",
                  [{"account_id": BEBAN_PESTISIDA, "debit": jml, "kredit": 0},
-                  {"account_id": PERSEDIAAN_PESTISIDA, "debit": 0, "kredit": jml}])
+                  {"account_id": PERSEDIAAN_BAHAN_PRODUKSI, "debit": 0, "kredit": jml}])
     _insert(cursor, "inventory_movements", {
         "item_id": item["BHN-004"],
         "tanggal": "2026-10-31",

@@ -338,16 +338,6 @@ def _tab_item() -> None:
     df_tampil.columns = ["Kode", "Nama Item", "Satuan", "Tipe", "Akun Persediaan", "Status"]
     st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
-    # Ambil daftar akun persediaan untuk dropdown
-    from database.connection import get_connection
-    koneksi = get_connection()
-    akun_persediaan_rows = koneksi.execute(
-        "SELECT id, kode_akun, nama_akun FROM accounts WHERE kategori='Aset' AND aktif=1 ORDER BY kode_akun"
-    ).fetchall()
-    koneksi.close()
-    opsi_akun = {"(Tidak ada)": None}
-    opsi_akun.update({f"{r['kode_akun']} - {r['nama_akun']}": r["id"] for r in akun_persediaan_rows})
-
     kol1, kol2 = st.columns(2)
     with kol1:
         with st.expander("➕ Tambah Item"):
@@ -357,11 +347,13 @@ def _tab_item() -> None:
                 satuan = st.text_input("Satuan *", placeholder="Contoh: kg, karung, batang")
                 tipe = st.selectbox("Tipe", svc.TIPE_ITEM,
                                     help="bahan=input produksi, hasil_panen=output")
-                akun_dipilih = st.selectbox("Akun Persediaan", list(opsi_akun.keys()))
-                akun_id = opsi_akun[akun_dipilih]
+                st.caption(
+                    "Akun otomatis: Bahan → 1301 Persediaan Bahan Produksi; "
+                    "hasil panen → 1307 Persediaan Cabai."
+                )
                 if st.form_submit_button("💾 Simpan", use_container_width=True):
                     try:
-                        svc.tambah_item(kode, nama, satuan, tipe, "cabai", akun_id)
+                        svc.tambah_item(kode, nama, satuan, tipe, "cabai", None)
                         st.success(f"Item '{nama}' berhasil ditambahkan!")
                         st.rerun()
                     except Exception as e:
@@ -379,14 +371,14 @@ def _tab_item() -> None:
                     sat_b = st.text_input("Satuan *", value=baris["satuan"])
                     tipe_b = st.selectbox("Tipe", svc.TIPE_ITEM,
                                           index=svc.TIPE_ITEM.index(baris["tipe"]))
-                    akun_key = next((k for k, v in opsi_akun.items()
-                                     if v == baris.get("account_id")), "(Tidak ada)")
-                    akun_b = st.selectbox("Akun Persediaan", list(opsi_akun.keys()),
-                                          index=list(opsi_akun.keys()).index(akun_key))
+                    st.caption(
+                        "Akun otomatis mengikuti tipe item: Bahan → 1301; "
+                        "Hasil panen → 1307."
+                    )
                     aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
                     if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
                         try:
-                            svc.ubah_item(baris["id"], nama_b, sat_b, tipe_b, "cabai", opsi_akun[akun_b], aktif_b)
+                            svc.ubah_item(baris["id"], nama_b, sat_b, tipe_b, "cabai", None, aktif_b)
                             st.success("Item berhasil diperbarui!")
                             st.rerun()
                         except Exception as e:
