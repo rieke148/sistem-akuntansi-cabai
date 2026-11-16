@@ -210,9 +210,9 @@ def susun_neraca(period_id: int, modal_akhir: int) -> dict:
             jumlah = int(baris["kredit"]) - int(baris["debit"])
 
         if kategori == "Aset":
-            # Aset lancar: Kas & Bank (11xx), Piutang (12xx), Persediaan (13xx), Perlengkapan (14xx)
-            # Aset tetap: 15xx dan aset lain-lain (16xx)
-            is_kontra = kode in ("1221", "1231", "1241", "1251")  # konvensi kode kontra pakai suffix K
+            # Aset lancar: Kas (1110), Piutang (1120), Perlengkapan (1130), Persediaan (1140).
+            # Aset tetap: Tanah (1210), Bangunan–Peralatan (1220–1251).
+            is_kontra = kode in ("1221", "1231", "1241", "1251")  # kode kontra sesuai COA
             if kode in ("1110", "1120", "1130", "1140"):
                 hasil["aset_lancar"].append({
                     "nama_akun": nama,
