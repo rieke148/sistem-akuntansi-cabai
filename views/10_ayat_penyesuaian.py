@@ -54,7 +54,7 @@ def _ambil_akun_penyesuaian() -> dict:
 
     hasil = {
         "beban_amortisasi_mulsa": cari("6160"),   # Beban Amortisasi Plastik Mulsa
-        "akum_amortisasi_mulsa": cari("1130"),   # Akumulasi Amortisasi Plastik Mulsa
+        "akun_perlengkapan_mulsa": cari("1130"),  # Perlengkapan untuk mulsa terpasang
         "beban_upah": cari("6110"),               # Beban Gaji
         "utang_gaji": cari("2210"),               # Utang Gaji
     }
@@ -235,9 +235,9 @@ def _tab_amortisasi(period_id: int, tanggal_penyesuaian: str, akun_ids: dict) ->
 
     # Validasi akun
     akun_beban = akun_ids["beban_amortisasi_mulsa"]
-    akun_akum = akun_ids["akum_amortisasi_mulsa"]
+    akun_perlengkapan = akun_ids["akun_perlengkapan_mulsa"]
 
-    if not akun_beban["id"] or not akun_akum["id"]:
+    if not akun_beban["id"] or not akun_perlengkapan["id"]:
         st.error("❌ Akun amortisasi mulsa tidak ditemukan (6160 atau 1130). Periksa Bagan Akun.")
         return
 
@@ -253,7 +253,7 @@ def _tab_amortisasi(period_id: int, tanggal_penyesuaian: str, akun_ids: dict) ->
                 period_id=period_id,
                 tanggal=tanggal_penyesuaian,
                 akun_beban_id=akun_beban["id"],
-                akun_akumulasi_id=akun_akum["id"],
+                akun_perlengkapan_id=akun_perlengkapan["id"],
                 harga_per_blok=int(harga_per_blok),
                 jumlah_blok=int(jumlah_blok),
                 umur_tahun=float(umur_tahun),
