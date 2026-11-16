@@ -72,7 +72,7 @@ def _export_semua_tabel_excel(period_id: int) -> bytes:
         "Items Persediaan": "SELECT kode_item, nama_item, satuan, tipe FROM items WHERE aktif=1",
         "Blok Lahan": "SELECT kode_blok, jumlah_pohon, luas_m2 FROM blok_lahan WHERE aktif=1",
         "Aset Tetap": "SELECT kode_aset, nama_aset, kategori_aset, harga_perolehan, umur_ekonomis_tahun FROM fixed_assets WHERE aktif=1",
-        "Jurnal Entries": f"SELECT tanggal, no_bukti, journal_type, keterangan, pihak_terkait, komoditas FROM journal_entries WHERE period_id={period_id} ORDER BY tanggal, id",
+        "Jurnal Entries": f"SELECT tanggal, no_bukti, journal_type, keterangan, pihak_terkait, komoditas AS [Klasifikasi Transaksi] FROM journal_entries WHERE period_id={period_id} ORDER BY tanggal, id",
         "Piutang": "SELECT no_faktur, tanggal_faktur, tanggal_jatuh_tempo, jumlah, jumlah_terbayar, status FROM receivables ORDER BY tanggal_faktur",
     }
 
