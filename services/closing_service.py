@@ -32,7 +32,7 @@ from services.journal_service import simpan_jurnal
 
 # Kode akun khusus yang diperlukan jurnal penutup
 KODE_IKHTISAR_LR = "3130"   # Ikhtisar Laba Rugi
-KODE_LABA_DITAHAN = "3120"  # Laba Ditahan
+KODE_LABA = "3120"  # Laba Ditahan
 
 
 # ---------------------------------------------------------------------------
@@ -297,7 +297,7 @@ def _hitung_jurnal_penutup(period_id: int, tanggal: str) -> list[dict]:
         return []
 
     id_ikhtisar = _ambil_id_akun(KODE_IKHTISAR_LR)
-    id_laba_ditahan = _ambil_id_akun(KODE_LABA_DITAHAN)
+    id_laba_ditahan = _ambil_id_akun(KODE_LABA)
     dict_akun_id = _ambil_semua_akun_id()
 
     akun_pendapatan = df_ns[df_ns["kategori"] == "Pendapatan"].copy()
@@ -414,7 +414,7 @@ def _hitung_jurnal_penutup(period_id: int, tanggal: str) -> list[dict]:
             lines = [
                 {"akun": KODE_IKHTISAR_LR, "nama": "Ikhtisar Laba Rugi",
                  "debit": jumlah, "kredit": 0},
-                {"akun": KODE_LABA_DITAHAN, "nama": "Laba",
+                {"akun": KODE_LABA, "nama": "Laba",
                  "debit": 0, "kredit": jumlah},
             ]
             lines_raw = [
@@ -424,7 +424,7 @@ def _hitung_jurnal_penutup(period_id: int, tanggal: str) -> list[dict]:
             keterangan = "Jurnal Penutup 3: Pindah Laba Bersih ke Laba"
         else:
             lines = [
-                {"akun": KODE_LABA_DITAHAN, "nama": "Laba",
+                {"akun": KODE_LABA, "nama": "Laba",
                  "debit": jumlah, "kredit": 0},
                 {"akun": KODE_IKHTISAR_LR, "nama": "Ikhtisar Laba Rugi",
                  "debit": 0, "kredit": jumlah},
