@@ -141,11 +141,12 @@ def _isi_data_contoh(koneksi: sqlite3.Connection) -> int:
     koneksi.executemany(
         "INSERT INTO accounts (kode_akun, nama_akun, kategori, saldo_normal) VALUES (?,?,?,?)",
         [
-            ("1101", "Kas Tunai", "Aset Lancar", "Debit"),
-            ("1102", "Bank BRI", "Aset Lancar", "Debit"),
-            ("1201", "Piutang Usaha", "Aset Lancar", "Debit"),
-            ("4101", "Penjualan Cabai", "Pendapatan", "Kredit"),
-            ("5101", "Beban Pupuk", "Beban Produksi", "Debit"),
+            ("1110", "Kas", "Aset", "Debit"),
+            ("1120", "Piutang Usaha", "Aset", "Debit"),
+            ("1130", "Perlengkapan", "Aset", "Debit"),
+            ("1140", "Persediaan", "Aset", "Debit"),
+            ("4110", "Penjualan Cabai", "Pendapatan", "Kredit"),
+            ("5110", "Harga Pokok Penjualan", "Beban Produksi", "Debit"),
         ],
     )
 
@@ -156,18 +157,14 @@ def _isi_data_contoh(koneksi: sqlite3.Connection) -> int:
     period_id = koneksi.execute("SELECT last_insert_rowid()").fetchone()[0]
 
     # Saldo awal kas
-    akun_kas_id = koneksi.execute("SELECT id FROM accounts WHERE kode_akun='1101'").fetchone()[0]
-    akun_bank_id = koneksi.execute("SELECT id FROM accounts WHERE kode_akun='1102'").fetchone()[0]
-    koneksi.executemany(
+    akun_kas_id = koneksi.execute("SELECT id FROM accounts WHERE kode_akun='1110'").fetchone()[0]
+    koneksi.execute(
         "INSERT INTO opening_balances (period_id, account_id, saldo_debit, saldo_kredit) VALUES (?,?,?,?)",
-        [
-            (period_id, akun_kas_id, 5_000_000, 0),
-            (period_id, akun_bank_id, 10_000_000, 0),
-        ],
+        (period_id, akun_kas_id, 15_000_000, 0),
     )
 
     # Transaksi penjualan
-    akun_jual_id = koneksi.execute("SELECT id FROM accounts WHERE kode_akun='4101'").fetchone()[0]
+    akun_jual_id = koneksi.execute("SELECT id FROM accounts WHERE kode_akun='4110'").fetchone()[0]
     koneksi.execute(
         """INSERT INTO journal_entries (period_id, tanggal, no_bukti, journal_type, keterangan, komoditas)
            VALUES (?, '2026-10-05', 'PJ-001', 'penjualan', 'Penjualan cabai', 'cabai')""",
@@ -183,7 +180,7 @@ def _isi_data_contoh(koneksi: sqlite3.Connection) -> int:
     )
 
     # Transaksi beban
-    akun_beban_id = koneksi.execute("SELECT id FROM accounts WHERE kode_akun='5101'").fetchone()[0]
+    akun_beban_id = koneksi.execute("SELECT id FROM accounts WHERE kode_akun='5110'").fetchone()[0]
     koneksi.execute(
         """INSERT INTO journal_entries (period_id, tanggal, no_bukti, journal_type, keterangan, komoditas)
            VALUES (?, '2026-10-10', 'PK-001', 'pengeluaran_kas', 'Beli pupuk', 'cabai')""",
@@ -208,7 +205,7 @@ def _isi_data_contoh(koneksi: sqlite3.Connection) -> int:
     # Customer & piutang overdue
     koneksi.execute("INSERT INTO customers (nama, tipe) VALUES ('Pak Budi', 'reguler')")
     cust_id = koneksi.execute("SELECT last_insert_rowid()").fetchone()[0]
-    akun_piutang_id = koneksi.execute("SELECT id FROM accounts WHERE kode_akun='1201'").fetchone()[0]
+    akun_piutang_id = koneksi.execute("SELECT id FROM accounts WHERE kode_akun='1120'").fetchone()[0]
 
     koneksi.execute(
         """INSERT INTO journal_entries (period_id, tanggal, no_bukti, journal_type, keterangan, komoditas, pihak_terkait)
@@ -278,14 +275,14 @@ class TestAmbilSaldoKasBank:
         assert "total" in result
 
     def test_saldo_kas_termasuk_saldo_awal(self, db):
-        """Kas awal 5jt + kredit 500rb dari beli pupuk = 5jt - 500rb + 2jt penjualan = 6.5jt"""
+        """Saldo kas gabungan Rp15jt + debit penjualan 2jt - pengeluaran 500rb = Rp16,5jt"""
         result = ambil_saldo_kas_bank(db)
-        # Kas: saldo_awal 5jt + debit_mutasi 2jt - kredit_mutasi 500rb = 6.5jt
-        assert result["kas"] == 6_500_000
+        # Kas: saldo_awal 15jt + debit_mutasi 2jt - kredit_mutasi 500rb = 16,5jt
+        assert result["kas"] == 16_500_000
 
     def test_saldo_bank_dari_saldo_awal(self, db):
         result = ambil_saldo_kas_bank(db)
-        assert result["bank"] == 10_000_000
+        assert result["bank"] == 0
 
     def test_total_adalah_kas_plus_bank(self, db):
         result = ambil_saldo_kas_bank(db)
@@ -374,7 +371,7 @@ class TestRingkasanPenjualanBeban:
             (entry_id, pendapatan_lain_id, 0, 9_000_000),
         )
         penjualan_cabai_id = koneksi.execute(
-            "SELECT id FROM accounts WHERE kode_akun='4101'"
+            "SELECT id FROM accounts WHERE kode_akun='4110'"
         ).fetchone()[0]
         koneksi.execute(
             """INSERT INTO journal_lines
@@ -394,19 +391,11 @@ class TestRingkasanPenjualanBeban:
     def test_hpp_penjualan_dihitung_terpisah(self, db, tmp_path):
         """HPP dipisahkan dari beban produksi lainnya untuk menghitung laba kotor."""
         koneksi = sqlite3.connect(str(tmp_path / "test_dashboard.db"))
-        koneksi.execute(
-            "INSERT INTO accounts (kode_akun, nama_akun, kategori, saldo_normal) VALUES "
-            "('5108', 'HPP Penjualan Cabai', 'Beban Produksi', 'Debit')"
-        )
-        koneksi.execute(
-            "INSERT INTO accounts (kode_akun, nama_akun, kategori, saldo_normal) VALUES "
-            "('1307', 'Persediaan Hasil Panen', 'Aset', 'Debit')"
-        )
         hpp_id = koneksi.execute(
-            "SELECT id FROM accounts WHERE kode_akun='5108'"
+            "SELECT id FROM accounts WHERE kode_akun='5110'"
         ).fetchone()[0]
         persediaan_id = koneksi.execute(
-            "SELECT id FROM accounts WHERE kode_akun='1307'"
+            "SELECT id FROM accounts WHERE kode_akun='1140'"
         ).fetchone()[0]
         entry_id = koneksi.execute(
             "SELECT id FROM journal_entries WHERE no_bukti='PJ-001'"
@@ -419,10 +408,10 @@ class TestRingkasanPenjualanBeban:
         koneksi.close()
 
         result = ambil_ringkasan_penjualan_beban(db)
-        assert result["hpp_penjualan"] == 300_000
+        assert result["hpp_penjualan"] == 800_000
         assert result["beban"] == 800_000
-        assert result["beban_produksi_lain"] == 500_000
-        assert result["laba_kotor"] == 4_700_000
+        assert result["beban_produksi_lain"] == 0
+        assert result["laba_kotor"] == 4_200_000
         assert result["laba_setelah_beban_produksi"] == 4_200_000
 
     def test_semua_nilai_integer(self, db):
@@ -553,13 +542,13 @@ class TestAmbilTrenPenjualanCabai:
         assert list(result.columns) == ["tanggal", "penjualan"]
 
     def test_menggabungkan_penjualan_tunai_dan_tempo(self, db, tmp_path):
-        """Grafik harus memuat penjualan tunai dan tempo pada akun 4101."""
+        """Grafik harus memuat penjualan tunai dan tempo pada akun 4110."""
         koneksi = sqlite3.connect(str(tmp_path / "test_dashboard.db"))
         kas_id = koneksi.execute(
-            "SELECT id FROM accounts WHERE kode_akun='1101'"
+            "SELECT id FROM accounts WHERE kode_akun='1110'"
         ).fetchone()[0]
         penjualan_id = koneksi.execute(
-            "SELECT id FROM accounts WHERE kode_akun='4101'"
+            "SELECT id FROM accounts WHERE kode_akun='4110'"
         ).fetchone()[0]
         koneksi.execute(
             """INSERT INTO journal_entries
@@ -586,7 +575,7 @@ class TestAmbilTrenPenjualanCabai:
         """Entri bertanda umum tidak boleh ikut masuk ke grafik penjualan."""
         koneksi = sqlite3.connect(str(tmp_path / "test_dashboard.db"))
         penjualan_id = koneksi.execute(
-            "SELECT id FROM accounts WHERE kode_akun='4101'"
+            "SELECT id FROM accounts WHERE kode_akun='4110'"
         ).fetchone()[0]
         koneksi.execute(
             """INSERT INTO journal_entries
