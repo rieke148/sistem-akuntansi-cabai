@@ -34,114 +34,79 @@ def buat_penyesuaian_penyusutan(
     tanggal: str,
 ) -> list[int]:
     """
-    Membuat jurnal penyesuaian penyusutan untuk SEMUA aset aktif yang perlu disusutkan.
-    Satu jurnal dibuat per aset (agar rincian jelas).
+    Membuat jurnal penyusutan bulanan untuk setiap aset tetap yang disusutkan.
 
-    Jurnal per aset:
-      Debit : Beban Penyusutan [nama aset]   (akun beban dari account_id aset)
-      Kredit: Akumulasi Penyusutan [nama aset] (akun akumulasi dari account_akum_id)
-
-    Args:
-        period_id : ID periode akuntansi.
-        tanggal   : Tanggal jurnal penyesuaian 'YYYY-MM-DD'.
-
-    Returns:
-        List ID journal_entry yang dibuat. Kosong jika tidak ada aset disusutkan.
-
-    Raises:
-        ValueError: Jika aset tidak punya akun beban atau akun akumulasi.
+    Jurnal: Dr Beban Penyusutan (6160) / Cr Akumulasi Penyusutan sesuai aset.
+    Akun aset pada master data tetap menunjukkan akun nilai perolehan aset.
     """
     koneksi = get_connection()
     try:
-        # Ambil semua aset aktif yang perlu disusutkan
         aset_rows = koneksi.execute(
             """
-            SELECT fa.id, fa.kode_aset, fa.nama_aset,
-                   fa.account_id, fa.account_akum_id,
-                   fa.kategori_aset
-            FROM fixed_assets fa
-            WHERE fa.aktif = 1
-              AND fa.is_disusutkan = 1
-            ORDER BY fa.kode_aset
+            SELECT id, kode_aset, nama_aset, account_akum_id
+            FROM fixed_assets
+            WHERE aktif = 1 AND is_disusutkan = 1
+            ORDER BY kode_aset
             """
         ).fetchall()
+        akun_beban = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun = '6160' AND aktif = 1"
+        ).fetchone()
     finally:
         koneksi.close()
 
     if not aset_rows:
         return []
+    if not akun_beban:
+        raise ValueError("Akun Beban Penyusutan (6160) belum tersedia di Bagan Akun.")
 
-    id_jurnal_dibuat = []
+    akun_beban_id = int(akun_beban["id"])
+    id_jurnal_dibuat: list[int] = []
 
     for aset in aset_rows:
-        asset_id = aset["id"]
+        asset_id = int(aset["id"])
         nama_aset = aset["nama_aset"]
         akun_akum_id = aset["account_akum_id"]
-
-        # Validasi: aset harus punya akun beban dan akun akumulasi
-        if not akun_beban_id or not akun_akum_id:
+        if not akun_akum_id:
             raise ValueError(
-                f"Aset '{nama_aset}' belum memiliki akun beban atau akun akumulasi penyusutan. "
-                f"Lengkapi di Master Data → Aset Tetap."
+                f"Aset '{nama_aset}' belum memiliki akun akumulasi penyusutan. "
+                "Lengkapi akun kontra aset pada Master Data → Aset Tetap."
             )
 
-        # Hitung penyusutan bulan ini
         detail = hitung_penyusutan_bulanan(asset_id)
-        penyusutan = detail["penyusutan_per_bulan"]
-
+        penyusutan = int(detail["penyusutan_per_bulan"])
         if penyusutan <= 0:
-            continue  # lewati aset tanpa penyusutan
+            continue
 
-        # Buat nomor bukti unik per aset per periode
         no_bukti = f"PA-PENYUSUTAN-{asset_id}-{period_id}"
-
-        # Cek apakah sudah ada jurnal penyesuaian ini
-        koneksi2 = get_connection()
-        cek = koneksi2.execute(
-            "SELECT id FROM journal_entries WHERE no_bukti = ?",
-            (no_bukti,)
-        ).fetchone()
-        koneksi2.close()
-
-        if cek:
-            id_jurnal_dibuat.append(cek["id"])
-            continue  # sudah ada, lewati
-
-        # Akun beban penyusutan 6160 digunakan bersama untuk semua aset.
-        koneksi_beban = get_connection()
+        koneksi_cek = get_connection()
         try:
-            akun_beban = koneksi_beban.execute(
-                "SELECT id FROM accounts WHERE kode_akun = '6160' AND aktif = 1"
+            cek = koneksi_cek.execute(
+                "SELECT id FROM journal_entries WHERE no_bukti = ?",
+                (no_bukti,),
             ).fetchone()
         finally:
-            koneksi_beban.close()
-        if not akun_beban:
-            raise ValueError("Akun Beban Penyusutan (6160) belum tersedia di Bagan Akun.")
-        akun_beban_id = int(akun_beban["id"])
+            koneksi_cek.close()
 
-        # Debit Beban Penyusutan (6160); Kredit akumulasi sesuai kelompok aset.
+        if cek:
+            id_jurnal_dibuat.append(int(cek["id"]))
+            continue
+
         baris_jurnal = [
             {"account_id": akun_beban_id, "debit": penyusutan, "kredit": 0},
-            {"account_id": akun_akum_id, "debit": 0, "kredit": penyusutan},
+            {"account_id": int(akun_akum_id), "debit": 0, "kredit": penyusutan},
         ]
-
-        # Tentukan akun beban yang tepat berdasarkan kategori aset
-        # (aset produksi → Beban Penyusutan Aset Produksi; aset non-produksi → non-produksi)
-        keterangan = f"Penyesuaian: Penyusutan {nama_aset} bulan ini"
-
         journal_id = simpan_jurnal(
             period_id=period_id,
             tanggal=tanggal,
             no_bukti=no_bukti,
             journal_type="umum",
-            keterangan=keterangan,
+            keterangan=f"Penyesuaian: Penyusutan {nama_aset} bulan ini",
             baris=baris_jurnal,
         )
         id_jurnal_dibuat.append(journal_id)
 
     return id_jurnal_dibuat
-
-
 def buat_penyesuaian_amortisasi_mulsa(
     period_id: int,
     tanggal: str,
