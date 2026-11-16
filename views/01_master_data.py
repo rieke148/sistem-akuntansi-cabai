@@ -333,9 +333,9 @@ def _tab_item() -> None:
     st.caption("Item bisa berupa bahan produksi (pupuk, bibit, dll) atau hasil panen (cabai kg).")
 
     df = svc.ambil_semua_item()
-    df_tampil = df[["kode_item", "nama_item", "satuan", "tipe", "komoditas", "akun_persediaan", "aktif"]].copy()
+    df_tampil = df[["kode_item", "nama_item", "satuan", "tipe", "akun_persediaan", "aktif"]].copy()
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
-    df_tampil.columns = ["Kode", "Nama Item", "Satuan", "Tipe", "Komoditas", "Akun Persediaan", "Status"]
+    df_tampil.columns = ["Kode", "Nama Item", "Satuan", "Tipe", "Akun Persediaan", "Status"]
     st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     # Ambil daftar akun persediaan untuk dropdown
@@ -357,12 +357,11 @@ def _tab_item() -> None:
                 satuan = st.text_input("Satuan *", placeholder="Contoh: kg, karung, batang")
                 tipe = st.selectbox("Tipe", svc.TIPE_ITEM,
                                     help="bahan=input produksi, hasil_panen=output")
-                komoditas = st.selectbox("Komoditas", svc.KOMODITAS_ITEM)
-                akun_dipilih = st.selectbox("Akun Persediaan", list(opsi_akun.keys()))
+                 akun_dipilih = st.selectbox("Akun Persediaan", list(opsi_akun.keys()))
                 akun_id = opsi_akun[akun_dipilih]
                 if st.form_submit_button("💾 Simpan", use_container_width=True):
                     try:
-                        svc.tambah_item(kode, nama, satuan, tipe, komoditas, akun_id)
+                        svc.tambah_item(kode, nama, satuan, tipe, "cabai", akun_id)
                         st.success(f"Item '{nama}' berhasil ditambahkan!")
                         st.rerun()
                     except Exception as e:
@@ -380,16 +379,14 @@ def _tab_item() -> None:
                     sat_b = st.text_input("Satuan *", value=baris["satuan"])
                     tipe_b = st.selectbox("Tipe", svc.TIPE_ITEM,
                                           index=svc.TIPE_ITEM.index(baris["tipe"]))
-                    kom_b = st.selectbox("Komoditas", svc.KOMODITAS_ITEM,
-                                         index=svc.KOMODITAS_ITEM.index(baris["komoditas"]))
-                    akun_key = next((k for k, v in opsi_akun.items()
+                     akun_key = next((k for k, v in opsi_akun.items()
                                      if v == baris.get("account_id")), "(Tidak ada)")
                     akun_b = st.selectbox("Akun Persediaan", list(opsi_akun.keys()),
                                           index=list(opsi_akun.keys()).index(akun_key))
                     aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
                     if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
                         try:
-                            svc.ubah_item(baris["id"], nama_b, sat_b, tipe_b, kom_b, opsi_akun[akun_b], aktif_b)
+                            svc.ubah_item(baris["id"], nama_b, sat_b, tipe_b, "cabai", opsi_akun[akun_b], aktif_b)
                             st.success("Item berhasil diperbarui!")
                             st.rerun()
                         except Exception as e:
@@ -452,10 +449,10 @@ def _tab_pekerja() -> None:
     divider_dengan_judul("Data Pekerja", "person-badge")
 
     df = svc.ambil_semua_pekerja()
-    df_tampil = df[["nama", "tipe_pekerja", "upah_harian", "komoditas", "aktif"]].copy()
+    df_tampil = df[["nama", "tipe_pekerja", "upah_harian", "aktif"]].copy()
     df_tampil["upah_harian"] = df_tampil["upah_harian"].apply(format_rupiah)
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
-    df_tampil.columns = ["Nama", "Tipe", "Upah Harian", "Komoditas", "Status"]
+    df_tampil.columns = ["Nama", "Tipe", "Upah Harian", "Status"]
     st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     # Info upah dari parameter
@@ -478,10 +475,9 @@ def _tab_pekerja() -> None:
                 upah_default = upah_tetap if tipe == "tetap" else upah_tambahan
                 upah = st.number_input("Upah Harian (Rp) *", min_value=1,
                                        value=upah_default, step=5000)
-                komoditas = st.selectbox("Komoditas", svc.KOMODITAS_ITEM)
-                if st.form_submit_button("💾 Simpan", use_container_width=True):
+                 if st.form_submit_button("💾 Simpan", use_container_width=True):
                     try:
-                        svc.tambah_pekerja(nama, tipe, upah, komoditas)
+                        svc.tambah_pekerja(nama, tipe, upah, "cabai")
                         st.success(f"Pekerja '{nama}' berhasil ditambahkan!")
                         st.rerun()
                     except Exception as e:
@@ -499,12 +495,10 @@ def _tab_pekerja() -> None:
                                           index=svc.TIPE_PEKERJA.index(baris["tipe_pekerja"]))
                     upah_b = st.number_input("Upah Harian (Rp) *",
                                              min_value=1, value=int(baris["upah_harian"]), step=5000)
-                    kom_b = st.selectbox("Komoditas", svc.KOMODITAS_ITEM,
-                                         index=svc.KOMODITAS_ITEM.index(baris["komoditas"]))
-                    aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
+                     aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
                     if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
                         try:
-                            svc.ubah_pekerja(baris["id"], nama_b, tipe_b, upah_b, kom_b, aktif_b)
+                            svc.ubah_pekerja(baris["id"], nama_b, tipe_b, upah_b, "cabai", aktif_b)
                             st.success("Data pekerja berhasil diperbarui!")
                             st.rerun()
                         except Exception as e:
@@ -730,9 +724,9 @@ def _tab_blok_lahan() -> None:
 
     df = svc.ambil_semua_blok()
     df_tampil = df[["kode_blok", "jumlah_pohon", "tanggal_tanam",
-                     "komoditas", "luas_m2", "jarak_tanam_cm", "keterangan", "aktif"]].copy()
+                     "luas_m2", "jarak_tanam_cm", "keterangan", "aktif"]].copy()
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
-    df_tampil.columns = ["Blok", "Jml Pohon", "Tgl Tanam", "Komoditas",
+    df_tampil.columns = ["Blok", "Jml Pohon", "Tgl Tanam",
                           "Luas (m²)", "Jarak Tanam (cm)", "Keterangan", "Status"]
     st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
@@ -744,13 +738,12 @@ def _tab_blok_lahan() -> None:
                                      help="Satu huruf kapital. Blok A-E sudah ada.")
                 pohon = st.number_input("Jumlah Pohon *", min_value=1, value=1000)
                 tgl = st.date_input("Tanggal Tanam *", value=date.today())
-                komoditas = st.selectbox("Komoditas", svc.KOMODITAS_ITEM)
-                luas = st.number_input("Luas (m²)", min_value=0.0, value=494.0, step=10.0)
+                 luas = st.number_input("Luas (m²)", min_value=0.0, value=494.0, step=10.0)
                 jarak = st.number_input("Jarak Tanam (cm)", min_value=10.0, value=100.0, step=5.0)
                 ket = st.text_input("Keterangan", placeholder="Opsional")
                 if st.form_submit_button("💾 Simpan", use_container_width=True):
                     try:
-                        svc.tambah_blok(kode, pohon, str(tgl), komoditas, luas, jarak, ket)
+                        svc.tambah_blok(kode, pohon, str(tgl), "cabai", luas, jarak, ket)
                         st.success(f"Blok '{kode.upper()}' berhasil ditambahkan!")
                         st.rerun()
                     except Exception as e:
