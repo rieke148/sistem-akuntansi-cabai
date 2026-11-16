@@ -55,7 +55,7 @@ def _tampilkan_metrik_utama(period_id: int) -> None:
         st.metric(
             label="📈 Penjualan Periode Ini",
             value=format_rupiah(jual_beban["penjualan"]),
-            help="Total kredit ke akun pendapatan (4xxx)",
+            help="Total kredit akun 4101 - Penjualan Cabai",
         )
     with kol4:
         st.metric(
