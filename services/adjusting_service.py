@@ -129,7 +129,7 @@ def buat_penyesuaian_amortisasi_mulsa(
     Args:
         period_id        : ID periode akuntansi.
         tanggal          : Tanggal jurnal 'YYYY-MM-DD'.
-        akun_beban_id    : ID akun Beban Amortisasi Plastik Mulsa.
+        akun_beban_id    : ID akun Beban Penyusutan (6160).
         akun_perlengkapan_id: ID akun Perlengkapan (1130), tempat nilai mulsa terpasang dikurangi langsung.
         harga_per_blok   : Harga plastik mulsa per blok (default Rp400.000).
         jumlah_blok      : Jumlah blok yang memakai mulsa (default 5 blok).
