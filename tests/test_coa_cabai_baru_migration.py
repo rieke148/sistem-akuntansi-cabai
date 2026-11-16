@@ -23,17 +23,42 @@ def test_migrasi_coa_baru_menggabungkan_persediaan_dan_menjaga_riwayat(
         ).fetchall()
         kode_akun = {row["kode_akun"] for row in akun}
 
-        # COA detail persis mengikuti 28 akun pada CSV; kode kelompok tidak dimasukkan.
-        assert kode_akun == {
-            "1110", "1120", "1130", "1140",
-            "1210", "1220", "1221", "1230", "1231",
-            "1240", "1241", "1250", "1251",
-            "2110", "2210",
-            "3110", "3120", "3130",
-            "4110", "5110",
-            "6110", "6120", "6130", "6140", "6150", "6160", "6170",
-            "7110",
+        # COA detail persis mengikuti kode dan nama akun pada CSV.
+        # Kode kelompok 1000–7000 tidak disimpan sebagai akun jurnal.
+        akun_sesuai_csv = {
+            "1110": "Kas",
+            "1120": "Piutang Usaha",
+            "1130": "Perlengkapan",
+            "1140": "Persediaan",
+            "1210": "Tanah",
+            "1220": "Bangunan",
+            "1221": "Akumulasi Penyusutan Bangunan",
+            "1230": "Kendaraan",
+            "1231": "Akumulasi Penyusutan Kendaraan",
+            "1240": "Komputer",
+            "1241": "Akumulasi Penyusutan Komputer",
+            "1250": "Peralatan Pertanian",
+            "1251": "Akumulasi Penyusutan Peralatan",
+            "2110": "Utang Usaha",
+            "2210": "Utang Gaji",
+            "3110": "Modal Pribadi",
+            "3120": "Laba",
+            "3130": "Ikhtisar Laba Rugi",
+            "4110": "Penjualan Cabai",
+            "5110": "Harga Pokok Penjualan",
+            "6110": "Beban Gaji",
+            "6120": "Beban Sewa",
+            "6130": "Beban Air, Listrik, dan Telepon",
+            "6140": "Beban BBM Pengiriman",
+            "6150": "Beban BBM Operasional",
+            "6160": "Beban Penyusutan",
+            "6170": "Beban Perbaikan",
+            "7110": "Beban Lain-lain",
         }
+        assert {
+            row["kode_akun"]: row["nama_akun"] for row in akun
+        } == akun_sesuai_csv
+        assert kode_akun == set(akun_sesuai_csv)
         assert len(akun) == 28
         assert "1140" in kode_akun
         assert "1301" not in kode_akun
