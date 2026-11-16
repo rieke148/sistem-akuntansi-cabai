@@ -111,7 +111,7 @@ def buat_penyesuaian_amortisasi_mulsa(
     period_id: int,
     tanggal: str,
     akun_beban_id: int,
-    akun_akumulasi_id: int,
+    akun_perlengkapan_id: int,
     harga_per_blok: int = 400_000,
     jumlah_blok: int = 5,
     umur_tahun: float = 1.5,
@@ -130,7 +130,7 @@ def buat_penyesuaian_amortisasi_mulsa(
         period_id        : ID periode akuntansi.
         tanggal          : Tanggal jurnal 'YYYY-MM-DD'.
         akun_beban_id    : ID akun Beban Amortisasi Plastik Mulsa.
-        akun_akumulasi_id: ID akun Perlengkapan (1130), sebagai pengurang langsung.
+        akun_perlengkapan_id: ID akun Perlengkapan (1130), tempat nilai mulsa terpasang dikurangi langsung.
         harga_per_blok   : Harga plastik mulsa per blok (default Rp400.000).
         jumlah_blok      : Jumlah blok yang memakai mulsa (default 5 blok).
         umur_tahun       : Masa pakai mulsa dalam tahun (default 1,5 tahun).
@@ -167,7 +167,7 @@ def buat_penyesuaian_amortisasi_mulsa(
 
     baris_jurnal = [
         {"account_id": akun_beban_id, "debit": amortisasi, "kredit": 0},
-        {"account_id": akun_akumulasi_id, "debit": 0, "kredit": amortisasi},
+        {"account_id": akun_perlengkapan_id, "debit": 0, "kredit": amortisasi},
     ]
 
     keterangan = (
