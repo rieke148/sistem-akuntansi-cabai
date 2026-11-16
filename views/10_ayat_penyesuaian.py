@@ -53,10 +53,10 @@ def _ambil_akun_penyesuaian() -> dict:
         return dict(row) if row else {"id": None, "nama_akun": f"[{kode} tidak ditemukan]"}
 
     hasil = {
-        "beban_amortisasi_mulsa": cari("5107"),   # Beban Amortisasi Plastik Mulsa
-        "akum_amortisasi_mulsa": cari("1601K"),   # Akumulasi Amortisasi Plastik Mulsa
-        "beban_upah": cari("5105"),               # Beban Upah Langsung
-        "utang_gaji": cari("2201"),               # Utang Gaji
+        "beban_amortisasi_mulsa": cari("6160"),   # Beban Amortisasi Plastik Mulsa
+        "akum_amortisasi_mulsa": cari("1130"),   # Akumulasi Amortisasi Plastik Mulsa
+        "beban_upah": cari("6110"),               # Beban Gaji
+        "utang_gaji": cari("2210"),               # Utang Gaji
     }
     koneksi.close()
     return hasil
@@ -238,7 +238,7 @@ def _tab_amortisasi(period_id: int, tanggal_penyesuaian: str, akun_ids: dict) ->
     akun_akum = akun_ids["akum_amortisasi_mulsa"]
 
     if not akun_beban["id"] or not akun_akum["id"]:
-        st.error("❌ Akun amortisasi mulsa tidak ditemukan (5107 atau 1601K). Periksa Bagan Akun.")
+        st.error("❌ Akun amortisasi mulsa tidak ditemukan (6160 atau 1130). Periksa Bagan Akun.")
         return
 
     # Cek sudah ada?
@@ -295,7 +295,7 @@ def _tab_akrual_upah(period_id: int, tanggal_penyesuaian: str, akun_ids: dict) -
     if jumlah_akrual > 0:
         st.info(
             f"Preview jurnal:\n"
-            f"- **Debit** Beban Upah Langsung: **{format_rupiah(jumlah_akrual)}**\n"
+            f"- **Debit** Beban Gaji: **{format_rupiah(jumlah_akrual)}**\n"
             f"- **Kredit** Utang Gaji: **{format_rupiah(jumlah_akrual)}**"
         )
 
@@ -304,7 +304,7 @@ def _tab_akrual_upah(period_id: int, tanggal_penyesuaian: str, akun_ids: dict) -
     akun_utang = akun_ids["utang_gaji"]
 
     if not akun_upah["id"] or not akun_utang["id"]:
-        st.error("❌ Akun Beban Upah (5105) atau Utang Gaji (2201) tidak ditemukan.")
+        st.error("❌ Akun Beban Gaji (6110) atau Utang Gaji (2210) tidak ditemukan.")
         return
 
     # Cek sudah ada?
