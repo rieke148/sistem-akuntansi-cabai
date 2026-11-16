@@ -12,7 +12,7 @@ Dipanggil oleh : app.py (st.navigation)
   1. Sales Journal       : Penjualan tempo → Piutang (D) | Penjualan (K)
   2. Purchase Journal    : Pembelian kredit → Persediaan (D) | Utang Usaha (K)
   3. Cash Receipt Journal: Penerimaan kas → Kas (D) | Piutang (K) | Penjualan (K) | Lain-lain (K)
-  4. Cash Payment Journal: Pengeluaran kas → Kas (K) | Persediaan (D) | Upah (D) | Beban Ops (D) | Lain-lain (D)
+  4. Cash Payment Journal: Pengeluaran kas → Kas (K) | Persediaan (D) | Upah (D) | Beban Operasional (D) | Lain-lain (D)
 
 CATATAN AKUNTANSI:
   Jurnal Khusus hanyalah TAMPILAN FORMAT KOLOM dari journal_entries.
@@ -115,7 +115,7 @@ def _tampilkan_jurnal_penjualan(period_id: int | None) -> None:
     st.subheader("📋 Sales Journal — Jurnal Penjualan Tempo")
     st.caption(
         "Mencatat penjualan tempo dan pencatatan perpetualnya: Piutang (D) / Penjualan (K), "
-        "serta HPP Penjualan (D) / Persediaan Cabai (K)."
+        "serta HPP Penjualan (D) / Persediaan (1140) (K)."
     )
 
     df = ambil_jurnal_penjualan(period_id)
@@ -150,13 +150,13 @@ def _tampilkan_jurnal_penjualan(period_id: int | None) -> None:
         "piutang_d": "Piutang Usaha (D)",
         "penjualan_k": "Penjualan (K)",
         "hpp_d": "HPP Penjualan (D)",
-        "persediaan_k": "Persediaan Cabai (K)",
+        "persediaan_k": "Persediaan (1140) (K)",
     })
 
     kolom_tampil = [
         "Tanggal", "No. Faktur", "Pelanggan", "Jatuh Tempo",
         "Ref", "Piutang Usaha (D)", "Penjualan (K)",
-        "HPP Penjualan (D)", "Persediaan Cabai (K)",
+        "HPP Penjualan (D)", "Persediaan (1140) (K)",
     ]
 
     st.dataframe(
@@ -181,7 +181,7 @@ def _tampilkan_jurnal_penjualan(period_id: int | None) -> None:
             "piutang_d": "Total Piutang (D)",
             "penjualan_k": "Total Penjualan (K)",
             "hpp_d": "Total HPP Penjualan (D)",
-            "persediaan_k": "Total Persediaan Cabai (K)",
+            "persediaan_k": "Total Persediaan (1140) (K)",
         },
     )
 
@@ -340,13 +340,13 @@ def _tampilkan_jurnal_penerimaan_kas(period_id: int | None) -> None:
         "penjualan_k": "Penjualan (K)",
         "lain_lain_k": "Lain-lain (K)",
         "hpp_d": "HPP Penjualan (D)",
-        "persediaan_k": "Persediaan Cabai (K)",
+        "persediaan_k": "Persediaan (1140) (K)",
     })
 
     kolom_tampil = [
         "Tanggal", "No. Bukti", "Keterangan", "Pihak Terkait",
         "Ref", "Kas (D)", "Piutang (K)", "Penjualan (K)", "Lain-lain (K)",
-        "HPP Penjualan (D)", "Persediaan Cabai (K)",
+        "HPP Penjualan (D)", "Persediaan (1140) (K)",
     ]
 
     st.dataframe(
@@ -373,7 +373,7 @@ def _tampilkan_jurnal_penerimaan_kas(period_id: int | None) -> None:
             "penjualan_k": "Penjualan (K)",
             "lain_lain_k": "Lain-lain (K)",
             "hpp_d": "HPP Penjualan (D)",
-            "persediaan_k": "Persediaan Cabai (K)",
+            "persediaan_k": "Persediaan (1140) (K)",
         },
     )
 
@@ -413,7 +413,7 @@ def _tampilkan_jurnal_pengeluaran_kas(period_id: int | None) -> None:
 
     Format:
       Tanggal | No Bukti | Keterangan | Ref |
-      Kas (K) | Persediaan (D) | Beban Upah (D) | Beban Produksi (D) | Beban Ops (D) | Lain-lain (D)
+      Kas (K) | Persediaan (D) | Beban Gaji (D) | Beban Produksi (D) | Beban Operasional (D) | Lain-lain (D)
 
     Kolom Kas (K) = total uang keluar per transaksi.
     Kolom debit menjelaskan UNTUK APA uang dikeluarkan.
@@ -446,16 +446,16 @@ def _tampilkan_jurnal_pengeluaran_kas(period_id: int | None) -> None:
         "ref": "Ref",
         "kas_k": "Kas (K)",
         "persediaan_d": "Persediaan (D)",
-        "beban_upah_d": "Beban Upah (D)",
-        "beban_produksi_d": "Beban Prod. (D)",
-        "beban_ops_d": "Beban Ops (D)",
+        "beban_upah_d": "Beban Gaji (D)",
+        "beban_produksi_d": "HPP (5110) (D)",
+        "beban_ops_d": "Beban Operasional (D)",
         "lain_lain_d": "Lain-lain (D)",
     })
 
     kolom_tampil = [
         "Tanggal", "No. Bukti", "Keterangan", "Pihak Terkait", "Ref",
-        "Kas (K)", "Persediaan (D)", "Beban Upah (D)",
-        "Beban Prod. (D)", "Beban Ops (D)", "Lain-lain (D)",
+        "Kas (K)", "Persediaan (D)", "Beban Gaji (D)",
+        "HPP (5110) (D)", "Beban Operasional (D)", "Lain-lain (D)",
     ]
 
     st.dataframe(
@@ -466,9 +466,9 @@ def _tampilkan_jurnal_pengeluaran_kas(period_id: int | None) -> None:
             "Keterangan": st.column_config.TextColumn(width="large"),
             "Kas (K)": st.column_config.TextColumn(width="medium"),
             "Persediaan (D)": st.column_config.TextColumn(width="medium"),
-            "Beban Upah (D)": st.column_config.TextColumn(width="medium"),
-            "Beban Prod. (D)": st.column_config.TextColumn(width="medium"),
-            "Beban Ops (D)": st.column_config.TextColumn(width="medium"),
+            "Beban Gaji (D)": st.column_config.TextColumn(width="medium"),
+            "HPP (5110) (D)": st.column_config.TextColumn(width="medium"),
+            "Beban Operasional (D)": st.column_config.TextColumn(width="medium"),
             "Lain-lain (D)": st.column_config.TextColumn(width="medium"),
             "Ref": st.column_config.TextColumn(width="small"),
         },
@@ -481,9 +481,9 @@ def _tampilkan_jurnal_pengeluaran_kas(period_id: int | None) -> None:
         label_map={
             "kas_k": "Total Kas (K)",
             "persediaan_d": "Persediaan (D)",
-            "beban_upah_d": "Beban Upah (D)",
-            "beban_produksi_d": "Beban Prod. (D)",
-            "beban_ops_d": "Beban Ops (D)",
+            "beban_upah_d": "Beban Gaji (D)",
+            "beban_produksi_d": "HPP (5110) (D)",
+            "beban_ops_d": "Beban Operasional (D)",
             "lain_lain_d": "Lain-lain (D)",
         },
     )
