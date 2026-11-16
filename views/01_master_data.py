@@ -315,7 +315,7 @@ def _tab_supplier() -> None:
                     telp_b = st.text_input("Telepon", value=baris["telepon"] or "")
                     adr_b = st.text_area("Alamat", value=baris["alamat"] or "", height=80)
                     aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
-                   if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
+                    if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
                         try:
                             svc.ubah_supplier(baris["id"], nama_b, telp_b, adr_b, aktif_b)
                             st.success("Data supplier berhasil diperbarui!")
