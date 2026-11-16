@@ -54,7 +54,7 @@
         ▼
 [Jurnal Penutup & Tutup Periode]   (services/closing_service.py)
   • Tutup Pendapatan & Beban ke Ikhtisar L/R
-  • Tutup Ikhtisar L/R ke Laba Ditahan
+  • Tutup Ikhtisar L/R ke Laba (3120)
   • Neraca Saldo Setelah Penutup (Akun Riil Tersisa, Periode 'tutup')
         │
         ▼
@@ -75,7 +75,7 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 
 ### Fase 0 — Fondasi & Arsitektur
 - **Database SQLite**: Skema 11 tabel relasional dibuat di `database/schema.py` dengan foreign keys aktif.
-- **Bagan Akun (COA)**: Standar 6 digit berkategori Aset (1), Liabilitas (2), Ekuitas (3), Pendapatan (4), Beban Produksi (5), Beban Operasional (6).
+- **Bagan Akun (COA)**: Mengikuti `coa_cabai_baru.csv` dengan 28 akun detail berkode 4 digit dalam kelompok Aset (1xxx), Liabilitas (2xxx), Ekuitas (3xxx), Pendapatan (4xxx), HPP (5xxx), Beban Operasional (6xxx), dan Beban Lainnya (7xxx). Kode kelompok 1000–7000 hanya judul, bukan akun jurnal.
 - **Tema & UI**: Tema terpusat di `.streamlit/config.toml` (warna hijau alami `#2E7D32`) dan komponen `streamlit-antd-components` dibungkus rapi di `utils/ui_components.py`.
 
 ### Fase 1 — Master Data
@@ -120,7 +120,7 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 ### Fase 6 — Neraca Lajur, Laporan Keuangan & Penutupan
 - **Neraca Lajur 10 Kolom**: 5 pasang kolom terverifikasi seimbang (Neraca Saldo, Penyesuaian, NSD, Laba Rugi, dan Neraca).
 - **Laporan Keuangan**:
-  - *Laba Rugi*: Pendapatan - (Beban Produksi + Beban Operasional) = Laba Bersih
+  - *Laba Rugi*: Penjualan Cabai - HPP (5110) - Beban Operasional (6110–6170) - Beban Lain-lain (7110) = Laba Bersih
   - *Perubahan Ekuitas*: Modal Awal + Setoran Tambahan + Laba Bersih = Modal Akhir
   - *Neraca*: Total Aset == Total Liabilitas + Total Ekuitas
   - *Arus Kas*: Metode langsung (Aktivitas Operasi, Investasi, dan Pendanaan)
