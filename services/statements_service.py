@@ -225,7 +225,7 @@ def susun_neraca(period_id: int, modal_akhir: int) -> dict:
                 else:
                     hasil["total_aset_lancar"] -= jumlah
             else:
-                # Aset tetap dan aset tidak lancar lainnya (1501 ke atas)
+                # Aset tetap dan aset tidak lancar lainnya (1210 dan 1220–1251).
                 hasil["aset_tetap"].append({
                     "nama_akun": nama,
                     "jumlah": jumlah,
@@ -272,7 +272,7 @@ def susun_arus_kas(period_id: int) -> dict:
     Menyusun Laporan Arus Kas metode langsung.
 
     Metode langsung: membaca langsung penerimaan dan pengeluaran kas
-    dari journal_lines untuk akun Kas (kode 1101) dan Bank (kode 1102).
+    dari journal_lines untuk satu akun Kas (kode 1110).
 
     Args:
         period_id : ID periode.
