@@ -23,7 +23,17 @@ def test_migrasi_coa_baru_menggabungkan_persediaan_dan_menjaga_riwayat(
         ).fetchall()
         kode_akun = {row["kode_akun"] for row in akun}
 
-        # COA detail terbaru berisi 28 akun; kode kelompok tidak disimpan sebagai akun jurnal.
+        # COA detail persis mengikuti 28 akun pada CSV; kode kelompok tidak dimasukkan.
+        assert kode_akun == {
+            "1110", "1120", "1130", "1140",
+            "1210", "1220", "1221", "1230", "1231",
+            "1240", "1241", "1250", "1251",
+            "2110", "2210",
+            "3110", "3120", "3130",
+            "4110", "5110",
+            "6110", "6120", "6130", "6140", "6150", "6160", "6170",
+            "7110",
+        }
         assert len(akun) == 28
         assert "1140" in kode_akun
         assert "1301" not in kode_akun
