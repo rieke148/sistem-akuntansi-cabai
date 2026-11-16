@@ -9,11 +9,11 @@ Dipanggil oleh : views/13_jurnal_penutup.py
 JURNAL PENUTUP (urutan harus benar):
   1. Tutup semua akun Pendapatan → Ikhtisar Laba Rugi
        Dr  Pendapatan (masing-masing)
-       Cr  Ikhtisar Laba Rugi  (3301)
+       Cr  Ikhtisar Laba Rugi  (3130)
   2. Tutup semua akun Beban → Ikhtisar Laba Rugi
-       Dr  Ikhtisar Laba Rugi  (3301)
+       Dr  Ikhtisar Laba Rugi  (3130)
        Cr  Beban-beban (masing-masing)
-  3. Pindahkan Ikhtisar Laba Rugi → Laba Ditahan (3201)
+  3. Pindahkan Ikhtisar Laba Rugi → Laba (3120)
        Jika Laba  → Dr Ikhtisar L/R  |  Cr Laba Ditahan
        Jika Rugi  → Dr Laba Ditahan  |  Cr Ikhtisar L/R
   4. Ubah status periode → 'tutup'
@@ -31,8 +31,8 @@ from services.journal_service import simpan_jurnal
 
 
 # Kode akun khusus yang diperlukan jurnal penutup
-KODE_IKHTISAR_LR = "3301"   # Ikhtisar Laba Rugi
-KODE_LABA_DITAHAN = "3201"  # Laba Ditahan
+KODE_IKHTISAR_LR = "3130"   # Ikhtisar Laba Rugi
+KODE_LABA_DITAHAN = "3120"  # Laba Ditahan
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +280,7 @@ def _ambil_id_akun(kode_akun: str) -> int:
     if row is None:
         raise ValueError(
             f"Akun dengan kode '{kode_akun}' tidak ditemukan. "
-            "Pastikan akun Ikhtisar Laba Rugi (3301) dan Laba Ditahan (3201) sudah ada."
+            "Pastikan akun Ikhtisar Laba Rugi (3130) dan Laba (3120) sudah ada."
         )
     return int(row["id"])
 
