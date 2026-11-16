@@ -70,16 +70,16 @@ def db_jurnal():
         -- Akun COA minimal
         INSERT INTO accounts (id, kode_akun, nama_akun, kategori, saldo_normal)
         VALUES
-            (1,  '1101', 'Kas',               'Aset',             'Debit'),
-            (2,  '1201', 'Piutang Usaha',      'Aset',             'Debit'),
-            (3,  '1301', 'Persediaan Bahan',   'Aset',             'Debit'),
-            (4,  '2101', 'Utang Usaha',        'Liabilitas',       'Kredit'),
-            (5,  '3101', 'Modal Disetor',      'Ekuitas',          'Kredit'),
-            (6,  '4101', 'Penjualan Cabai',    'Pendapatan',       'Kredit'),
-            (7,  '5101', 'Beban Upah',         'Beban Produksi',   'Debit'),
-            (8,  '6101', 'Beban Listrik',      'Beban Operasional','Debit'),
-            (9,  '5108', 'HPP Penjualan Cabai', 'Beban Produksi',   'Debit'),
-            (10, '1307', 'Persediaan Cabai',    'Aset',             'Debit');
+            (1,  '1110', 'Kas',               'Aset',             'Debit'),
+            (2,  '1120', 'Piutang Usaha',      'Aset',             'Debit'),
+            (3,  '1140', 'Persediaan Bahan',   'Aset',             'Debit'),
+            (4,  '2110', 'Utang Usaha',        'Liabilitas',       'Kredit'),
+            (5,  '3110', 'Modal Disetor',      'Ekuitas',          'Kredit'),
+            (6,  '4110', 'Penjualan Cabai',    'Pendapatan',       'Kredit'),
+            (7,  '6110', 'Beban Gaji',         'Beban Operasional', 'Debit'),
+            (8,  '6130', 'Beban Listrik',      'Beban Operasional','Debit'),
+            (9,  '5110', 'HPP Penjualan Cabai', 'Beban Produksi',   'Debit'),
+            (10, '1140', 'Persediaan Cabai',    'Aset',             'Debit');
 
         -- 1. Penjualan Tempo (Sales Journal) — Rp600.000
         INSERT INTO journal_entries (period_id, tanggal, no_bukti, journal_type, keterangan, pihak_terkait)
