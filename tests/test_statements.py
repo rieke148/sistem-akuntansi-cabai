@@ -111,17 +111,17 @@ def _isi_data_contoh(koneksi: sqlite3.Connection) -> None:
     koneksi.executescript("""
         -- Akun
         INSERT INTO accounts (id, kode_akun, nama_akun, kategori, saldo_normal) VALUES
-            (1,  '1101', 'Kas',                   'Aset',              'Debit'),
-            (2,  '1201', 'Piutang Usaha',          'Aset',              'Debit'),
-            (3,  '1501', 'Peralatan',              'Aset',              'Debit'),
-            (4,  '1501K','Akumulasi Penyusutan',   'Aset',              'Kredit'),
-            (5,  '2101', 'Utang Usaha',            'Liabilitas',        'Kredit'),
-            (6,  '3101', 'Modal Disetor',          'Ekuitas',           'Kredit'),
-            (7,  '3201', 'Laba Ditahan',           'Ekuitas',           'Kredit'),
-            (8,  '3301', 'Ikhtisar Laba Rugi',     'Ekuitas',           'Kredit'),
-            (9,  '4101', 'Penjualan',              'Pendapatan',        'Kredit'),
-            (10, '5106', 'Beban Penyusutan',       'Beban Produksi',    'Debit'),
-            (11, '6101', 'Beban Administrasi',     'Beban Operasional', 'Debit');
+            (1,  '1110', 'Kas',                   'Aset',              'Debit'),
+            (2,  '1120', 'Piutang Usaha',          'Aset',              'Debit'),
+            (3,  '1250', 'Peralatan',              'Aset',              'Debit'),
+            (4,  '1251','Akumulasi Penyusutan',   'Aset',              'Kredit'),
+            (5,  '2110', 'Utang Usaha',            'Liabilitas',        'Kredit'),
+            (6,  '3110', 'Modal Disetor',          'Ekuitas',           'Kredit'),
+            (7,  '3120', 'Laba Ditahan',           'Ekuitas',           'Kredit'),
+            (8,  '3130', 'Ikhtisar Laba Rugi',     'Ekuitas',           'Kredit'),
+            (9,  '4110', 'Penjualan',              'Pendapatan',        'Kredit'),
+            (10, '6160', 'Beban Penyusutan',       'Beban Produksi',    'Debit'),
+            (11, '6130', 'Beban Administrasi',     'Beban Operasional', 'Debit');
 
         -- Periode
         INSERT INTO periods (id, tahun, bulan, nama_bulan, status) VALUES
@@ -286,16 +286,16 @@ class TestNeracaLajur:
         """Kolom NS (sebelum penyesuaian) tidak boleh mencakup jurnal PA-."""
         df = buat_neraca_lajur(1)
         # Beban Penyusutan hanya ada di jurnal PA-, jadi ns_debit-nya harus 0
-        baris_beban_penyusutan = df[df["kode_akun"] == "5106"]
+        baris_beban_penyusutan = df[df["kode_akun"] == "6160"]
         assert not baris_beban_penyusutan.empty, "Beban Penyusutan harus muncul di lajur"
-        # Saldo awal ns_debit untuk 5106 = 0 (tidak ada di NS sebelum penyesuaian)
+        # Saldo awal ns_debit untuk 6160 = 0 (tidak ada di NS sebelum penyesuaian)
         assert baris_beban_penyusutan.iloc[0]["ns_debit"] == 0
 
     def test_penyesuaian_hanya_jurnal_pa(self, mock_db):
         """Kolom penyesuaian hanya berisi mutasi jurnal PA-."""
         df = buat_neraca_lajur(1)
         # Beban Penyusutan di penyesuaian harus 1jt (dari PA-PENYUSUTAN-3-1)
-        baris = df[df["kode_akun"] == "5106"]
+        baris = df[df["kode_akun"] == "6160"]
         assert not baris.empty
         assert baris.iloc[0]["peny_debit"] == 1000000
 
@@ -303,7 +303,7 @@ class TestNeracaLajur:
         """NSD = NS + Penyesuaian per akun."""
         df = buat_neraca_lajur(1)
         # Kas: NS debit = 500jt + 10jt = 510jt; Penyesuaian = 0; NSD = 510jt
-        baris_kas = df[df["kode_akun"] == "1101"]
+        baris_kas = df[df["kode_akun"] == "1110"]
         assert not baris_kas.empty
         kas = baris_kas.iloc[0]
         assert kas["nsd_debit"] == kas["ns_debit"] + kas["peny_debit"] - kas["ns_kredit"] - kas["peny_kredit"] or \
@@ -312,7 +312,7 @@ class TestNeracaLajur:
     def test_pendapatan_masuk_kolom_lr(self, mock_db):
         """Akun Pendapatan harus masuk kolom lr_kredit."""
         df = buat_neraca_lajur(1)
-        baris = df[df["kode_akun"] == "4101"]
+        baris = df[df["kode_akun"] == "4110"]
         assert not baris.empty
         # Penjualan 10jt → lr_kredit = 10jt
         assert baris.iloc[0]["lr_kredit"] == 10000000
@@ -321,7 +321,7 @@ class TestNeracaLajur:
     def test_beban_masuk_kolom_lr(self, mock_db):
         """Akun Beban harus masuk kolom lr_debit."""
         df = buat_neraca_lajur(1)
-        baris = df[df["kode_akun"] == "5106"]
+        baris = df[df["kode_akun"] == "6160"]
         assert not baris.empty
         # Beban Penyusutan 1jt → lr_debit = 1jt
         assert baris.iloc[0]["lr_debit"] == 1000000
@@ -330,7 +330,7 @@ class TestNeracaLajur:
     def test_aset_masuk_kolom_neraca(self, mock_db):
         """Akun Aset harus masuk kolom neraca_debit."""
         df = buat_neraca_lajur(1)
-        baris_kas = df[df["kode_akun"] == "1101"]
+        baris_kas = df[df["kode_akun"] == "1110"]
         assert not baris_kas.empty
         assert baris_kas.iloc[0]["neraca_debit"] > 0
         assert baris_kas.iloc[0]["lr_debit"] == 0
@@ -338,7 +338,7 @@ class TestNeracaLajur:
     def test_ekuitas_masuk_kolom_neraca(self, mock_db):
         """Akun Ekuitas harus masuk kolom neraca_kredit."""
         df = buat_neraca_lajur(1)
-        baris = df[df["kode_akun"] == "3101"]
+        baris = df[df["kode_akun"] == "3110"]
         assert not baris.empty
         assert baris.iloc[0]["neraca_kredit"] > 0
         assert baris.iloc[0]["lr_kredit"] == 0
@@ -393,16 +393,16 @@ class TestLaporanKeuangan:
     def test_hpp_muncul_dari_jurnal_umum_sampai_laporan_dan_jurnal_penutup(
         self, mock_db, db_path
     ):
-        """Akun HPP 5108 mengalir ke jurnal, NS, lajur, L/R, dan jurnal penutup."""
+        """Akun HPP 5110 mengalir ke jurnal, NS, lajur, L/R, dan jurnal penutup."""
         koneksi = sqlite3.connect(str(db_path))
         koneksi.row_factory = sqlite3.Row
         koneksi.execute(
             "INSERT INTO accounts (id, kode_akun, nama_akun, kategori, saldo_normal) "
-            "VALUES (12, '5108', 'HPP Penjualan Cabai', 'Beban Produksi', 'Debit')"
+            "VALUES (12, '5110', 'HPP Penjualan Cabai', 'Beban Produksi', 'Debit')"
         )
         koneksi.execute(
             "INSERT INTO accounts (id, kode_akun, nama_akun, kategori, saldo_normal) "
-            "VALUES (13, '1307', 'Persediaan Hasil Panen', 'Aset', 'Debit')"
+            "VALUES (13, '1140', 'Persediaan Hasil Panen', 'Aset', 'Debit')"
         )
         koneksi.executemany(
             "INSERT INTO journal_lines (journal_entry_id, account_id, debit, kredit) "
@@ -418,17 +418,17 @@ class TestLaporanKeuangan:
 
         # Jurnal Umum mengambil semua baris akun, termasuk akun HPP.
         df_jurnal = ambil_semua_jurnal(period_id=1)
-        assert "5108" in df_jurnal["kode_akun"].tolist()
+        assert "5110" in df_jurnal["kode_akun"].tolist()
 
         # Neraca Saldo menampilkan HPP sebagai akun beban bersaldo debit.
         df_ns = hitung_neraca_saldo(1, termasuk_penyesuaian=True)
-        baris_ns = df_ns[df_ns["kode_akun"] == "5108"]
+        baris_ns = df_ns[df_ns["kode_akun"] == "5110"]
         assert not baris_ns.empty
         assert int(baris_ns.iloc[0]["debit"]) == 2_000_000
 
         # Neraca Lajur mengarahkan HPP ke kolom Laba Rugi, bukan Neraca.
         df_lajur = buat_neraca_lajur(1)
-        baris_lajur = df_lajur[df_lajur["kode_akun"] == "5108"].iloc[0]
+        baris_lajur = df_lajur[df_lajur["kode_akun"] == "5110"].iloc[0]
         assert int(baris_lajur["lr_debit"]) == 2_000_000
         assert int(baris_lajur["neraca_debit"]) == 0
 
@@ -443,7 +443,7 @@ class TestLaporanKeuangan:
         rencana = preview_jurnal_penutup(1, "2026-10-31")
         jurnal_tutup_beban = next(j for j in rencana if j["no_bukti"].endswith("-2"))
         akun_kredit = [baris["akun"] for baris in jurnal_tutup_beban["lines"] if baris["kredit"] > 0]
-        assert "5108" in akun_kredit
+        assert "5110" in akun_kredit
 
     def test_laba_rugi_total_beban(self, mock_db):
         """Total beban harus sesuai dengan jurnal penyesuaian."""
@@ -499,7 +499,7 @@ class TestLaporanKeuangan:
         modal_akhir = 509000000
         data = susun_neraca(1, modal_akhir)
         kode_aset_lancar = [item["kode"] for item in data["aset_lancar"]]
-        assert "1101" in kode_aset_lancar, "Kas harus muncul di aset lancar"
+        assert "1110" in kode_aset_lancar, "Kas harus muncul di aset lancar"
 
 
 # ---------------------------------------------------------------------------
@@ -529,8 +529,8 @@ class TestJurnalPenutup:
         lines = j1["lines"]
         kode_debit = [l["akun"] for l in lines if l["debit"] > 0]
         kode_kredit = [l["akun"] for l in lines if l["kredit"] > 0]
-        assert "4101" in kode_debit  # Penjualan di-debit
-        assert "3301" in kode_kredit  # Ikhtisar L/R di-kredit
+        assert "4110" in kode_debit  # Penjualan di-debit
+        assert "3130" in kode_kredit  # Ikhtisar L/R di-kredit
 
     def test_preview_jurnal_2_tutup_beban(self, mock_db):
         """Jurnal kedua: Dr Ikhtisar L/R | Cr Beban."""
@@ -540,8 +540,8 @@ class TestJurnalPenutup:
         lines = j2["lines"]
         kode_debit = [l["akun"] for l in lines if l["debit"] > 0]
         kode_kredit = [l["akun"] for l in lines if l["kredit"] > 0]
-        assert "3301" in kode_debit  # Ikhtisar L/R di-debit
-        assert "5106" in kode_kredit  # Beban Penyusutan di-kredit
+        assert "3130" in kode_debit  # Ikhtisar L/R di-debit
+        assert "6160" in kode_kredit  # Beban Penyusutan di-kredit
 
     def test_preview_jurnal_3_pindah_laba(self, mock_db):
         """Jurnal ketiga: Dr Ikhtisar L/R | Cr Laba Ditahan (saat laba)."""
@@ -551,8 +551,8 @@ class TestJurnalPenutup:
         lines = j3["lines"]
         kode_debit = [l["akun"] for l in lines if l["debit"] > 0]
         kode_kredit = [l["akun"] for l in lines if l["kredit"] > 0]
-        assert "3301" in kode_debit  # Ikhtisar L/R di-debit (tutup)
-        assert "3201" in kode_kredit  # Laba Ditahan di-kredit
+        assert "3130" in kode_debit  # Ikhtisar L/R di-debit (tutup)
+        assert "3120" in kode_kredit  # Laba Ditahan di-kredit
 
     def test_jurnal_penutup_seimbang(self, mock_db):
         """Setiap jurnal penutup harus seimbang (debit == kredit)."""
