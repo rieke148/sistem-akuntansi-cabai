@@ -168,7 +168,7 @@ def _form_tambah_akun() -> None:
     with st.form("form_tambah_akun", clear_on_submit=True):
         kode = st.text_input(
             "Kode Akun *",
-            placeholder="Contoh: 1101",
+            placeholder="Contoh: 1110",
             help="Kode unik: 1xxx=Aset, 2xxx=Liabilitas, 3xxx=Ekuitas, 4xxx=Pendapatan, 5xxx=Beban Produksi, 6xxx=Beban Operasional"
         )
         nama = st.text_input("Nama Akun *", placeholder="Contoh: Kas")
@@ -348,8 +348,8 @@ def _tab_item() -> None:
                 tipe = st.selectbox("Tipe", svc.TIPE_ITEM,
                                     help="bahan=input produksi, hasil_panen=output")
                 st.caption(
-                    "Akun otomatis: Bahan → 1301 Persediaan Bahan Produksi; "
-                    "hasil panen → 1307 Persediaan Cabai."
+                    "Akun otomatis: "
+                    "bahan dan hasil panen → 1140 Persediaan."
                 )
                 if st.form_submit_button("💾 Simpan", use_container_width=True):
                     try:
@@ -372,8 +372,8 @@ def _tab_item() -> None:
                     tipe_b = st.selectbox("Tipe", svc.TIPE_ITEM,
                                           index=svc.TIPE_ITEM.index(baris["tipe"]))
                     st.caption(
-                        "Akun otomatis mengikuti tipe item: Bahan → 1301; "
-                        "Hasil panen → 1307."
+                        "Akun otomatis mengikuti tipe item: "
+                        "Bahan dan hasil panen → 1140."
                     )
                     aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
                     if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
@@ -537,7 +537,7 @@ def _tab_aset_tetap() -> None:
     from database.connection import get_connection
     koneksi = get_connection()
     akun_aset_rows = koneksi.execute(
-        "SELECT id, kode_akun, nama_akun FROM accounts WHERE kategori='Aset' AND is_kontra=0 AND aktif=1 ORDER BY kode_akun"
+        "SELECT id, kode_akun, nama_akun FROM accounts WHERE kategori='Aset' AND kode_akun IN ('1210', '1220', '1230', '1240', '1250') AND aktif=1 ORDER BY kode_akun"
     ).fetchall()
     akun_akum_rows = koneksi.execute(
         "SELECT id, kode_akun, nama_akun FROM accounts WHERE kategori='Aset' AND is_kontra=1 AND aktif=1 ORDER BY kode_akun"
