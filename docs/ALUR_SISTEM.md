@@ -107,8 +107,8 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 ### Fase 4 — Buku Besar, BB Pembantu & Kartu Persediaan
 - **Buku Besar**: Menampilkan saldo berjalan per akun dengan saldo awal dan mutasi debit/kredit.
 - **BB Pembantu**: Rincian piutang usaha per pelanggan (dilengkapi analisis umur piutang / aging) dan utang usaha per supplier/transaksi. Kartu persediaan ditampilkan terpisah pada menu Kartu Persediaan; aset tetap dikelola melalui Master Data dan Ayat Penyesuaian.
-- **Kartu Persediaan**: Sistem perpetual dengan metode rata-rata bergerak (*moving average*). Pembelian, saldo awal, pemakaian bahan, panen, dan penjualan langsung memperbarui saldo kuantitas serta nilai.
-- **Saldo Awal Persediaan**: Kuantitas fisik dan harga pokok dimasukkan per item. Sistem mencatat mutasi `saldo_awal` dan menyelaraskan saldo akun persediaan pada `opening_balances`.
+- **Kartu Persediaan**: Sistem perpetual dengan metode rata-rata bergerak (*moving average*). Pembelian, saldo awal, pemakaian bahan, panen, dan penjualan langsung memperbarui saldo kuantitas serta nilai. Enam jenis bahan menggunakan satu akun buku besar **1301 — Persediaan Bahan Produksi**, sedangkan hasil panen menggunakan **1307 — Persediaan Cabai**. Kartu stok tetap terpisah per item.
+- **Saldo Awal Persediaan**: Kuantitas fisik dan harga pokok dimasukkan per item. Sistem mencatat mutasi `saldo_awal` dan menjumlahkan nilai item dengan akun yang sama untuk menyelaraskan saldo akun pada `opening_balances`.
 - **Penjualan Cabai**: Setiap penjualan memeriksa ketersediaan stok dan membentuk dua pasangan jurnal: Kas/Piutang terhadap Penjualan, serta HPP Penjualan terhadap Persediaan Cabai.
 - **Validasi**: Penjualan atau pemakaian yang melebihi stok ditolak. Mutasi per item harus dicatat kronologis agar rata-rata bergerak akurat.
 

@@ -74,7 +74,7 @@ Setiap transaksi yang diinput pengguna dipetakan ke pasangan akun debit dan kred
 ---
 
 ### B. Kartu Persediaan Perpetual — Rata-Rata Bergerak (`services/inventory_service.py`)
-Setiap pembelian, pemakaian, panen, dan penjualan langsung memperbarui kartu stok serta saldo akun persediaan. Penjualan cabai tidak menunggu akhir periode untuk menghitung HPP:
+Setiap pembelian, pemakaian, panen, dan penjualan langsung memperbarui kartu stok serta saldo akun persediaan. Enam jenis bahan (bibit, pupuk awal tanam, NPK, pestisida, plastik mulsa, dan bambu) diposting ke akun **1301 — Persediaan Bahan Produksi**; hasil panen diposting ke akun **1307 — Persediaan Cabai**. Kartu stok tetap terpisah per item. Penjualan cabai tidak menunggu akhir periode untuk menghitung HPP:
 - **Saldo Awal**: Kuantitas dan harga pokok diinput per item. Sistem mencatat gerakan `saldo_awal` dan menyelaraskan saldo debit pada `opening_balances`.
 - **Penjualan Tunai**: Kas (D), Penjualan (K), HPP Penjualan (D), Persediaan Cabai (K).
 - **Penjualan Tempo**: Piutang Usaha (D), Penjualan (K), HPP Penjualan (D), Persediaan Cabai (K).
