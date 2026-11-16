@@ -32,7 +32,7 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
    - Pemilih periode fleksibel terpadu di bagian atas dashboard.
 
 2. **Master Data Terpadu (10 Tab)**:
-   - Bagan Akun (Chart of Accounts 6 Digit), Pelanggan, Supplier, Item Persediaan, Pekerja, Aset Tetap, Blok Lahan, Saldo Awal, Periode Akuntansi, dan Parameter Operasional.
+   - Bagan Akun (Chart of Accounts 4 Digit, 28 akun detail sesuai CSV), Pelanggan, Supplier, Item Persediaan, Pekerja, Aset Tetap, Blok Lahan, Saldo Awal, Periode Akuntansi, dan Parameter Operasional.
 
 3. **Input Transaksi & Mesin Jurnal Otomatis**:
    - 10 Formulir transaksi spesifik (Penjualan Tunai/Tempo, Pembelian Tunai/Kredit, Pelunasan Piutang, Setoran Modal, Pemakaian Bahan, Catat Panen, Biaya Operasional, dan Beli Aset).
@@ -64,13 +64,13 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
    - Kertas kerja lengkap 10 kolom menghubungkan Neraca Saldo, Penyesuaian, NSD, Laba Rugi, dan Neraca dengan verifikasi keseimbangan otomatis.
 
 10. **Laporan Keuangan Standar**:
-    - Laporan Laba Rugi (Pendapatan - Beban Produksi & Operasional = Laba Bersih).
+    - Laporan Laba Rugi (Penjualan Cabai - HPP - Beban Operasional - Beban Lain-lain = Laba Bersih).
     - Laporan Perubahan Ekuitas (Modal Awal + Tambahan Modal + Laba Bersih = Modal Akhir).
     - Neraca Bentuk Laporan (Validasi: Total Aset == Total Liabilitas + Total Ekuitas).
     - Laporan Arus Kas Metode Langsung (Operasi, Investasi, Pendanaan).
 
 11. **Jurnal Penutup & Neraca Penutup**:
-    - Penutupan akun nominal ke Ikhtisar L/R dan Laba Ditahan, serta penguncian periode akuntansi.
+    - Penutupan akun nominal ke Ikhtisar L/R (3130) dan Laba (3120), serta penguncian periode akuntansi.
 
 12. **Ekspor Multi-Format & Cadangan Data**:
     - Ekspor paket laporan keuangan ke Excel (.xlsx) multi-sheet dan dokumen PDF (.pdf) berformat formal.
