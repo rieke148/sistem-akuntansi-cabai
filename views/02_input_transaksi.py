@@ -370,7 +370,7 @@ def _form_penjualan_tempo(period_id: int):
         akun_jual_id = _cari_akun_penjualan(komoditas)
 
         if not akun_piutang_id or not akun_jual_id:
-            st.error("Akun Piutang (1201) atau Akun Penjualan tidak ditemukan.")
+            st.error("Akun Piutang (1120) atau Akun Penjualan tidak ditemukan.")
             return
 
         item_panen = items_panen[item_panen_idx]
@@ -379,7 +379,7 @@ def _form_penjualan_tempo(period_id: int):
             return
         akun_hpp_id = _cari_akun_by_kode("5110")
         if not akun_hpp_id:
-            st.error("Akun HPP Penjualan Cabai (5108) belum tersedia.")
+            st.error("Akun Harga Pokok Penjualan (5110) belum tersedia.")
             return
         try:
             hasil_hpp = hitung_nilai_keluar(item_panen["id"], jumlah_kg)
@@ -619,7 +619,7 @@ def _form_beli_bahan_tunai(period_id: int):
         akun_persediaan_id = item.get("account_id")
         if not akun_persediaan_id:
             st.error(
-                "Item belum terhubung ke akun 1301 - Persediaan Bahan Produksi. "
+                "Item belum terhubung ke akun 1140 - Persediaan. "
                 "Periksa Master Data > Item."
             )
             return
@@ -705,7 +705,7 @@ def _form_beli_kredit(period_id: int):
             qty = st.number_input("Kuantitas", min_value=0.1, step=0.1, value=1.0)
             harga_satuan = st.number_input("Harga Satuan (Rp)", min_value=1000, step=500, value=10000)
 
-            st.caption("Akun otomatis: 1301 - Persediaan Bahan Produksi")
+            st.caption("Akun otomatis: 1140 - Persediaan")
 
         keterangan = st.text_input("Keterangan", placeholder="(opsional)")
         total = int(qty * harga_satuan)
@@ -717,7 +717,7 @@ def _form_beli_kredit(period_id: int):
         akun_persediaan_id = item.get("account_id")
         if not akun_persediaan_id:
             st.error(
-                "Item belum terhubung ke akun 1301 - Persediaan Bahan Produksi. "
+                "Item belum terhubung ke akun 1140 - Persediaan. "
                 "Periksa Master Data > Item."
             )
             return
@@ -1027,8 +1027,8 @@ def _form_biaya_operasional(period_id: int):
         "Listrik": "6130",           # Beban Listrik
         "BBM Pengiriman": "6140",    # Beban BBM Pengiriman
         "BBM Operasional": "6150",   # Beban BBM Operasional
-        "Sewa Traktor": "6120",      # Beban Sewa Traktor (bukan 5106!)
-        "Upah Tenaga Kerja": "6110", # Beban Upah Langsung (bukan 5101/Bibit)
+        "Sewa Traktor": "6120",      # Beban Sewa
+        "Upah Tenaga Kerja": "6110", # Beban Gaji
         "Lainnya": None,
     }
 
