@@ -46,7 +46,7 @@ def _ambil_pekerja_aktif() -> list[dict]:
     """Ambil semua pekerja aktif."""
     koneksi = get_connection()
     rows = koneksi.execute(
-        "SELECT id, nama, tipe_pekerja, upah_harian, komoditas FROM employees WHERE aktif = 1 ORDER BY nama"
+        "SELECT id, nama, tipe_pekerja, upah_harian FROM employees WHERE aktif = 1 ORDER BY nama"
     ).fetchall()
     koneksi.close()
     return [dict(r) for r in rows]
