@@ -101,15 +101,15 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 - **Jurnal Khusus** (`views/05_jurnal_khusus.py`): 4 tab format kolom akuntansi:
   - *Sales Journal*: Piutang Usaha (D) / Penjualan (K), serta HPP Penjualan (D) / Persediaan Cabai (K).
   - *Purchase Journal*: Persediaan (D) / Utang Usaha (K)
-  - *Cash Receipt Journal*: Kas (D), Piutang (K), Penjualan (K), Lain-lain (K), dengan kolom tambahan HPP (D) / Persediaan Cabai (K) yang tidak dihitung sebagai sumber kas.
+  - *Cash Receipt Journal*: Kas (D), Piutang (K), Penjualan (K), Lain-lain (K), dengan kolom tambahan HPP (D) / Persediaan (K) yang tidak dihitung sebagai sumber kas.
   - *Cash Payment Journal*: Kas (K), Persediaan (D), Beban Upah (D), Beban Lain (D)
 
 ### Fase 4 — Buku Besar, BB Pembantu & Kartu Persediaan
 - **Buku Besar**: Menampilkan saldo berjalan per akun dengan saldo awal dan mutasi debit/kredit.
 - **BB Pembantu**: Rincian piutang usaha per pelanggan (dilengkapi analisis umur piutang / aging) dan utang usaha per supplier/transaksi. Kartu persediaan ditampilkan terpisah pada menu Kartu Persediaan; aset tetap dikelola melalui Master Data dan Ayat Penyesuaian.
-- **Kartu Persediaan**: Sistem perpetual dengan metode rata-rata bergerak (*moving average*). Pembelian, saldo awal, pemakaian bahan, panen, dan penjualan langsung memperbarui saldo kuantitas serta nilai. Enam jenis bahan menggunakan satu akun buku besar **1301 — Persediaan Bahan Produksi**, sedangkan hasil panen menggunakan **1307 — Persediaan Cabai**. Kartu stok tetap terpisah per item.
+- **Kartu Persediaan**: Sistem perpetual dengan metode rata-rata bergerak (*moving average*). Pembelian, saldo awal, pemakaian bahan, panen, dan penjualan langsung memperbarui saldo kuantitas serta nilai. Seluruh item bahan produksi dan hasil panen menggunakan satu akun buku besar **1140 — Persediaan**. Kartu stok tetap terpisah per item.
 - **Saldo Awal Persediaan**: Kuantitas fisik dan harga pokok dimasukkan per item. Sistem mencatat mutasi `saldo_awal` dan menjumlahkan nilai item dengan akun yang sama untuk menyelaraskan saldo akun pada `opening_balances`.
-- **Penjualan Cabai**: Setiap penjualan memeriksa ketersediaan stok dan membentuk dua pasangan jurnal: Kas/Piutang terhadap Penjualan, serta HPP Penjualan terhadap Persediaan Cabai.
+- **Penjualan Cabai**: Setiap penjualan memeriksa ketersediaan stok dan membentuk dua pasangan jurnal: Kas/Piutang terhadap Penjualan, serta HPP Penjualan (5110) terhadap Persediaan (1140).
 - **Validasi**: Penjualan atau pemakaian yang melebihi stok ditolak. Mutasi per item harus dicatat kronologis agar rata-rata bergerak akurat.
 
 ### Fase 5 — Neraca Saldo, Penggajian & Penyesuaian
