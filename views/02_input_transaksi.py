@@ -83,7 +83,7 @@ def _ambil_items(tipe: str | None = None):
 def _ambil_blok_lahan():
     koneksi = get_connection()
     rows = koneksi.execute(
-        "SELECT id, kode_blok AS kode, kode_blok AS nama, komoditas, jumlah_pohon FROM blok_lahan WHERE aktif = 1 ORDER BY kode_blok"
+        "SELECT id, kode_blok AS kode, kode_blok AS nama, jumlah_pohon FROM blok_lahan WHERE aktif = 1 ORDER BY kode_blok"
     ).fetchall()
     koneksi.close()
     return [dict(r) for r in rows]
@@ -808,9 +808,9 @@ def _form_pemakaian_bahan(period_id: int):
                 blok_idx = st.selectbox(
                     "Blok Lahan",
                     range(len(blok_list)),
-                    format_func=lambda i: f"Blok {blok_list[i]['kode']} ({blok_list[i]['komoditas']})",
+                    format_func=lambda i: f"Blok {blok_list[i]['kode']}",
                 )
-                blok_nama = f"Blok {blok_list[blok_idx]['kode']} ({blok_list[blok_idx]['komoditas']})"
+                blok_nama = f"Blok {blok_list[blok_idx]['kode']}"
             else:
                 blok_nama = st.text_input("Blok Lahan", placeholder="Nama blok")
         with kol2:
@@ -946,7 +946,7 @@ def _form_catat_panen(period_id: int):
                 blok_idx = st.selectbox(
                     "Blok Lahan",
                     range(len(blok_list)),
-                    format_func=lambda i: f"Blok {blok_list[i]['kode']} ({blok_list[i]['komoditas']})",
+                    format_func=lambda i: f"Blok {blok_list[i]['kode']}",
                 )
                 blok_nama = f"Blok {blok_list[blok_idx]['kode']}"
             else:
