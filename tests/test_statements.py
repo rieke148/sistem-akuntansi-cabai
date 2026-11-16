@@ -118,9 +118,9 @@ def _isi_data_contoh(koneksi: sqlite3.Connection) -> None:
             (5,  '2110', 'Utang Usaha',            'Liabilitas',        'Kredit'),
             (6,  '3110', 'Modal Disetor',          'Ekuitas',           'Kredit'),
             (7,  '3120', 'Laba Ditahan',           'Ekuitas',           'Kredit'),
-            (8,  '3130', 'Ikhtisar Laba Rugi',     'Ekuitas',           'Kredit'),
+            (8,  '3130', 'Ikhtisar Laba Rugi',     'Ekuitas',           'Debit'),
             (9,  '4110', 'Penjualan',              'Pendapatan',        'Kredit'),
-            (10, '6160', 'Beban Penyusutan',       'Beban Produksi',    'Debit'),
+            (10, '6160', 'Beban Penyusutan',       'Beban Operasional', 'Debit'),
             (11, '6130', 'Beban Administrasi',     'Beban Operasional', 'Debit');
 
         -- Periode
@@ -435,7 +435,8 @@ class TestLaporanKeuangan:
         # Laporan Laba Rugi memisahkan HPP dari beban produksi lainnya.
         data_lr = susun_laporan_laba_rugi(1)
         assert data_lr["total_hpp_penjualan"] == 2_000_000
-        assert data_lr["total_beban_produksi_lain"] == 1_000_000
+        assert data_lr["total_beban_produksi_lain"] == 0
+        assert data_lr["total_beban_operasional"] == 1_000_000
         assert data_lr["laba_kotor"] == 8_000_000
         assert data_lr["laba_bersih"] == 7_000_000
 
