@@ -165,57 +165,50 @@ def _seed_bagan_akun(cursor: sqlite3.Cursor) -> dict:
     """
     # Format: (kode, nama, kategori, saldo_normal, is_kontra)
     daftar_akun = [
-        # --- ASET (1xxx) ---
-        ("1101", "Kas", "Aset", "Debit", 0),
-        ("1102", "Bank BRI", "Aset", "Debit", 0),
-        ("1201", "Piutang Usaha", "Aset", "Debit", 0),
-        ("1301", "Persediaan Bahan Produksi", "Aset", "Debit", 0),
-        ("1307", "Persediaan Cabai", "Aset", "Debit", 0),
-        ("1401", "Perlengkapan Pertanian", "Aset", "Debit", 0),
-        ("1501", "Tanah", "Aset", "Debit", 0),
-        ("1502", "Bangunan Kantor dan Gudang", "Aset", "Debit", 0),
-        ("1502K", "Akumulasi Penyusutan Bangunan", "Aset", "Kredit", 1),
-        ("1503", "Kendaraan", "Aset", "Debit", 0),
-        ("1503K", "Akumulasi Penyusutan Kendaraan", "Aset", "Kredit", 1),
-        ("1504", "Komputer", "Aset", "Debit", 0),
-        ("1504K", "Akumulasi Penyusutan Komputer", "Aset", "Kredit", 1),
-        ("1505", "Peralatan Pertanian", "Aset", "Debit", 0),
-        ("1505K", "Akumulasi Penyusutan Peralatan", "Aset", "Kredit", 1),
-        ("1601", "Plastik Mulsa (Perlengkapan)", "Aset", "Debit", 0),
-        ("1601K", "Akumulasi Amortisasi Plastik Mulsa", "Aset", "Kredit", 1),
+        # Format: (kode, nama, kategori database, saldo_normal, is_kontra)
+        # Kelompok akun 1000, 2000, dst. adalah judul kelompok pada CSV,
+        # bukan akun detail yang dapat dipakai pada jurnal.
+        # --- ASET ---
+        ("1110", "Kas", "Aset", "Debit", 0),
+        ("1120", "Piutang Usaha", "Aset", "Debit", 0),
+        ("1130", "Perlengkapan", "Aset", "Debit", 0),
+        ("1140", "Persediaan", "Aset", "Debit", 0),
+        ("1210", "Tanah", "Aset", "Debit", 0),
+        ("1220", "Bangunan", "Aset", "Debit", 0),
+        ("1221", "Akumulasi Penyusutan Bangunan", "Aset", "Kredit", 1),
+        ("1230", "Kendaraan", "Aset", "Debit", 0),
+        ("1231", "Akumulasi Penyusutan Kendaraan", "Aset", "Kredit", 1),
+        ("1240", "Komputer", "Aset", "Debit", 0),
+        ("1241", "Akumulasi Penyusutan Komputer", "Aset", "Kredit", 1),
+        ("1250", "Peralatan Pertanian", "Aset", "Debit", 0),
+        ("1251", "Akumulasi Penyusutan Peralatan", "Aset", "Kredit", 1),
 
-        # --- LIABILITAS (2xxx) ---
-        ("2101", "Utang Usaha", "Liabilitas", "Kredit", 0),
-        ("2201", "Utang Gaji", "Liabilitas", "Kredit", 0),
-        ("2202", "Utang Listrik", "Liabilitas", "Kredit", 0),
-        ("2203", "Utang Lain-lain", "Liabilitas", "Kredit", 0),
+        # --- LIABILITAS ---
+        ("2110", "Utang Usaha", "Liabilitas", "Kredit", 0),
+        ("2210", "Utang Gaji", "Liabilitas", "Kredit", 0),
 
-        # --- EKUITAS (3xxx) ---
-        ("3101", "Modal Disetor", "Ekuitas", "Kredit", 0),
-        ("3201", "Laba Ditahan", "Ekuitas", "Kredit", 0),
-        ("3301", "Ikhtisar Laba Rugi", "Ekuitas", "Kredit", 0),
+        # --- EKUITAS ---
+        ("3110", "Modal Pribadi", "Ekuitas", "Kredit", 0),
+        ("3120", "Laba", "Ekuitas", "Kredit", 0),
+        ("3130", "Ikhtisar Laba Rugi", "Ekuitas", "Debit", 0),
 
-        # --- PENDAPATAN (4xxx) ---
-        ("4101", "Penjualan Cabai Rawit", "Pendapatan", "Kredit", 0),
-        ("4901", "Pendapatan Lain-lain", "Pendapatan", "Kredit", 0),
+        # --- PENDAPATAN ---
+        ("4110", "Penjualan Cabai", "Pendapatan", "Kredit", 0),
 
-        # --- BEBAN PRODUKSI (5xxx) ---
-        ("5101", "Beban Bibit", "Beban Produksi", "Debit", 0),
-        ("5102", "Beban Pupuk", "Beban Produksi", "Debit", 0),
-        ("5103", "Beban Pestisida", "Beban Produksi", "Debit", 0),
-        ("5104", "Beban Bahan Produksi Lain", "Beban Produksi", "Debit", 0),
-        ("5105", "Beban Upah Langsung", "Beban Produksi", "Debit", 0),
-        ("5106", "Beban Penyusutan Aset Produksi", "Beban Produksi", "Debit", 0),
-        ("5107", "Beban Amortisasi Plastik Mulsa", "Beban Produksi", "Debit", 0),
-        ("5108", "HPP Penjualan Cabai", "Beban Produksi", "Debit", 0),
+        # --- HPP ---
+        ("5110", "Harga Pokok Penjualan", "Beban Produksi", "Debit", 0),
 
-        # --- BEBAN OPERASIONAL (6xxx) ---
-        ("6101", "Beban Listrik", "Beban Operasional", "Debit", 0),
-        ("6102", "Beban BBM Pengiriman", "Beban Operasional", "Debit", 0),
-        ("6103", "Beban BBM Operasional", "Beban Operasional", "Debit", 0),
-        ("6104", "Beban Sewa Traktor", "Beban Operasional", "Debit", 0),
-        ("6105", "Beban Penyusutan Aset Non-Produksi", "Beban Operasional", "Debit", 0),
-        ("6901", "Beban Lain-lain", "Beban Operasional", "Debit", 0),
+        # --- BEBAN OPERASIONAL ---
+        ("6110", "Beban Gaji", "Beban Operasional", "Debit", 0),
+        ("6120", "Beban Sewa", "Beban Operasional", "Debit", 0),
+        ("6130", "Beban Air, Listrik, dan Telepon", "Beban Operasional", "Debit", 0),
+        ("6140", "Beban BBM Pengiriman", "Beban Operasional", "Debit", 0),
+        ("6150", "Beban BBM Operasional", "Beban Operasional", "Debit", 0),
+        ("6160", "Beban Penyusutan", "Beban Operasional", "Debit", 0),
+        ("6170", "Beban Perbaikan", "Beban Operasional", "Debit", 0),
+
+        # --- BEBAN LAINNYA ---
+        ("7110", "Beban Lain-lain", "Beban Operasional", "Debit", 0),
     ]
 
     akun_map = {}  # {kode_akun: id}
@@ -273,13 +266,13 @@ def _seed_item(cursor: sqlite3.Cursor, akun: dict) -> dict:
     """Membuat item persediaan."""
     items_list = [
         # (kode, nama, satuan, tipe, komoditas, kode_akun)
-        ("BHN-001", "Bibit Cabai Rawit", "batang", "bahan", "cabai", "1301"),
-        ("BHN-002", "Pupuk (Awal Tanam)", "karung", "bahan", "cabai", "1301"),
-        ("BHN-003", "Pupuk NPK", "paket/blok", "bahan", "cabai", "1301"),
-        ("BHN-004", "Pestisida", "paket/blok", "bahan", "cabai", "1301"),
-        ("BHN-005", "Plastik Mulsa", "roll (200m)", "bahan", "cabai", "1301"),
-        ("BHN-006", "Bambu", "batang", "bahan", "cabai", "1301"),
-        ("HSL-001", "Cabai Rawit", "kg", "hasil_panen", "cabai", "1307"),
+        ("BHN-001", "Bibit Cabai Rawit", "batang", "bahan", "cabai", "1140"),
+        ("BHN-002", "Pupuk (Awal Tanam)", "karung", "bahan", "cabai", "1140"),
+        ("BHN-003", "Pupuk NPK", "paket/blok", "bahan", "cabai", "1140"),
+        ("BHN-004", "Pestisida", "paket/blok", "bahan", "cabai", "1140"),
+        ("BHN-005", "Plastik Mulsa", "roll (200m)", "bahan", "cabai", "1140"),
+        ("BHN-006", "Bambu", "batang", "bahan", "cabai", "1140"),
+        ("HSL-001", "Cabai Rawit", "kg", "hasil_panen", "cabai", "1140"),
     ]
     result = {}
     for kode, nama, satuan, tipe, komoditas, kode_akun in items_list:
@@ -323,30 +316,30 @@ def _seed_aset_tetap(cursor: sqlite3.Cursor, akun: dict) -> dict:
     # (kode, nama, kategori, tgl_perolehan, harga, residu, umur_th, unit, is_susut, akun, akun_akum)
     aset_list = [
         ("AT-001", "Tanah Lahan 2.471m2", "Tanah",
-         "2024-11-01", 2_500_000_000, 0, 50, 1, 0, "1501", None),
+         "2024-11-01", 2_500_000_000, 0, 50, 1, 0, "1210", None),
         ("AT-002", "Bangunan Kantor dan Gudang", "Bangunan",
-         "2024-11-01", 120_000_000, 12_000_000, 20, 1, 1, "1502", "1502K"),
+         "2024-11-01", 120_000_000, 12_000_000, 20, 1, 1, "1220", "1221"),
         ("AT-003", "Kendaraan Operasional", "Kendaraan",
-         "2024-11-01", 250_000_000, 25_000_000, 8, 1, 1, "1503", "1503K"),
+         "2024-11-01", 250_000_000, 25_000_000, 8, 1, 1, "1230", "1231"),
         ("AT-004", "Komputer", "Komputer",
-         "2024-11-01", 15_000_000, 1_500_000, 4, 1, 1, "1504", "1504K"),
+         "2024-11-01", 15_000_000, 1_500_000, 4, 1, 1, "1240", "1241"),
         # Peralatan — jumlah unit CONTOH, user harus input
         ("AT-005", "Cangkul", "Peralatan",
-         "2024-11-01", 150_000, 0, 3, 5, 1, "1505", "1505K"),
+         "2024-11-01", 150_000, 0, 3, 5, 1, "1250", "1251"),
         ("AT-006", "Sabit", "Peralatan",
-         "2024-11-01", 110_000, 0, 3, 5, 1, "1505", "1505K"),
+         "2024-11-01", 110_000, 0, 3, 5, 1, "1250", "1251"),
         ("AT-007", "Tangki Semprot", "Peralatan",
-         "2024-11-01", 450_000, 0, 5, 3, 1, "1505", "1505K"),
+         "2024-11-01", 450_000, 0, 5, 3, 1, "1250", "1251"),
         ("AT-008", "Keranjang Panen", "Peralatan",
-         "2024-11-01", 40_000, 0, 2, 10, 1, "1505", "1505K"),
+         "2024-11-01", 40_000, 0, 2, 10, 1, "1250", "1251"),
         ("AT-009", "Timbangan", "Peralatan",
-         "2024-11-01", 500_000, 50_000, 4, 2, 1, "1505", "1505K"),
+         "2024-11-01", 500_000, 50_000, 4, 2, 1, "1250", "1251"),
         ("AT-010", "Selang Air", "Peralatan",
-         "2024-11-01", 250_000, 0, 5, 4, 1, "1505", "1505K"),
+         "2024-11-01", 250_000, 0, 5, 4, 1, "1250", "1251"),
         ("AT-011", "Ember", "Peralatan",
-         "2024-11-01", 35_000, 0, 2, 10, 1, "1505", "1505K"),
+         "2024-11-01", 35_000, 0, 2, 10, 1, "1250", "1251"),
         ("AT-012", "Pompa Air", "Peralatan",
-         "2024-11-01", 1_500_000, 150_000, 4, 2, 1, "1505", "1505K"),
+         "2024-11-01", 1_500_000, 150_000, 4, 2, 1, "1250", "1251"),
     ]
     result = {}
     for kode, nama, kat, tgl, harga, residu, umur, unit, is_susut, kd_akun, kd_akum in aset_list:
@@ -407,7 +400,7 @@ def _seed_saldo_awal(
     # Debit: Kas
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
-        "account_id": akun["1101"],
+        "account_id": akun["1110"],
         "saldo_debit": 500_000_000,
         "saldo_kredit": 0,
         "catatan": catatan,
@@ -415,7 +408,7 @@ def _seed_saldo_awal(
     # Debit: Tanah
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
-        "account_id": akun["1501"],
+        "account_id": akun["1210"],
         "saldo_debit": 2_500_000_000,
         "saldo_kredit": 0,
         "catatan": catatan,
@@ -423,7 +416,7 @@ def _seed_saldo_awal(
     # Debit: Bangunan
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
-        "account_id": akun["1502"],
+        "account_id": akun["1220"],
         "saldo_debit": 120_000_000,
         "saldo_kredit": 0,
         "catatan": catatan,
@@ -431,7 +424,7 @@ def _seed_saldo_awal(
     # Debit: Kendaraan
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
-        "account_id": akun["1503"],
+        "account_id": akun["1230"],
         "saldo_debit": 250_000_000,
         "saldo_kredit": 0,
         "catatan": catatan,
@@ -439,7 +432,7 @@ def _seed_saldo_awal(
     # Debit: Komputer
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
-        "account_id": akun["1504"],
+        "account_id": akun["1240"],
         "saldo_debit": 15_000_000,
         "saldo_kredit": 0,
         "catatan": catatan,
@@ -447,7 +440,7 @@ def _seed_saldo_awal(
     # Debit: Persediaan Cabai Rawit (saldo stok contoh untuk penjualan seed).
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
-        "account_id": akun["1307"],
+        "account_id": akun["1140"],
         "saldo_debit": 75_000_000,
         "saldo_kredit": 0,
         "catatan": "⚠️ CONTOH - 3.000 kg @ Rp25.000/kg; ganti dengan stok dan harga pokok aktual",
@@ -455,7 +448,7 @@ def _seed_saldo_awal(
     # Kredit: Modal Disetor (disesuaikan dengan total aset termasuk persediaan cabai).
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
-        "account_id": akun["3101"],
+        "account_id": akun["3110"],
         "saldo_debit": 0,
         "saldo_kredit": 3_460_000_000,
         "catatan": catatan,
@@ -478,22 +471,22 @@ def _seed_transaksi(
     # -----------------------------------------------------------------
     # Shortcut ID akun yang sering dipakai
     # -----------------------------------------------------------------
-    KAS = akun["1101"]
-    PIUTANG = akun["1201"]
-    PERSEDIAAN_BAHAN_PRODUKSI = akun["1301"]
+    KAS = akun["1110"]
+    PIUTANG = akun["1120"]
+    PERSEDIAAN_BAHAN_PRODUKSI = akun["1140"]
     
     
-    PENJUALAN = akun["4101"]
-    BEBAN_PUPUK = akun["5102"]
-    BEBAN_PESTISIDA = akun["5103"]
-    BEBAN_BAHAN_LAIN = akun["5104"]
-    BEBAN_UPAH = akun["5105"]
-    BEBAN_LISTRIK = akun["6101"]
-    BEBAN_BBM_KIRIM = akun["6102"]
-    BEBAN_BBM_OPS = akun["6103"]
-    BEBAN_TRAKTOR = akun["6104"]
-    UTANG_USAHA = akun["2101"]
-    UTANG_GAJI = akun["2201"]
+    PENJUALAN = akun["4110"]
+    BEBAN_PUPUK = akun["5110"]
+    BEBAN_PESTISIDA = akun["5110"]
+    BEBAN_BAHAN_LAIN = akun["5110"]
+    BEBAN_UPAH = akun["6110"]
+    BEBAN_LISTRIK = akun["6130"]
+    BEBAN_BBM_KIRIM = akun["6140"]
+    BEBAN_BBM_OPS = akun["6150"]
+    BEBAN_TRAKTOR = akun["6120"]
+    UTANG_USAHA = akun["2110"]
+    UTANG_GAJI = akun["2210"]
 
     no = 1  # nomor urut bukti
 
@@ -872,7 +865,7 @@ def _seed_transaksi(
                  "penerimaan_kas",
                  "Setoran modal tambahan (CONTOH - ganti nominal asli)",
                  [{"account_id": KAS, "debit": 50_000_000, "kredit": 0},
-                  {"account_id": akun["3101"], "debit": 0, "kredit": 50_000_000}])
+                  {"account_id": akun["3110"], "debit": 0, "kredit": 50_000_000}])
 
     # -----------------------------------------------------------------
     # 25. Pemakaian bahan (Jurnal Umum) — Pupuk dipakai ke blok A (31 Okt)
@@ -932,8 +925,8 @@ def _seed_hpp_penjualan(
     Semua kuantitas dan harga pokok ini merupakan asumsi contoh, bukan data observasi.
     """
     item_id = item["HSL-001"]
-    akun_hpp_id = akun["5108"]
-    akun_persediaan_id = akun["1307"]
+    akun_hpp_id = akun["5110"]
+    akun_persediaan_id = akun["1140"]
 
     saldo = cursor.execute("""
         SELECT saldo_qty, saldo_nilai, harga_rata2
