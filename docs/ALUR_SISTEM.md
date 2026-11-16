@@ -124,7 +124,7 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
   - *Perubahan Ekuitas*: Modal Awal + Setoran Tambahan + Laba Bersih = Modal Akhir
   - *Neraca*: Total Aset == Total Liabilitas + Total Ekuitas
   - *Arus Kas*: Metode langsung (Aktivitas Operasi, Investasi, dan Pendanaan)
-- **Jurnal Penutup**: Menutup akun nominal (4, 5, 6) ke Ikhtisar L/R, memindahkan laba ke Laba Ditahan, dan mengunci periode ke status `tutup`.
+- **Jurnal Penutup**: Menutup akun nominal 4xxx–7xxx ke Ikhtisar L/R (3130), memindahkan hasilnya ke Laba (3120), dan mengunci periode ke status `tutup`.
 
 ### Fase 7 — Dashboard, Ekspor Dokumen & Cadangan
 - **Dashboard Eksekutif**: Metrik kas, piutang jatuh tempo, grafik penjualan cabai, grafik Penjualan vs Beban, dan tabel status stok.
