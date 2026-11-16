@@ -287,156 +287,163 @@ def _ambil_id_akun(kode_akun: str) -> int:
 
 def _hitung_jurnal_penutup(period_id: int, tanggal: str) -> list[dict]:
     """
-    Menghitung jurnal penutup berdasarkan NS Disesuaikan.
+    Menghitung jurnal penutup dari saldo bersih akun pendapatan dan beban.
 
-    Returns:
-        List of dict berisi data jurnal (siap preview atau disimpan).
-        Tiap dict: {'no_bukti', 'keterangan', 'lines': [...tampilan...], 'lines_raw': [...simpan...]}
+    Saldo bersih diperlukan karena akun 5110 juga menerima kredit ketika
+    biaya produksi dipindahkan menjadi persediaan hasil panen.
     """
-    # Ambil NS Disesuaikan (semua jurnal termasuk PA-)
     df_ns = hitung_neraca_saldo(period_id, termasuk_penyesuaian=True)
-
     if df_ns.empty:
         return []
 
-    # Ambil ID akun Ikhtisar L/R dan Laba Ditahan
     id_ikhtisar = _ambil_id_akun(KODE_IKHTISAR_LR)
     id_laba_ditahan = _ambil_id_akun(KODE_LABA_DITAHAN)
-
-    # Pisahkan akun pendapatan dan beban dari NS Disesuaikan
-    akun_pendapatan = df_ns[df_ns["kategori"] == "Pendapatan"].copy()
-    akun_beban = df_ns[df_ns["kategori"].isin(["Beban Produksi", "Beban Operasional"])].copy()
-
-    # Ambil mapping kode → akun_id
     dict_akun_id = _ambil_semua_akun_id()
 
-    hasil = []
+    akun_pendapatan = df_ns[df_ns["kategori"] == "Pendapatan"].copy()
+    akun_beban = df_ns[
+        df_ns["kategori"].isin(["Beban Produksi", "Beban Operasional"])
+    ].copy()
 
-    # -------------------------------------------------------------------
-    # JURNAL 1: Tutup Pendapatan → Dr Pendapatan | Cr Ikhtisar L/R
-    # -------------------------------------------------------------------
-    if not akun_pendapatan.empty:
-        total_pendapatan = int(akun_pendapatan["kredit"].sum())
-        lines_tampil = []
-        lines_raw = []
+    hasil: list[dict] = []
 
-        for _, baris in akun_pendapatan.iterrows():
-            jumlah = int(baris["kredit"])
-            if jumlah == 0:
-                continue
-            aid = dict_akun_id.get(baris["kode_akun"])
-            lines_tampil.append({
-                "akun": baris["kode_akun"],
-                "nama": baris["nama_akun"],
-                "debit": jumlah,
-                "kredit": 0,
-            })
-            lines_raw.append({"account_id": aid, "debit": jumlah, "kredit": 0})
+    # Saldo pendapatan bersih normalnya kredit. Akun yang bersaldo debit
+    # tetap ditutup dengan arah kebalikan agar saldonya menjadi nol.
+    baris_pendapatan: list[dict] = []
+    total_pendapatan_bersih = 0
+    for _, baris in akun_pendapatan.iterrows():
+        nilai_bersih = int(baris["kredit"]) - int(baris["debit"])
+        total_pendapatan_bersih += nilai_bersih
+        if nilai_bersih == 0:
+            continue
 
-        if total_pendapatan > 0:
-            # Kredit ke Ikhtisar L/R
-            lines_tampil.append({
-                "akun": KODE_IKHTISAR_LR,
-                "nama": "Ikhtisar Laba Rugi",
-                "debit": 0,
-                "kredit": total_pendapatan,
-            })
-            lines_raw.append({"account_id": id_ikhtisar, "debit": 0, "kredit": total_pendapatan})
+        jumlah = abs(nilai_bersih)
+        debit = jumlah if nilai_bersih > 0 else 0
+        kredit = jumlah if nilai_bersih < 0 else 0
+        baris_pendapatan.append({
+            "akun": baris["kode_akun"],
+            "nama": baris["nama_akun"],
+            "debit": debit,
+            "kredit": kredit,
+        })
+        aid = dict_akun_id.get(baris["kode_akun"])
+        hasil_baris_akun = {
+            "account_id": aid,
+            "debit": debit,
+            "kredit": kredit,
+        }
+        # Simpan raw lines untuk jurnal penutup.
+        if "raw_pendapatan" not in locals():
+            raw_pendapatan = []
+        raw_pendapatan.append(hasil_baris_akun)
 
-            hasil.append({
-                "no_bukti": f"JP-{period_id}-1",
-                "keterangan": "Jurnal Penutup 1: Tutup akun Pendapatan",
-                "lines": lines_tampil,
-                "lines_raw": lines_raw,
-            })
+    if total_pendapatan_bersih != 0:
+        jumlah = abs(total_pendapatan_bersih)
+        # Pendapatan bersaldo kredit ditutup dengan kredit ke ikhtisar.
+        # Bila saldo pendapatan bersih debit, arah kredit/debit dibalik.
+        baris_pendapatan.append({
+            "akun": KODE_IKHTISAR_LR,
+            "nama": "Ikhtisar Laba Rugi",
+            "debit": 0 if total_pendapatan_bersih > 0 else jumlah,
+            "kredit": jumlah if total_pendapatan_bersih > 0 else 0,
+        })
+        raw_pendapatan.append({
+            "account_id": id_ikhtisar,
+            "debit": 0 if total_pendapatan_bersih > 0 else jumlah,
+            "kredit": jumlah if total_pendapatan_bersih > 0 else 0,
+        })
+        hasil.append({
+            "no_bukti": f"JP-{period_id}-1",
+            "keterangan": "Jurnal Penutup 1: Tutup akun Pendapatan",
+            "lines": baris_pendapatan,
+            "lines_raw": raw_pendapatan,
+        })
 
-    # -------------------------------------------------------------------
-    # JURNAL 2: Tutup Beban → Dr Ikhtisar L/R | Cr Beban-beban
-    # -------------------------------------------------------------------
-    if not akun_beban.empty:
-        total_beban = int(akun_beban["debit"].sum())
-        lines_tampil = []
-        lines_raw = []
+    # Saldo beban bersih normalnya debit. Kredit pada 5110 bisa berasal
+    # dari kapitalisasi hasil panen dan harus mengurangi saldo bebannya.
+    baris_beban: list[dict] = []
+    raw_beban: list[dict] = []
+    total_beban_bersih = 0
+    for _, baris in akun_beban.iterrows():
+        nilai_bersih = int(baris["debit"]) - int(baris["kredit"])
+        total_beban_bersih += nilai_bersih
+        if nilai_bersih == 0:
+            continue
 
-        if total_beban > 0:
-            # Debit ke Ikhtisar L/R
-            lines_tampil.append({
-                "akun": KODE_IKHTISAR_LR,
-                "nama": "Ikhtisar Laba Rugi",
-                "debit": total_beban,
-                "kredit": 0,
-            })
-            lines_raw.append({"account_id": id_ikhtisar, "debit": total_beban, "kredit": 0})
+        jumlah = abs(nilai_bersih)
+        debit = 0 if nilai_bersih > 0 else jumlah
+        kredit = jumlah if nilai_bersih > 0 else 0
+        baris_beban.append({
+            "akun": baris["kode_akun"],
+            "nama": baris["nama_akun"],
+            "debit": debit,
+            "kredit": kredit,
+        })
+        raw_beban.append({
+            "account_id": dict_akun_id.get(baris["kode_akun"]),
+            "debit": debit,
+            "kredit": kredit,
+        })
 
-            for _, baris in akun_beban.iterrows():
-                jumlah = int(baris["debit"])
-                if jumlah == 0:
-                    continue
-                aid = dict_akun_id.get(baris["kode_akun"])
-                lines_tampil.append({
-                    "akun": baris["kode_akun"],
-                    "nama": baris["nama_akun"],
-                    "debit": 0,
-                    "kredit": jumlah,
-                })
-                lines_raw.append({"account_id": aid, "debit": 0, "kredit": jumlah})
+    if total_beban_bersih != 0:
+        jumlah = abs(total_beban_bersih)
+        # Beban bersaldo debit ditutup dengan debit ke ikhtisar.
+        # Jika saldo bersih beban justru kredit, arah penutup dibalik.
+        baris_beban.insert(0, {
+            "akun": KODE_IKHTISAR_LR,
+            "nama": "Ikhtisar Laba Rugi",
+            "debit": jumlah if total_beban_bersih > 0 else 0,
+            "kredit": 0 if total_beban_bersih > 0 else jumlah,
+        })
+        raw_beban.insert(0, {
+            "account_id": id_ikhtisar,
+            "debit": jumlah if total_beban_bersih > 0 else 0,
+            "kredit": 0 if total_beban_bersih > 0 else jumlah,
+        })
+        hasil.append({
+            "no_bukti": f"JP-{period_id}-2",
+            "keterangan": "Jurnal Penutup 2: Tutup akun Beban",
+            "lines": baris_beban,
+            "lines_raw": raw_beban,
+        })
 
-            hasil.append({
-                "no_bukti": f"JP-{period_id}-2",
-                "keterangan": "Jurnal Penutup 2: Tutup akun Beban",
-                "lines": lines_tampil,
-                "lines_raw": lines_raw,
-            })
-
-    # -------------------------------------------------------------------
-    # JURNAL 3: Tutup Ikhtisar L/R → Laba Ditahan
-    # -------------------------------------------------------------------
-    total_pendapatan_val = int(akun_pendapatan["kredit"].sum()) if not akun_pendapatan.empty else 0
-    total_beban_val = int(akun_beban["debit"].sum()) if not akun_beban.empty else 0
-    laba_bersih = total_pendapatan_val - total_beban_val
-
+    # Laba/rugi adalah pendapatan bersih dikurangi beban bersih.
+    laba_bersih = total_pendapatan_bersih - total_beban_bersih
     if laba_bersih != 0:
-        lines_tampil = []
-        lines_raw = []
-
+        jumlah = abs(laba_bersih)
         if laba_bersih > 0:
-            # Laba → Dr Ikhtisar L/R | Cr Laba Ditahan
-            lines_tampil = [
+            lines = [
                 {"akun": KODE_IKHTISAR_LR, "nama": "Ikhtisar Laba Rugi",
-                 "debit": laba_bersih, "kredit": 0},
-                {"akun": KODE_LABA_DITAHAN, "nama": "Laba Ditahan",
-                 "debit": 0, "kredit": laba_bersih},
+                 "debit": jumlah, "kredit": 0},
+                {"akun": KODE_LABA_DITAHAN, "nama": "Laba",
+                 "debit": 0, "kredit": jumlah},
             ]
             lines_raw = [
-                {"account_id": id_ikhtisar, "debit": laba_bersih, "kredit": 0},
-                {"account_id": id_laba_ditahan, "debit": 0, "kredit": laba_bersih},
+                {"account_id": id_ikhtisar, "debit": jumlah, "kredit": 0},
+                {"account_id": id_laba_ditahan, "debit": 0, "kredit": jumlah},
             ]
-            keterangan = f"Jurnal Penutup 3: Pindah Laba Bersih ke Laba Ditahan"
+            keterangan = "Jurnal Penutup 3: Pindah Laba Bersih ke Laba"
         else:
-            # Rugi → Dr Laba Ditahan | Cr Ikhtisar L/R
-            jumlah_rugi = abs(laba_bersih)
-            lines_tampil = [
-                {"akun": KODE_LABA_DITAHAN, "nama": "Laba Ditahan",
-                 "debit": jumlah_rugi, "kredit": 0},
+            lines = [
+                {"akun": KODE_LABA_DITAHAN, "nama": "Laba",
+                 "debit": jumlah, "kredit": 0},
                 {"akun": KODE_IKHTISAR_LR, "nama": "Ikhtisar Laba Rugi",
-                 "debit": 0, "kredit": jumlah_rugi},
+                 "debit": 0, "kredit": jumlah},
             ]
             lines_raw = [
-                {"account_id": id_laba_ditahan, "debit": jumlah_rugi, "kredit": 0},
-                {"account_id": id_ikhtisar, "debit": 0, "kredit": jumlah_rugi},
+                {"account_id": id_laba_ditahan, "debit": jumlah, "kredit": 0},
+                {"account_id": id_ikhtisar, "debit": 0, "kredit": jumlah},
             ]
-            keterangan = f"Jurnal Penutup 3: Pindah Rugi ke Laba Ditahan"
+            keterangan = "Jurnal Penutup 3: Pindah Rugi Bersih ke Laba"
 
         hasil.append({
             "no_bukti": f"JP-{period_id}-3",
             "keterangan": keterangan,
-            "lines": lines_tampil,
+            "lines": lines,
             "lines_raw": lines_raw,
         })
 
     return hasil
-
-
 def _hitung_ns_termasuk_penutup(period_id: int) -> pd.DataFrame:
     """
     Menghitung NS yang mencakup semua jurnal (termasuk PA- dan JP-).
