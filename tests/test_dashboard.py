@@ -373,6 +373,14 @@ class TestRingkasanPenjualanBeban:
                (journal_entry_id, account_id, debit, kredit) VALUES (?,?,?,?)""",
             (entry_id, pendapatan_lain_id, 0, 9_000_000),
         )
+        penjualan_cabai_id = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun='4101'"
+        ).fetchone()[0]
+        koneksi.execute(
+            """INSERT INTO journal_lines
+               (journal_entry_id, account_id, debit, kredit) VALUES (?,?,?,?)""",
+            (entry_id, penjualan_cabai_id, 0, 7_000_000),
+        )
         koneksi.commit()
         koneksi.close()
 
