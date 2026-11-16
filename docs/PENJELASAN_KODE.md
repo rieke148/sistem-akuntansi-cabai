@@ -61,8 +61,8 @@ sistem-akuntansi-cabai/
 
 ### A. Mesin Jurnal & Pemetaan Transaksi (`services/transaction_service.py`)
 Setiap transaksi yang diinput pengguna dipetakan ke pasangan akun debit dan kredit:
-- **Penjualan Tunai**: Kas (D) / Penjualan (K), sekaligus HPP Penjualan Cabai (D) / Persediaan Cabai (K).
-- **Penjualan Tempo**: Piutang Usaha (D) / Penjualan (K), sekaligus HPP Penjualan Cabai (D) / Persediaan Cabai (K) + otomatis membuat entri di tabel `receivables` dengan jatuh tempo 7 hari.
+- **Penjualan Tunai**: Kas (D) / Penjualan (K), sekaligus HPP Penjualan Cabai (D) / Persediaan (1140) (K).
+- **Penjualan Tempo**: Piutang Usaha (D) / Penjualan (K), sekaligus HPP Penjualan Cabai (D) / Persediaan (1140) (K) + otomatis membuat entri di tabel `receivables` dengan jatuh tempo 7 hari.
 - **Terima Pelunasan Piutang**: Kas (D) / Piutang Usaha (K) + update sisa piutang di `receivables`.
 - **Setoran Modal**: Kas (D) / Modal Disetor (K).
 - **Pembelian Tunai**: Persediaan (D) / Kas (K).
@@ -74,11 +74,11 @@ Setiap transaksi yang diinput pengguna dipetakan ke pasangan akun debit dan kred
 ---
 
 ### B. Kartu Persediaan Perpetual — Rata-Rata Bergerak (`services/inventory_service.py`)
-Setiap pembelian, pemakaian, panen, dan penjualan langsung memperbarui kartu stok serta saldo akun persediaan. Enam jenis bahan (bibit, pupuk awal tanam, NPK, pestisida, plastik mulsa, dan bambu) diposting ke akun **1301 — Persediaan Bahan Produksi**; hasil panen diposting ke akun **1307 — Persediaan Cabai**. Kartu stok tetap terpisah per item. Penjualan cabai tidak menunggu akhir periode untuk menghitung HPP:
+Setiap pembelian, pemakaian, panen, dan penjualan langsung memperbarui kartu stok serta saldo akun persediaan. Seluruh jenis bahan produksi dan hasil panen diposting ke satu akun **1140 — Persediaan** sesuai COA terbaru. Kartu stok tetap terpisah per item. Penjualan cabai tidak menunggu akhir periode untuk menghitung HPP:
 - **Saldo Awal**: Kuantitas dan harga pokok diinput per item. Sistem mencatat gerakan `saldo_awal` dan menyelaraskan saldo debit pada `opening_balances`.
-- **Penjualan Tunai**: Kas (D), Penjualan (K), HPP Penjualan (D), Persediaan Cabai (K).
-- **Penjualan Tempo**: Piutang Usaha (D), Penjualan (K), HPP Penjualan (D), Persediaan Cabai (K).
-- **Akun HPP**: `5108 - HPP Penjualan Cabai`, bertipe Beban Produksi agar masuk ke laporan laba rugi dan penutupan periode.
+- **Penjualan Tunai**: Kas (D), Penjualan (K), HPP Penjualan (D), Persediaan (1140) (K).
+- **Penjualan Tempo**: Piutang Usaha (D), Penjualan (K), HPP Penjualan (D), Persediaan (1140) (K).
+- **Akun HPP**: `5110 - Harga Pokok Penjualan`, bertipe Beban Produksi agar masuk ke laporan laba rugi dan penutupan periode.
 - **Saat Barang Masuk**:
   $$\text{Saldo Qty Baru} = \text{Saldo Qty Lama} + \text{Qty Masuk}$$
   $$\text{Saldo Nilai Baru} = \text{Saldo Nilai Lama} + (\text{Qty Masuk} \times \text{Harga Satuan})$$
@@ -150,9 +150,9 @@ Kertas kerja 10 kolom menghubungkan seluruh proses dari neraca saldo hingga lapo
 ---
 
 ### G. Jurnal Penutup & Penguncian Periode (`services/closing_service.py`)
-1. Menutup semua akun Pendapatan ke akun Ikhtisar Laba Rugi (3301).
-2. Menutup semua akun Beban ke akun Ikhtisar Laba Rugi (3301).
-3. Menutup saldo Ikhtisar Laba Rugi ke akun Laba Ditahan (3201).
+1. Menutup semua akun Pendapatan ke akun Ikhtisar Laba Rugi (3130).
+2. Menutup semua akun Beban ke akun Ikhtisar Laba Rugi (3130).
+3. Menutup saldo Ikhtisar Laba Rugi ke akun Laba Ditahan (3120).
 4. Mengubah status periode di database menjadi `tutup`.
 5. **Neraca Saldo Setelah Penutup**: Hanya memuat akun permanen (Aset, Liabilitas, Ekuitas); saldo seluruh akun pendapatan dan beban bernilai 0.
 
