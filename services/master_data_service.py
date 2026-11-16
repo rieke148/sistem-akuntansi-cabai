@@ -304,7 +304,7 @@ def ambil_semua_item() -> pd.DataFrame:
 
 def _ambil_id_akun_persediaan_otomatis(tipe: str) -> int:
     """Mengunci akun persediaan berdasarkan tipe item."""
-    kode_akun = {"bahan": "1301", "hasil_panen": "1307"}.get(tipe)
+    kode_akun = {"bahan": "1140", "hasil_panen": "1140"}.get(tipe)
     if not kode_akun:
         raise ValueError("Tipe item persediaan tidak dikenal.")
 
