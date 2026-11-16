@@ -260,34 +260,45 @@ def cek_progress_siklus(period_id: int) -> dict[str, bool]:
 
 
 # ---------------------------------------------------------------
-# DATA GRAFIK: PENJUALAN PER KOMODITAS
 # ---------------------------------------------------------------
-def ambil_penjualan_per_komoditas(period_id: int) -> pd.DataFrame:
+# DATA GRAFIK: TREN PENJUALAN CABAI
+# ---------------------------------------------------------------
+def ambil_tren_penjualan_cabai(period_id: int) -> pd.DataFrame:
     """
-    Menghitung total penjualan (kredit ke akun 4xxx) per komoditas.
+    Menghitung penjualan cabai per tanggal dalam satu periode.
+
+    Penjualan tunai disimpan sebagai penerimaan_kas, sedangkan penjualan
+    tempo disimpan sebagai penjualan. Keduanya diambil dari kredit akun
+    4101 agar nilai grafik konsisten dengan ringkasan penjualan.
 
     Returns:
-        DataFrame kolom: komoditas, penjualan
+        DataFrame kolom: tanggal, penjualan
     """
     sql = """
-        SELECT je.komoditas,
+        SELECT je.tanggal,
                SUM(jl.kredit) AS penjualan
         FROM journal_lines jl
         JOIN journal_entries je ON jl.journal_entry_id = je.id
         JOIN accounts a ON jl.account_id = a.id
         WHERE je.period_id = ?
-          AND je.journal_type = 'penjualan'
-          AND a.kode_akun LIKE '4%'
+          AND je.komoditas = 'cabai'
+          AND je.journal_type IN ('penjualan', 'penerimaan_kas')
+          AND a.kode_akun = '4101'
           AND jl.kredit > 0
-        GROUP BY je.komoditas
-        ORDER BY penjualan DESC
+        GROUP BY je.tanggal
+        ORDER BY je.tanggal
     """
     conn = get_connection()
-    rows = conn.execute(sql, (period_id,)).fetchall()
+    try:
+        rows = conn.execute(sql, (period_id,)).fetchall()
+    finally:
+        conn.close()
+
     if not rows:
-        return pd.DataFrame(columns=["komoditas", "penjualan"])
+        return pd.DataFrame(columns=["tanggal", "penjualan"])
+
     df = pd.DataFrame([dict(r) for r in rows])
-    df["penjualan"] = df["penjualan"].astype(int)
+    df["penjualan"] = df["penjualan"].fillna(0).astype(int)
     return df
 
 
