@@ -872,7 +872,7 @@ def pastikan_akun_hpp_penjualan_tersedia() -> None:
     """
     Memastikan akun HPP Penjualan Cabai tersedia pada database lama maupun baru.
 
-    Kode 5108 termasuk kategori Beban Produksi sehingga otomatis masuk ke
+    Kode 5110 termasuk kategori Beban Produksi sehingga otomatis masuk ke
     laporan laba rugi, neraca lajur, dan jurnal penutup.
     """
     koneksi = get_connection()
