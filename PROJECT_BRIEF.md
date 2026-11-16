@@ -123,7 +123,7 @@ sistem-akuntansi-cabai/
 | Penjualan **tunai** | Penerimaan Kas | Kas / Penjualan; HPP Penjualan Cabai / Persediaan Cabai |
 | Penjualan **tempo** (1 minggu) | Penjualan | Piutang Usaha / Penjualan; HPP Penjualan Cabai / Persediaan Cabai |
 | Terima pelunasan piutang | Penerimaan Kas | Kas / Piutang Usaha |
-| Setoran modal | Penerimaan Kas | Kas / Modal Disetor |
+| Setoran modal | Penerimaan Kas | Kas (1110) / Modal Pribadi (3110) |
 | Beli bahan **tunai** (Toko Sido Panen) | Pengeluaran Kas | Persediaan bahan / Kas |
 | Bayar upah (tiap 2 minggu) | Pengeluaran Kas | Beban Upah (+ Utang Gaji bila akrual) / Kas |
 | Bayar listrik, BBM, sewa traktor | Pengeluaran Kas | Beban terkait / Kas |
@@ -205,8 +205,8 @@ Bangun "Sistem Informasi Siklus Akuntansi" untuk usaha budidaya cabai rawit PT S
 
 # ATURAN AKUNTANSI
 - Setiap jurnal wajib seimbang; tolak penyimpanan jika tidak.
-- Bagan akun kode terstruktur (1 Aset, 2 Liabilitas, 3 Ekuitas, 4 Pendapatan, 5 Beban Produksi, 6 Beban Operasional). Akun kontra: Akumulasi Penyusutan per kelompok aset.
-- Karena PT: Modal Disetor, Laba Ditahan (laba diputar kembali), Ikhtisar Laba Rugi. Tanpa Prive.
+- Bagan akun mengikuti `coa_cabai_baru.csv` dengan kode 4 digit: kelompok 1xxx Aset, 2xxx Liabilitas, 3xxx Ekuitas, 4xxx Pendapatan, 5xxx HPP, 6xxx Beban Operasional, dan 7xxx Beban Lainnya. Kode kelompok 1000–7000 hanya judul kelompok, bukan akun jurnal. Akun kontra: Akumulasi Penyusutan per kelompok aset.
+- Nama akun ekuitas mengikuti `coa_cabai_baru.csv`: 3110 Modal Pribadi, 3120 Laba, dan 3130 Ikhtisar Laba Rugi. Tidak menggunakan akun Prive.
 - Tanah tidak disusutkan. Umur ekonomis dan nilai residu SETIAP aset adalah INPUT MANUAL dari user di Master Data (jangan hardcode angka paten; boleh isi awal dari observasi untuk peralatan, sisanya kosong/wajib diisi sebelum penyusutan dihitung). Hal yang sama berlaku untuk jumlah unit peralatan, tanggal perolehan, saldo awal, persentase alokasi biaya bersama, dan hasil panen per pohon: semuanya parameter yang bisa diedit user.
 - Penyusutan dihitung bulanan = (harga - residu) / (umur x 12).
 - Persediaan memakai sistem perpetual, rata-rata bergerak. Seluruh jenis bahan produksi dan hasil panen menggunakan satu akun buku besar **1140 — Persediaan** sesuai COA terbaru. Kartu stok dan kuantitas tetap dicatat per item, tidak digabung lintas satuan. Saat bahan produksi dipakai: Dr Harga Pokok Penjualan (5110), Cr Persediaan (1140). Pemakaian plastik mulsa memindahkan nilai ke Perlengkapan (1130) untuk diamortisasi selama masa manfaat.
