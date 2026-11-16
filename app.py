@@ -41,6 +41,37 @@ st.set_page_config(
 
 
 # ---------------------------------------------------------------
+# PENYEMPURNAAN TAMPILAN SIDEBAR
+# ---------------------------------------------------------------
+# Ikon hanya digunakan pada judul grup navigasi.
+# Halaman di dalam grup tetap menjorok ke kanan mengikuti struktur
+# navigasi bawaan Streamlit.
+st.markdown(
+    """
+    <style>
+    [data-testid="stSidebarNav"] a {
+        border-radius: 0.55rem;
+        padding-top: 0.42rem;
+        padding-bottom: 0.42rem;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    [data-testid="stSidebarNav"] a:hover {
+        background-color: rgba(46, 125, 50, 0.08);
+    }
+
+    [data-testid="stSidebarNav"] a[aria-current="page"] {
+        background-color: rgba(46, 125, 50, 0.12);
+        color: #1B5E20;
+        font-weight: 600;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# ---------------------------------------------------------------
 # INISIALISASI DATABASE (sekali saat startup)
 # ---------------------------------------------------------------
 @st.cache_resource  # cache_resource agar hanya jalan sekali per sesi
@@ -83,7 +114,6 @@ if seed_baru:
     st.toast(
         "🌱 Data contoh berhasil dimuat! "
         "Ganti saldo awal & data bertanda '⚠️ CONTOH' dengan data asli.",
-        icon="✅",
     )
 
 
@@ -96,7 +126,6 @@ if seed_baru:
 halaman_dashboard = st.Page(
     "views/00_dashboard.py",
     title="Dashboard",
-    icon="🏠",
     default=True,
 )
 
@@ -104,82 +133,68 @@ halaman_dashboard = st.Page(
 halaman_master_data = st.Page(
     "views/01_master_data.py",
     title="Master Data",
-    icon="🗄️",
 )
 
 # --- Input ---
 halaman_transaksi = st.Page(
     "views/02_input_transaksi.py",
     title="Input Transaksi",
-    icon="✏️",
 )
 halaman_penggajian = st.Page(
     "views/03_penggajian.py",
     title="Penggajian",
-    icon="💰",
 )
 
 # --- Jurnal ---
 halaman_jurnal_umum = st.Page(
     "views/04_jurnal_umum.py",
     title="Jurnal Umum",
-    icon="📔",
 )
 halaman_jurnal_khusus = st.Page(
     "views/05_jurnal_khusus.py",
     title="Jurnal Khusus",
-    icon="📚",
 )
 
 # --- Buku Besar ---
 halaman_kartu_persediaan = st.Page(
     "views/06_kartu_persediaan.py",
     title="Kartu Persediaan",
-    icon="📦",
 )
 halaman_buku_besar = st.Page(
     "views/07_buku_besar.py",
     title="Buku Besar",
-    icon="📖",
 )
 halaman_bb_pembantu = st.Page(
     "views/08_buku_besar_pembantu.py",
     title="BB Pembantu",
-    icon="🔖",
 )
 
 # --- Laporan ---
 halaman_neraca_saldo = st.Page(
     "views/09_neraca_saldo.py",
     title="Neraca Saldo",
-    icon="⚖️",
 )
 halaman_penyesuaian = st.Page(
     "views/10_ayat_penyesuaian.py",
     title="Ayat Penyesuaian",
-    icon="📝",
 )
 halaman_neraca_lajur = st.Page(
     "views/11_neraca_lajur.py",
     title="Neraca Lajur",
-    icon="📊",
 )
 halaman_laporan_keuangan = st.Page(
     "views/12_laporan_keuangan.py",
     title="Laporan Keuangan",
-    icon="📈",
 )
 halaman_jurnal_penutup = st.Page(
     "views/13_jurnal_penutup.py",
     title="Jurnal Penutup",
-    icon="🔒",
 )
 
 # --- Utilitas ---
 halaman_backup = st.Page(
     "views/14_backup_export.py",
     title="Backup & Export",
-    icon="💾",
 )
 
 
