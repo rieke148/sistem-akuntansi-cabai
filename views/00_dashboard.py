@@ -71,25 +71,20 @@ def _tampilkan_metrik_utama(period_id: int) -> None:
         )
 
 
-def _tampilkan_grafik_penjualan(period_id: int) -> None:
-    """Menampilkan grafik bar penjualan per komoditas."""
-    df = ds.ambil_penjualan_per_komoditas(period_id)
+def _tampilkan_grafik_penjualan_cabai(period_id: int) -> None:
+    """Menampilkan tren penjualan cabai harian, termasuk tunai dan tempo."""
+    df = ds.ambil_tren_penjualan_cabai(period_id)
     if df.empty:
-        st.info("📊 Belum ada data penjualan untuk grafik.")
+        st.info("📊 Belum ada data penjualan cabai pada periode ini.")
         return
 
-    # Mapping nama display
-    peta_nama = {
-        "cabai": "🌶️ Cabai",
-        "umum": "📦 Umum",
-    }
-    df["komoditas_label"] = df["komoditas"].map(lambda x: peta_nama.get(x, x))
-
+    data_grafik = df.set_index("tanggal")["penjualan"]
     st.bar_chart(
-        data=df.set_index("komoditas_label")["penjualan"],
+        data=data_grafik,
         color=WARNA_PRIMER,
         use_container_width=True,
     )
+    st.caption("Grafik mencakup penjualan cabai tunai dan tempo berdasarkan tanggal transaksi.")
 
 
 def _tampilkan_grafik_penjualan_vs_beban(period_id: int) -> None:
@@ -279,10 +274,10 @@ def tampilkan() -> None:
 
     with kol_grafik:
         divider_dengan_judul("Grafik Keuangan", "bar-chart-line")
-        tab_komoditas, tab_pv = st.tabs(["🌾 Per Komoditas", "⚖️ Penjualan vs Beban"])
-        with tab_komoditas:
+        tab_penjualan, tab_pv = st.tabs(["🌶️ Penjualan Cabai", "⚖️ Penjualan vs Beban"])
+        with tab_penjualan:
             try:
-                _tampilkan_grafik_penjualan(period_id)
+                _tampilkan_grafik_penjualan_cabai(period_id)
             except Exception as e:
                 st.error(f"Gagal memuat grafik: {e}")
         with tab_pv:
