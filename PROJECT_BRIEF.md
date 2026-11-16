@@ -107,7 +107,7 @@ sistem-akuntansi-cabai/
 |---|---|
 | `accounts` | kode akun, nama, kategori, saldo normal (D/K) |
 | `periods` | periode akuntansi (bulanan), status buka/tutup |
-| `journal_entries` | header jurnal: tanggal, no bukti, `journal_type`, keterangan, komoditas, pihak terkait |
+| `journal_entries` | header jurnal: tanggal, no bukti, `journal_type`, keterangan, klasifikasi (`cabai` untuk transaksi budidaya atau `umum` untuk jurnal umum), pihak terkait |
 | `journal_lines` | baris jurnal: akun, debit, kredit |
 | `customers`, `suppliers` | pelanggan (restoran, supermarket, UMKM), supplier (Toko Sido Panen) |
 | `items` | bibit, pupuk, NPK, pestisida, plastik mulsa, bambu, cabai (kg) |
