@@ -89,8 +89,8 @@ def test_e2e_persediaan_dan_buku_besar(e2e_db):
         saldo = ambil_saldo_persediaan(item_id)
         assert "saldo_qty" in saldo and "saldo_nilai" in saldo
 
-        # Cek buku besar kas (kode 1101)
-        akun_kas = conn.execute("SELECT id FROM accounts WHERE kode_akun = '1101'").fetchone()
+        # Cek buku besar kas (kode 1110)
+        akun_kas = conn.execute("SELECT id FROM accounts WHERE kode_akun = '1110'").fetchone()
         assert akun_kas is not None
         bb_kas = ambil_buku_besar(akun_kas["id"], period_id=1)
         assert len(bb_kas) > 0, "Buku besar Kas harus memiliki mutasi"
