@@ -14,7 +14,7 @@ JURNAL PENUTUP (urutan harus benar):
        Dr  Ikhtisar Laba Rugi  (3130)
        Cr  Beban-beban (masing-masing)
   3. Pindahkan Ikhtisar Laba Rugi → Laba (3120)
-       Jika Laba  → Dr Ikhtisar L/R  |  Cr Laba Ditahan
+       Jika Laba  → Dr Ikhtisar L/R  |  Cr Laba
        Jika Rugi  → Dr Laba Ditahan  |  Cr Ikhtisar L/R
   4. Ubah status periode → 'tutup'
 
@@ -310,6 +310,7 @@ def _hitung_jurnal_penutup(period_id: int, tanggal: str) -> list[dict]:
     # Saldo pendapatan bersih normalnya kredit. Akun yang bersaldo debit
     # tetap ditutup dengan arah kebalikan agar saldonya menjadi nol.
     baris_pendapatan: list[dict] = []
+    raw_pendapatan: list[dict] = []
     total_pendapatan_bersih = 0
     for _, baris in akun_pendapatan.iterrows():
         nilai_bersih = int(baris["kredit"]) - int(baris["debit"])
@@ -333,8 +334,6 @@ def _hitung_jurnal_penutup(period_id: int, tanggal: str) -> list[dict]:
             "kredit": kredit,
         }
         # Simpan raw lines untuk jurnal penutup.
-        if "raw_pendapatan" not in locals():
-            raw_pendapatan = []
         raw_pendapatan.append(hasil_baris_akun)
 
     if total_pendapatan_bersih != 0:
