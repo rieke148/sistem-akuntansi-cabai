@@ -76,7 +76,6 @@ def buat_penyesuaian_penyusutan(
     for aset in aset_rows:
         asset_id = aset["id"]
         nama_aset = aset["nama_aset"]
-        akun_beban_id = aset["account_id"]
         akun_akum_id = aset["account_akum_id"]
 
         # Validasi: aset harus punya akun beban dan akun akumulasi
@@ -108,7 +107,19 @@ def buat_penyesuaian_penyusutan(
             id_jurnal_dibuat.append(cek["id"])
             continue  # sudah ada, lewati
 
-        # Baris jurnal: Debit beban penyusutan, Kredit akumulasi penyusutan
+        # Akun beban penyusutan 6160 digunakan bersama untuk semua aset.
+        koneksi_beban = get_connection()
+        try:
+            akun_beban = koneksi_beban.execute(
+                "SELECT id FROM accounts WHERE kode_akun = '6160' AND aktif = 1"
+            ).fetchone()
+        finally:
+            koneksi_beban.close()
+        if not akun_beban:
+            raise ValueError("Akun Beban Penyusutan (6160) belum tersedia di Bagan Akun.")
+        akun_beban_id = int(akun_beban["id"])
+
+        # Debit Beban Penyusutan (6160); Kredit akumulasi sesuai kelompok aset.
         baris_jurnal = [
             {"account_id": akun_beban_id, "debit": penyusutan, "kredit": 0},
             {"account_id": akun_akum_id, "debit": 0, "kredit": penyusutan},
@@ -147,14 +158,14 @@ def buat_penyesuaian_amortisasi_mulsa(
     Amortisasi per bulan = total harga / 18 bulan.
 
     Jurnal:
-      Debit : Beban Amortisasi Plastik Mulsa (5107)
-      Kredit: Akumulasi Amortisasi Plastik Mulsa (1601K)
+      Debit : Beban Penyusutan (6160)
+      Kredit: Perlengkapan (1130)
 
     Args:
         period_id        : ID periode akuntansi.
         tanggal          : Tanggal jurnal 'YYYY-MM-DD'.
         akun_beban_id    : ID akun Beban Amortisasi Plastik Mulsa.
-        akun_akumulasi_id: ID akun Akumulasi Amortisasi Plastik Mulsa.
+        akun_akumulasi_id: ID akun Perlengkapan (1130), sebagai pengurang langsung.
         harga_per_blok   : Harga plastik mulsa per blok (default Rp400.000).
         jumlah_blok      : Jumlah blok yang memakai mulsa (default 5 blok).
         umur_tahun       : Masa pakai mulsa dalam tahun (default 1,5 tahun).
@@ -222,8 +233,8 @@ def buat_penyesuaian_akrual_upah(
     Digunakan jika ada pekerja yang upah minggu-2 belum dibayar di akhir bulan.
 
     Jurnal:
-      Debit : Beban Upah Langsung (5105)
-      Kredit: Utang Gaji (2201)
+      Debit : Beban Gaji (6110)
+      Kredit: Utang Gaji (2210)
 
     Args:
         period_id          : ID periode akuntansi.
