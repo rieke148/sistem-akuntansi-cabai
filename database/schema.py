@@ -706,6 +706,168 @@ def migrasikan_akun_persediaan_bahan_produksi() -> None:
         koneksi.close()
 
 
+
+
+def migrasikan_coa_cabai_baru() -> None:
+    """
+    Migrasi bagan akun lama ke COA_CABAI_BARU.csv.
+
+    Saldo awal per periode digabungkan ketika beberapa akun lama menjadi
+    satu akun baru. Seluruh referensi jurnal dan master data dipindahkan
+    tanpa menghapus baris transaksi atau mutasi kartu persediaan.
+    """
+    daftar_akun_baru = [
+        ("1110", "Kas", "Aset", "Debit", 0),
+        ("1120", "Piutang Usaha", "Aset", "Debit", 0),
+        ("1130", "Perlengkapan", "Aset", "Debit", 0),
+        ("1140", "Persediaan", "Aset", "Debit", 0),
+        ("1210", "Tanah", "Aset", "Debit", 0),
+        ("1220", "Bangunan", "Aset", "Debit", 0),
+        ("1221", "Akumulasi Penyusutan Bangunan", "Aset", "Kredit", 1),
+        ("1230", "Kendaraan", "Aset", "Debit", 0),
+        ("1231", "Akumulasi Penyusutan Kendaraan", "Aset", "Kredit", 1),
+        ("1240", "Komputer", "Aset", "Debit", 0),
+        ("1241", "Akumulasi Penyusutan Komputer", "Aset", "Kredit", 1),
+        ("1250", "Peralatan Pertanian", "Aset", "Debit", 0),
+        ("1251", "Akumulasi Penyusutan Peralatan", "Aset", "Kredit", 1),
+        ("2110", "Utang Usaha", "Liabilitas", "Kredit", 0),
+        ("2210", "Utang Gaji", "Liabilitas", "Kredit", 0),
+        ("3110", "Modal Pribadi", "Ekuitas", "Kredit", 0),
+        ("3120", "Laba", "Ekuitas", "Kredit", 0),
+        ("3130", "Ikhtisar Laba Rugi", "Ekuitas", "Debit", 0),
+        ("4110", "Penjualan Cabai", "Pendapatan", "Kredit", 0),
+        ("5110", "Harga Pokok Penjualan", "Beban Produksi", "Debit", 0),
+        ("6110", "Beban Gaji", "Beban Operasional", "Debit", 0),
+        ("6120", "Beban Sewa", "Beban Operasional", "Debit", 0),
+        ("6130", "Beban Air, Listrik, dan Telepon", "Beban Operasional", "Debit", 0),
+        ("6140", "Beban BBM Pengiriman", "Beban Operasional", "Debit", 0),
+        ("6150", "Beban BBM Operasional", "Beban Operasional", "Debit", 0),
+        ("6160", "Beban Penyusutan", "Beban Operasional", "Debit", 0),
+        ("6170", "Beban Perbaikan", "Beban Operasional", "Debit", 0),
+        ("7110", "Beban Lain-lain", "Beban Operasional", "Debit", 0),
+    ]
+
+    # Beberapa akun lama digabung karena COA baru tidak menyediakan akun terpisah.
+    pemetaan_kode = {
+        "1101": "1110", "1102": "1110",
+        "1201": "1120",
+        "1301": "1140", "1302": "1140", "1303": "1140",
+        "1304": "1140", "1305": "1140", "1306": "1140", "1307": "1140",
+        "1401": "1130", "1601": "1130", "1601K": "1130",
+        "1501": "1210",
+        "1502": "1220", "1502K": "1221",
+        "1503": "1230", "1503K": "1231",
+        "1504": "1240", "1504K": "1241",
+        "1505": "1250", "1505K": "1251",
+        "2101": "2110", "2201": "2210", "2202": "2110", "2203": "2110",
+        "3101": "3110", "3201": "3120", "3301": "3130",
+        "4101": "4110", "4901": "4110",
+        "5101": "5110", "5102": "5110", "5103": "5110",
+        "5104": "5110", "5108": "5110",
+        "5105": "6110", "5106": "6160", "5107": "6160",
+        "6101": "6130", "6102": "6140", "6103": "6150",
+        "6104": "6120", "6105": "6160", "6901": "7110",
+    }
+
+    koneksi = get_connection()
+    try:
+        koneksi.execute("PRAGMA foreign_keys = OFF")
+        koneksi.execute("BEGIN IMMEDIATE")
+
+        jumlah_akun = koneksi.execute("SELECT COUNT(*) FROM accounts").fetchone()[0]
+        if jumlah_akun == 0:
+            koneksi.commit()
+            return
+
+        id_akun_baru: dict[str, int] = {}
+        for kode, nama, kategori, saldo_normal, is_kontra in daftar_akun_baru:
+            baris = koneksi.execute(
+                "SELECT id FROM accounts WHERE kode_akun = ?", (kode,)
+            ).fetchone()
+            if baris:
+                akun_id = int(baris["id"])
+                koneksi.execute(
+                    """
+                    UPDATE accounts
+                    SET nama_akun = ?, kategori = ?, saldo_normal = ?,
+                        is_kontra = ?, aktif = 1
+                    WHERE id = ?
+                    """,
+                    (nama, kategori, saldo_normal, is_kontra, akun_id),
+                )
+            else:
+                cursor = koneksi.execute(
+                    """
+                    INSERT INTO accounts
+                        (kode_akun, nama_akun, kategori, saldo_normal, is_kontra, aktif)
+                    VALUES (?, ?, ?, ?, ?, 1)
+                    """,
+                    (kode, nama, kategori, saldo_normal, is_kontra),
+                )
+                akun_id = int(cursor.lastrowid)
+            id_akun_baru[kode] = akun_id
+
+        tabel_rows = koneksi.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+        ).fetchall()
+
+        for kode_lama, kode_tujuan in pemetaan_kode.items():
+            akun_lama = koneksi.execute(
+                "SELECT id FROM accounts WHERE kode_akun = ?", (kode_lama,)
+            ).fetchone()
+            if not akun_lama:
+                continue
+
+            account_id_lama = int(akun_lama["id"])
+            account_id_tujuan = id_akun_baru[kode_tujuan]
+            if account_id_lama == account_id_tujuan:
+                continue
+
+            # Pindahkan semua foreign key yang merujuk ke akun lama.
+            for tabel_row in tabel_rows:
+                nama_tabel = tabel_row["name"]
+                foreign_keys = koneksi.execute(
+                    f'PRAGMA foreign_key_list("{nama_tabel}")'
+                ).fetchall()
+                for fk in foreign_keys:
+                    if fk["table"] != "accounts":
+                        continue
+                    nama_kolom = fk["from"]
+                    if nama_tabel == "opening_balances" and nama_kolom == "account_id":
+                        _gabungkan_saldo_awal_akun(
+                            koneksi, account_id_lama, account_id_tujuan
+                        )
+                    else:
+                        koneksi.execute(
+                            f'UPDATE "{nama_tabel}" SET "{nama_kolom}" = ? '
+                            f'WHERE "{nama_kolom}" = ?',
+                            (account_id_tujuan, account_id_lama),
+                        )
+
+            koneksi.execute("DELETE FROM accounts WHERE id = ?", (account_id_lama,))
+
+        # Kedua kelompok item memakai satu akun GL 1140; kartu stoknya tetap terpisah.
+        koneksi.execute(
+            "UPDATE items SET account_id = ? WHERE tipe IN ('bahan', 'hasil_panen')",
+            (id_akun_baru["1140"],),
+        )
+
+        pelanggaran_fk = koneksi.execute("PRAGMA foreign_key_check").fetchall()
+        if pelanggaran_fk:
+            raise RuntimeError(
+                "Migrasi COA menemukan relasi database yang tidak valid. "
+                "Perubahan dibatalkan agar data lama tetap aman."
+            )
+
+        koneksi.commit()
+    except Exception:
+        koneksi.rollback()
+        raise
+    finally:
+        koneksi.execute("PRAGMA foreign_keys = ON")
+        koneksi.close()
+
 def pastikan_akun_hpp_penjualan_tersedia() -> None:
     """
     Memastikan akun HPP Penjualan Cabai tersedia pada database lama maupun baru.
@@ -716,13 +878,13 @@ def pastikan_akun_hpp_penjualan_tersedia() -> None:
     koneksi = get_connection()
     try:
         ada = koneksi.execute(
-            "SELECT id FROM accounts WHERE kode_akun = '5108'"
+            "SELECT id FROM accounts WHERE kode_akun = '5110'"
         ).fetchone()
         if not ada:
             koneksi.execute("""
                 INSERT INTO accounts
                     (kode_akun, nama_akun, kategori, saldo_normal, is_kontra, aktif)
-                VALUES ('5108', 'HPP Penjualan Cabai', 'Beban Produksi', 'Debit', 0, 1)
+                VALUES ('5110', 'Harga Pokok Penjualan', 'Beban Produksi', 'Debit', 0, 1)
             """)
             koneksi.commit()
     except Exception:
