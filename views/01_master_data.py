@@ -315,7 +315,7 @@ def _tab_supplier() -> None:
                     telp_b = st.text_input("Telepon", value=baris["telepon"] or "")
                     adr_b = st.text_area("Alamat", value=baris["alamat"] or "", height=80)
                     aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
-                    if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
+                   if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
                         try:
                             svc.ubah_supplier(baris["id"], nama_b, telp_b, adr_b, aktif_b)
                             st.success("Data supplier berhasil diperbarui!")
@@ -357,7 +357,7 @@ def _tab_item() -> None:
                 satuan = st.text_input("Satuan *", placeholder="Contoh: kg, karung, batang")
                 tipe = st.selectbox("Tipe", svc.TIPE_ITEM,
                                     help="bahan=input produksi, hasil_panen=output")
-                 akun_dipilih = st.selectbox("Akun Persediaan", list(opsi_akun.keys()))
+                akun_dipilih = st.selectbox("Akun Persediaan", list(opsi_akun.keys()))
                 akun_id = opsi_akun[akun_dipilih]
                 if st.form_submit_button("💾 Simpan", use_container_width=True):
                     try:
@@ -379,7 +379,7 @@ def _tab_item() -> None:
                     sat_b = st.text_input("Satuan *", value=baris["satuan"])
                     tipe_b = st.selectbox("Tipe", svc.TIPE_ITEM,
                                           index=svc.TIPE_ITEM.index(baris["tipe"]))
-                     akun_key = next((k for k, v in opsi_akun.items()
+                    akun_key = next((k for k, v in opsi_akun.items()
                                      if v == baris.get("account_id")), "(Tidak ada)")
                     akun_b = st.selectbox("Akun Persediaan", list(opsi_akun.keys()),
                                           index=list(opsi_akun.keys()).index(akun_key))
@@ -495,7 +495,7 @@ def _tab_pekerja() -> None:
                                           index=svc.TIPE_PEKERJA.index(baris["tipe_pekerja"]))
                     upah_b = st.number_input("Upah Harian (Rp) *",
                                              min_value=1, value=int(baris["upah_harian"]), step=5000)
-                     aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
+                    aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
                     if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
                         try:
                             svc.ubah_pekerja(baris["id"], nama_b, tipe_b, upah_b, "cabai", aktif_b)
@@ -738,7 +738,7 @@ def _tab_blok_lahan() -> None:
                                      help="Satu huruf kapital. Blok A-E sudah ada.")
                 pohon = st.number_input("Jumlah Pohon *", min_value=1, value=1000)
                 tgl = st.date_input("Tanggal Tanam *", value=date.today())
-                 luas = st.number_input("Luas (m²)", min_value=0.0, value=494.0, step=10.0)
+                luas = st.number_input("Luas (m²)", min_value=0.0, value=494.0, step=10.0)
                 jarak = st.number_input("Jarak Tanam (cm)", min_value=10.0, value=100.0, step=5.0)
                 ket = st.text_input("Keterangan", placeholder="Opsional")
                 if st.form_submit_button("💾 Simpan", use_container_width=True):
