@@ -114,7 +114,10 @@ def ambil_ringkasan_penjualan_beban(period_id: int) -> dict[str, int]:
     """
     sql = """
         SELECT
-            SUM(CASE WHEN a.kode_akun = '4101' AND jl.kredit > 0
+            SUM(CASE WHEN a.kode_akun = '4101'
+                          AND je.komoditas = 'cabai'
+                          AND je.journal_type IN ('penjualan', 'penerimaan_kas')
+                          AND jl.kredit > 0
                      THEN jl.kredit ELSE 0 END) AS penjualan,
             SUM(CASE WHEN a.kode_akun LIKE '5%' AND jl.debit > 0
                      THEN jl.debit ELSE 0 END) AS beban,
@@ -259,7 +262,6 @@ def cek_progress_siklus(period_id: int) -> dict[str, bool]:
     }
 
 
-# ---------------------------------------------------------------
 # ---------------------------------------------------------------
 # DATA GRAFIK: TREN PENJUALAN CABAI
 # ---------------------------------------------------------------
