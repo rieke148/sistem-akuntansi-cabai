@@ -115,11 +115,11 @@ def _siapkan_hpp_penjualan(
             raise ValueError("Item hasil panen belum dihubungkan ke akun persediaan.")
 
         akun_hpp = koneksi.execute(
-            "SELECT id FROM accounts WHERE kode_akun = '5108' AND aktif = 1"
+            "SELECT id FROM accounts WHERE kode_akun = '5110' AND aktif = 1"
         ).fetchone()
         if not akun_hpp:
             raise ValueError(
-                "Akun 5108 - HPP Penjualan Cabai belum tersedia. Jalankan pembaruan database terlebih dahulu."
+                "Akun 5110 - Harga Pokok Penjualan belum tersedia. Jalankan pembaruan database terlebih dahulu."
             )
         item_info = {
             "item_id": int(item["id"]),
@@ -657,7 +657,7 @@ def catat_panen(
 
     Panen adalah perpindahan "nilai produksi" menjadi "persediaan hasil".
     Jurnal yang dibuat:
-      Debit : Persediaan Cabai Rawit (1304 / 1305)
+      Debit : Persediaan (1140)
       Kredit: Beban Pokok Produksi / HPP Panen (akun lawan)
 
     Efek samping:
