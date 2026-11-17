@@ -277,6 +277,18 @@ def buat_semua_tabel() -> None:
         )
     """)
 
+    # Relasi setiap jurnal penerimaan kas dengan faktur piutang yang dibayar.
+    # Satu faktur dapat memiliki banyak pembayaran; satu jurnal hanya untuk satu faktur.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS receivable_payments (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            receivable_id    INTEGER NOT NULL REFERENCES receivables(id) ON DELETE CASCADE,
+            journal_entry_id INTEGER NOT NULL UNIQUE REFERENCES journal_entries(id) ON DELETE CASCADE,
+            jumlah_bayar     INTEGER NOT NULL CHECK (jumlah_bayar > 0),
+            dibuat_pada      TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+        )
+    """)
+
     # ---------------------------------------------------------------
     # 13. TABEL SALDO AWAL AKUN
     # ---------------------------------------------------------------
