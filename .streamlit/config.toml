@@ -1,8 +1,8 @@
-# Tema Enterprise Sistem Akuntansi Cabai
-
+# Tema visual native Streamlit — Sistem Akuntansi Cabai
 [theme]
-primaryColor = "#147D64"
-backgroundColor = "#F7F9FC"
-secondaryBackgroundColor = "#EEF3F7"
-textColor = "#182230"
+base = "light"
+primaryColor = "#C83E43"
+backgroundColor = "#F4F6FA"
+secondaryBackgroundColor = "#E9EEF5"
+textColor = "#1B2738"
 font = "sans serif"

@@ -1,92 +1,41 @@
 """
 utils/ui_components.py
 ----------------------
-Tujuan  : Membungkus semua pemanggilan streamlit-antd-components (sac)
-          di satu tempat. Jika ingin ganti library UI, cukup ubah file ini.
-Input   : Parameter konfigurasi komponen (judul, ikon, daftar item, dll).
-Output  : Komponen UI yang dirender ke halaman Streamlit.
-Dipanggil oleh : app.py (menu navigasi), semua file views/
+Tujuan  : Komponen tampilan bersama untuk seluruh halaman Streamlit.
+Input   : Data sederhana dari halaman dan service.
+Output  : Header, kartu metrik, navigasi tahap, status, dan pemilih periode.
+Dipanggil oleh : app.py dan seluruh modul views/.
 
-CATATAN: Semua komponen sac hanya untuk navigasi dan elemen tampilan.
-         Tabel, form, grafik tetap pakai komponen native Streamlit.
+Seluruh tampilan ditulis melalui API Python Streamlit dan komponen Python
+yang sudah tercantum di requirements.txt. Tidak ada HTML/CSS/JavaScript
+buatan aplikasi di dalam file ini.
 """
+
+from __future__ import annotations
 
 import streamlit as st
 import streamlit_antd_components as sac
-from theme import NAMA_PERUSAHAAN, NAMA_APLIKASI, WARNA_PRIMER
+
+from theme import (
+    NAMA_APLIKASI,
+    NAMA_PERUSAHAAN,
+    WARNA_PRIMER,
+    WARNA_SUKSES,
+    WARNA_PERINGATAN,
+    WARNA_BAHAYA,
+)
 
 
-# ---------------------------------------------------------------
-# NAVIGASI SIDEBAR (sac.menu)
-# ---------------------------------------------------------------
 def render_menu_sidebar() -> str | None:
-    """
-    Menampilkan menu navigasi bergaya Ant Design di sidebar.
-    Mengembalikan nama halaman yang dipilih user (string).
-
-    Struktur menu mengikuti urutan siklus akuntansi dari brief.
-    """
+    """Menampilkan identitas aplikasi pada area sidebar."""
     with st.sidebar:
-        # Logo / nama aplikasi
-        st.subheader(f"🌶️ {NAMA_APLIKASI}")
-        st.caption(NAMA_PERUSAHAAN)
-        st.divider()
-
-        # Menu navigasi dengan sac.menu
-        # Grup menu mengikuti alur siklus akuntansi
-        pilihan = sac.menu(
-            items=[
-                # --- Grup 1: Beranda ---
-                sac.MenuItem("Dashboard", icon="speedometer2"),
-
-                # --- Grup 2: Setup ---
-                sac.MenuItem("Master Data", icon="database", children=[
-                    sac.MenuItem("Bagan Akun (COA)", icon="list-ul"),
-                    sac.MenuItem("Pelanggan & Supplier", icon="people"),
-                    sac.MenuItem("Item Persediaan", icon="box-seam"),
-                    sac.MenuItem("Pekerja", icon="person-badge"),
-                    sac.MenuItem("Aset Tetap", icon="building"),
-                    sac.MenuItem("Blok Lahan", icon="geo-alt"),
-                    sac.MenuItem("Saldo Awal", icon="wallet2"),
-                    sac.MenuItem("Periode", icon="calendar3"),
-                    sac.MenuItem("Parameter", icon="gear"),
-                ]),
-
-                # --- Grup 3: Input Transaksi ---
-                sac.MenuItem("Input Transaksi", icon="pencil-square"),
-                sac.MenuItem("Penggajian", icon="cash-stack"),
-
-                # --- Grup 4: Jurnal ---
-                sac.MenuItem("Jurnal Umum", icon="journal-text"),
-                sac.MenuItem("Jurnal Khusus", icon="journals"),
-
-                # --- Grup 5: Buku Besar ---
-                sac.MenuItem("Kartu Persediaan", icon="box-seam"),
-                sac.MenuItem("Buku Besar", icon="book"),
-                sac.MenuItem("BB Pembantu", icon="bookmarks"),
-
-                # --- Grup 6: Laporan ---
-                sac.MenuItem("Neraca Saldo", icon="table"),
-                sac.MenuItem("Ayat Penyesuaian", icon="pencil"),
-                sac.MenuItem("Neraca Lajur", icon="grid-3x3"),
-                sac.MenuItem("Laporan Keuangan", icon="file-earmark-bar-graph"),
-                sac.MenuItem("Jurnal Penutup", icon="lock"),
-
-                # --- Grup 7: Utilitas ---
-                sac.MenuItem("Backup & Export", icon="download"),
-            ],
-            format_func="title",
-            open_all=False,
-            indent=16,
-            color=WARNA_PRIMER,
-        )
-
-    return pilihan
+        with st.container(border=True):
+            st.markdown(f"### 🌶️ {NAMA_APLIKASI}")
+            st.caption("ACCOUNTING WORKSPACE")
+            st.caption(NAMA_PERUSAHAAN)
+    return None
 
 
-# ---------------------------------------------------------------
-# INDIKATOR TAHAPAN SIKLUS (sac.steps) — untuk Dashboard
-# ---------------------------------------------------------------
 def render_steps_siklus(tahap_aktif: int = 0) -> None:
     """
     Menampilkan indikator tahapan siklus akuntansi di Dashboard.
@@ -391,27 +340,35 @@ def selector_periode(
 
 
 
+
 # ------------------------------------------------------------------
 # POLA TAMPILAN ENTERPRISE
 # ------------------------------------------------------------------
+
 def render_page_header(
     title: str,
     description: str = "",
     eyebrow: str = "SISTEM AKUNTANSI CABAI",
 ) -> None:
-    """Menampilkan kepala halaman yang konsisten dan ringkas."""
-    st.caption(eyebrow.upper())
-    st.title(title)
-    if description:
-        st.caption(description)
-    st.divider()
+    """Menampilkan kepala halaman yang seragam dalam panel native Streamlit."""
+    with st.container(border=True):
+        st.caption(f"🌶️  {eyebrow.upper()}  ·  {NAMA_APLIKASI.upper()}")
+        st.title(title)
+        if description:
+            st.write(description)
 
 
 def render_section_header(title: str, description: str | None = None) -> None:
-    """Menampilkan judul bagian dengan deskripsi opsional."""
+    """Menampilkan judul dan keterangan bagian dengan hierarki konsisten."""
     st.subheader(title)
     if description:
         st.caption(description)
+
+
+def divider_dengan_judul(judul: str, icon: str = "chevron-right") -> None:
+    """Menampilkan judul bagian dan garis pemisah native Streamlit."""
+    render_section_header(judul)
+    st.divider()
 
 
 def render_metric_card(
@@ -421,7 +378,7 @@ def render_metric_card(
     help: str | None = None,
     delta_color: str = "normal",
 ) -> None:
-    """Menampilkan metrik di dalam kartu native Streamlit."""
+    """Menampilkan satu metrik dalam kartu dengan batas native Streamlit."""
     with st.container(border=True):
         st.metric(
             label=label,
@@ -430,3 +387,32 @@ def render_metric_card(
             delta_color=delta_color,
             help=help,
         )
+
+
+def render_alert(
+    label: str,
+    description: str = "",
+    color: str = "info",
+    icon: bool = True,
+) -> None:
+    """Menampilkan pesan status menggunakan alert native Streamlit."""
+    pesan = f"**{label}**"
+    if description:
+        pesan = f"{pesan}\n\n{description}"
+
+    with st.container(border=True):
+        if color == "success":
+            st.success(pesan)
+        elif color == "warning":
+            st.warning(pesan)
+        elif color in ("error", "danger"):
+            st.error(pesan)
+        else:
+            st.info(pesan)
+
+
+def render_page_toolbar(label: str, value: str) -> None:
+    """Menampilkan konteks periode atau filter dalam panel ringkas."""
+    with st.container(border=True):
+        st.caption(label.upper())
+        st.markdown(f"**{value}**")

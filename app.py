@@ -218,9 +218,10 @@ if not user_aktif:
     st.stop()
 
 with st.sidebar:
-    st.markdown(f"### 🌶️ {NAMA_APLIKASI}")
-    st.caption("ENTERPRISE ACCOUNTING WORKSPACE")
-    st.caption(NAMA_PERUSAHAAN)
+    with st.container(border=True):
+        st.markdown(f"## 🌶️ {NAMA_APLIKASI}")
+        st.caption("FINANCE & FARM OPERATIONS")
+        st.caption(NAMA_PERUSAHAAN)
     st.divider()
     st.caption("PENGGUNA AKTIF")
     st.markdown(f"**{user_aktif['full_name']}**")

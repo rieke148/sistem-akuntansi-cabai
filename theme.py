@@ -1,37 +1,38 @@
 """
 theme.py
 --------
-Tujuan  : Menyimpan palet warna dan identitas visual aplikasi.
-          Seluruh warna UI mengambil konstanta dari file ini.
-Dipanggil oleh : app.py, utils/ui_components.py, dan halaman views/.
+Tujuan  : Sumber warna dan identitas visual terpusat untuk aplikasi.
+Input   : Tidak ada.
+Output  : Konstanta identitas, palet status, dan warna grafik.
+Dipanggil oleh : app.py, utils/ui_components.py, serta seluruh views/.
 """
 
-# Palet Enterprise: emerald sebagai aksen, slate sebagai warna netral.
-WARNA_PRIMER = "#147D64"
-WARNA_SEKUNDER = "#D6A84B"
-WARNA_LATAR = "#F7F9FC"
-WARNA_LATAR2 = "#EEF3F7"
-WARNA_TEKS = "#182230"
-WARNA_NAVIGASI = "#172536"
+# Palet visual agribisnis cabai: merah cabai, navy, hijau panen, dan emas.
+WARNA_PRIMER = "#C83E43"
+WARNA_SEKUNDER = "#D5A64A"
+WARNA_LATAR = "#F4F6FA"
+WARNA_LATAR2 = "#E9EEF5"
+WARNA_TEKS = "#1B2738"
+WARNA_NAVIGASI = "#14233A"
 WARNA_PERMUKAAN = "#FFFFFF"
-WARNA_GARIS = "#DCE4EC"
+WARNA_GARIS = "#D9E1EB"
 
-# Warna status yang konsisten pada seluruh halaman.
-WARNA_SUKSES = "#16845B"
-WARNA_PERINGATAN = "#C58A1B"
-WARNA_BAHAYA = "#C44747"
+# Warna status yang digunakan konsisten pada seluruh halaman.
+WARNA_SUKSES = "#247A57"
+WARNA_PERINGATAN = "#B7791F"
+WARNA_BAHAYA = "#C33D46"
 WARNA_INFO = "#3976B8"
 
-# Palet grafik dengan kontras yang cukup untuk laporan keuangan.
+# Palet grafik dengan kontras yang sesuai untuk laporan keuangan.
 PALET_GRAFIK = [
-    "#147D64",
+    "#C83E43",
+    "#247A57",
     "#3976B8",
-    "#D6A84B",
-    "#7A69A8",
-    "#C76D4D",
-    "#60758A",
+    "#D5A64A",
+    "#8064A2",
+    "#5B708B",
 ]
 
 NAMA_PERUSAHAAN = "PT Sari Subur Langgeng Jaya Hidroponik Farm"
 NAMA_APLIKASI = "Sistem Akuntansi Cabai"
-VERSI_APLIKASI = "1.1.0"
+VERSI_APLIKASI = "1.2.0"

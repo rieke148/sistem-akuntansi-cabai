@@ -1,336 +1,306 @@
 """
 views/00_dashboard.py
 ---------------------
-Tujuan  : Halaman beranda. Menampilkan ringkasan keuangan, indikator
-          tahapan siklus akuntansi, grafik, dan peringatan penting.
-Input   : Data dari database melalui services/dashboard_service.py.
-Output  : Tampilan dashboard dengan metrik, grafik, alert, dan tabel.
-Dipanggil oleh : app.py (st.navigation)
+Tujuan  : Dashboard eksekutif untuk memantau keuangan, penjualan,
+          piutang, persediaan, aktivitas jurnal, dan tahapan akuntansi.
+Input   : Data aktual dari services/dashboard_service.py.
+Output  : Kartu KPI, grafik, tabel peringatan, dan progres siklus.
+Dipanggil oleh : app.py melalui st.navigation.
+
+Catatan:
+  Dashboard tidak membuat angka contoh. Semua nilai dibaca dari service
+  dan database aplikasi yang sudah berjalan.
 """
 
-import streamlit as st
-import streamlit_antd_components as sac
 import pandas as pd
+import streamlit as st
 
-from theme import NAMA_PERUSAHAAN, WARNA_PRIMER
-from utils.ui_components import (
-    render_steps_siklus,
-    divider_dengan_judul,
-    selector_periode,
-    render_page_header,
-    render_metric_card,
-)
-from utils.formatting import format_rupiah
 import services.dashboard_service as ds
+from services.permission_service import wajib_punya_izin
+from theme import WARNA_PRIMER, NAMA_PERUSAHAAN
+from utils.formatting import format_rupiah, format_qty
+from utils.ui_components import (
+    divider_dengan_judul,
+    render_alert,
+    render_metric_card,
+    render_page_header,
+    render_steps_siklus,
+    selector_periode,
+)
 
 
-# ---------------------------------------------------------------
-# HELPER INTERNAL
-# ---------------------------------------------------------------
-def _warna_saldo(nilai: int) -> str:
-    """Mengembalikan warna teks berdasarkan nilai positif/negatif."""
-    return "normal" if nilai >= 0 else "inverse"
+def _tampilkan_kpi(period_id: int) -> None:
+    """Menampilkan enam indikator utama berdasarkan periode terpilih."""
+    kas = ds.ambil_saldo_kas_bank(period_id)
+    piutang_terlambat = ds.ambil_piutang_overdue()
+    ringkasan = ds.ambil_ringkasan_penjualan_beban(period_id)
+    daftar_stok = ds.ambil_stok_persediaan()
 
+    total_piutang = sum(int(item.get("sisa_piutang", 0) or 0) for item in piutang_terlambat)
+    nilai_persediaan = sum(int(item.get("saldo_nilai", 0) or 0) for item in daftar_stok)
+    qty_persediaan = sum(float(item.get("saldo_qty", 0) or 0) for item in daftar_stok)
 
-def _tampilkan_metrik_utama(period_id: int) -> None:
-    """Menampilkan lima metrik utama dalam kartu yang konsisten."""
-    kas_bank = ds.ambil_saldo_kas_bank(period_id)
-    overdue = ds.ambil_piutang_overdue()
-    jual_beban = ds.ambil_ringkasan_penjualan_beban(period_id)
-
-    total_overdue = sum(r["sisa_piutang"] for r in overdue)
-    jumlah_overdue = len(overdue)
-
-    kolom = st.columns(5)
-    with kolom[0]:
-        render_metric_card(
-            "Kas & Bank",
-            format_rupiah(kas_bank["total"]),
-            delta=f"Kas {format_rupiah(kas_bank['kas'])} · Bank {format_rupiah(kas_bank['bank'])}",
-            help="Saldo kas dan bank pada periode terpilih",
-            delta_color="off",
-        )
-    with kolom[1]:
-        render_metric_card(
+    indikator = [
+        (
+            "Kas",
+            format_rupiah(kas["total"]),
+            "Saldo akun kas pada periode terpilih",
+            None,
+        ),
+        (
             "Piutang lewat jatuh tempo",
-            f"{jumlah_overdue} faktur",
-            delta=format_rupiah(total_overdue) if jumlah_overdue else "Tidak ada yang terlambat",
-            help="Faktur yang sudah melewati tanggal jatuh tempo",
-            delta_color="inverse" if jumlah_overdue else "off",
-        )
-    with kolom[2]:
-        render_metric_card(
-            "Penjualan",
-            format_rupiah(jual_beban["penjualan"]),
-            help="Total penjualan cabai pada periode terpilih",
-        )
-    with kolom[3]:
-        render_metric_card(
-            "HPP Penjualan",
-            format_rupiah(jual_beban["hpp_penjualan"]),
-            help="Harga pokok persediaan yang keluar karena penjualan",
-        )
-    with kolom[4]:
-        render_metric_card(
-            "Laba Kotor",
-            format_rupiah(jual_beban["laba_kotor"]),
-            help="Penjualan dikurangi HPP penjualan",
-        )
+            f"{len(piutang_terlambat)} faktur",
+            format_rupiah(total_piutang),
+            "inverse" if piutang_terlambat else "off",
+        ),
+        (
+            "Penjualan cabai",
+            format_rupiah(ringkasan["penjualan"]),
+            "Kredit akun penjualan cabai pada periode ini",
+            None,
+        ),
+        (
+            "Laba kotor",
+            format_rupiah(ringkasan["laba_kotor"]),
+            "Penjualan dikurangi harga pokok penjualan",
+            None,
+        ),
+        (
+            "Nilai persediaan",
+            format_rupiah(nilai_persediaan),
+            "Nilai saldo terakhir kartu persediaan",
+            None,
+        ),
+        (
+            "Stok cabai",
+            format_qty(qty_persediaan, "kg"),
+            "Total kuantitas item hasil panen yang aktif",
+            None,
+        ),
+    ]
+
+    for awal in (0, 3):
+        kolom = st.columns(3)
+        for indeks, item in enumerate(indikator[awal:awal + 3]):
+            label, nilai, keterangan, delta_color = item
+            with kolom[indeks]:
+                render_metric_card(
+                    label,
+                    nilai,
+                    delta=keterangan,
+                    delta_color=delta_color or "off",
+                )
 
 
-def _tampilkan_grafik_penjualan_cabai(period_id: int) -> None:
-    """Menampilkan tren penjualan cabai harian, termasuk tunai dan tempo."""
+def _tampilkan_grafik_penjualan(period_id: int) -> None:
+    """Menampilkan tren penjualan cabai per tanggal dari jurnal aktual."""
     df = ds.ambil_tren_penjualan_cabai(period_id)
     if df.empty:
-        st.info("📊 Belum ada data penjualan cabai pada periode ini.")
+        st.info("Belum ada penjualan cabai pada periode ini.")
         return
 
-    data_grafik = df.set_index("tanggal")["penjualan"]
-    st.bar_chart(
-        data=data_grafik,
+    data_grafik = df.copy()
+    data_grafik["tanggal"] = pd.to_datetime(data_grafik["tanggal"])
+    data_grafik = data_grafik.set_index("tanggal")["penjualan"]
+    st.area_chart(
+        data_grafik,
         color=WARNA_PRIMER,
         use_container_width=True,
     )
-    st.caption("Grafik mencakup penjualan cabai tunai dan tempo berdasarkan tanggal transaksi.")
+    st.caption("Penjualan tunai dan tempo berdasarkan tanggal jurnal akun penjualan cabai.")
 
 
-def _tampilkan_grafik_penjualan_vs_beban(period_id: int) -> None:
-    """Menampilkan grafik penjualan, HPP, dan beban produksi lainnya."""
-    jual_beban = ds.ambil_ringkasan_penjualan_beban(period_id)
-    if jual_beban["penjualan"] == 0 and jual_beban["beban"] == 0:
-        st.info("📊 Belum ada data transaksi keuangan untuk grafik.")
+def _tampilkan_perbandingan_penjualan_beban(period_id: int) -> None:
+    """Membandingkan penjualan, HPP, dan beban produksi lain."""
+    ringkasan = ds.ambil_ringkasan_penjualan_beban(period_id)
+    nilai = [
+        int(ringkasan["penjualan"]),
+        int(ringkasan["hpp_penjualan"]),
+        int(ringkasan["beban_produksi_lain"]),
+    ]
+    if not any(nilai):
+        st.info("Belum ada data penjualan atau beban untuk periode ini.")
         return
 
-    df_pv = pd.DataFrame([
-        {"Kategori": "Penjualan", "Nominal": jual_beban["penjualan"]},
-        {"Kategori": "HPP Penjualan", "Nominal": jual_beban["hpp_penjualan"]},
-        {"Kategori": "Beban Produksi Lain", "Nominal": jual_beban["beban_produksi_lain"]},
-    ])
-
-    st.bar_chart(
-        data=df_pv.set_index("Kategori")["Nominal"],
-        color=WARNA_PRIMER,
-        use_container_width=True,
-    )
+    df = pd.DataFrame(
+        {
+            "Kategori": ["Penjualan", "HPP Penjualan", "Beban Produksi Lain"],
+            "Nominal": nilai,
+        }
+    ).set_index("Kategori")
+    st.bar_chart(df, color=WARNA_PRIMER, use_container_width=True)
+    st.caption("Beban produksi lain disajikan terpisah dari HPP penjualan.")
 
 
 def _tampilkan_ringkasan_jurnal(period_id: int) -> None:
-    """Menampilkan ringkasan jumlah transaksi per jenis."""
-    ring = ds.ambil_ringkasan_jurnal(period_id)
-    kol1, kol2, kol3, kol4, kol5 = st.columns(5)
-    with kol1:
-        st.metric("🛒 Penjualan", ring["penjualan"])
-    with kol2:
-        st.metric("🛍️ Pembelian", ring["pembelian"])
-    with kol3:
-        st.metric("💰 Penerimaan Kas", ring["penerimaan_kas"])
-    with kol4:
-        st.metric("💸 Pengeluaran Kas", ring["pengeluaran_kas"])
-    with kol5:
-        st.metric("📝 Jurnal Umum", ring["umum"])
-    st.caption(f"**Total {ring['total_transaksi']} transaksi** (diluar penyesuaian & penutup)")
+    """Menampilkan jumlah transaksi untuk setiap jenis jurnal."""
+    ringkasan = ds.ambil_ringkasan_jurnal(period_id)
+    daftar = [
+        ("Penjualan", ringkasan["penjualan"]),
+        ("Pembelian", ringkasan["pembelian"]),
+        ("Penerimaan kas", ringkasan["penerimaan_kas"]),
+        ("Pengeluaran kas", ringkasan["pengeluaran_kas"]),
+        ("Jurnal umum", ringkasan["umum"]),
+    ]
+    kolom = st.columns(5)
+    for kol, (label, jumlah) in zip(kolom, daftar):
+        with kol:
+            render_metric_card(label, str(jumlah))
+    st.caption(f"Total {ringkasan['total_transaksi']} transaksi, tidak termasuk penyesuaian dan penutup.")
 
 
-def _tampilkan_piutang_overdue() -> None:
-    """Menampilkan tabel piutang jatuh tempo."""
-    overdue = ds.ambil_piutang_overdue()
-    if not overdue:
-        sac.alert(
-            label="✅ Tidak Ada Piutang Jatuh Tempo",
-            description="Semua piutang masih dalam batas jatuh tempo.",
-            color="success",
-            icon=True,
+def _tampilkan_piutang_jatuh_tempo() -> None:
+    """Menampilkan faktur piutang yang melewati tanggal jatuh tempo."""
+    daftar = ds.ambil_piutang_overdue()
+    divider_dengan_judul("Piutang Jatuh Tempo")
+    if not daftar:
+        render_alert(
+            "Tidak Ada Piutang Jatuh Tempo",
+            "Semua faktur yang belum lunas masih berada dalam batas waktu pembayaran.",
+            "success",
         )
         return
 
-    sac.alert(
-        label=f"⚠️ {len(overdue)} Faktur Piutang Jatuh Tempo!",
-        description="Segera lakukan penagihan untuk faktur di bawah ini.",
-        color="warning",
-        icon=True,
+    render_alert(
+        f"{len(daftar)} Faktur Memerlukan Penagihan",
+        "Periksa daftar piutang berikut dan tindak lanjuti pelanggan yang terlambat.",
+        "warning",
     )
-
-    df = pd.DataFrame(overdue)
-    df = df.rename(columns={
-        "no_faktur": "No. Faktur",
-        "pelanggan": "Pelanggan",
-        "sisa_piutang": "Sisa Piutang",
-        "tanggal_jatuh_tempo": "Jatuh Tempo",
-        "hari_telat": "Telat (Hari)",
-    })
-    df["Sisa Piutang"] = df["Sisa Piutang"].apply(format_rupiah)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    df = pd.DataFrame(daftar).rename(
+        columns={
+            "no_faktur": "No. Faktur",
+            "pelanggan": "Pelanggan",
+            "sisa_piutang": "Sisa Piutang",
+            "tanggal_jatuh_tempo": "Jatuh Tempo",
+            "hari_telat": "Telat (Hari)",
+        }
+    )
+    if "Sisa Piutang" in df.columns:
+        df["Sisa Piutang"] = df["Sisa Piutang"].apply(format_rupiah)
+    kolom = [c for c in ["No. Faktur", "Pelanggan", "Sisa Piutang", "Jatuh Tempo", "Telat (Hari)"] if c in df.columns]
+    st.dataframe(df[kolom], use_container_width=True, hide_index=True)
 
 
 def _tampilkan_stok_persediaan() -> None:
-    """Menampilkan tabel stok persediaan terkini."""
-    stok = ds.ambil_stok_persediaan()
-    if not stok:
-        st.info("📦 Belum ada data pergerakan persediaan.")
+    """Menampilkan saldo terakhir tiap item hasil panen yang aktif."""
+    daftar = ds.ambil_stok_persediaan()
+    divider_dengan_judul("Stok Persediaan Terkini")
+    if not daftar:
+        st.info("Belum ada mutasi persediaan. Catat saldo awal atau hasil panen terlebih dahulu.")
         return
 
-    df = pd.DataFrame(stok)
-    df = df.rename(columns={
-        "kode_item": "Kode",
-        "nama_item": "Item",
-        "satuan": "Satuan",
-        "saldo_qty": "Stok (Qty)",
-        "saldo_nilai": "Nilai (Rp)",
-    })
-    df["Nilai (Rp)"] = df["Nilai (Rp)"].apply(lambda x: format_rupiah(int(x or 0)))
-
-    # Tandai stok kosong
-    def _style_stok(val):
-        return "color: red; font-weight: bold;" if val <= 0 else ""
-
-    fn_map = getattr(df.style, "map", getattr(df.style, "applymap", None))
-    styled_df = fn_map(_style_stok, subset=["Stok (Qty)"]) if fn_map else df
-    st.dataframe(
-        styled_df,
-        use_container_width=True,
-        hide_index=True,
+    df = pd.DataFrame(daftar).rename(
+        columns={
+            "kode_item": "Kode Item",
+            "nama_item": "Nama Item",
+            "satuan": "Satuan",
+            "saldo_qty": "Saldo Kuantitas",
+            "saldo_nilai": "Nilai Persediaan",
+        }
     )
+    if "Nilai Persediaan" in df.columns:
+        df["Nilai Persediaan"] = df["Nilai Persediaan"].apply(
+            lambda nilai: format_rupiah(int(nilai or 0))
+        )
+    st.dataframe(df, use_container_width=True, hide_index=True)
 
 
-def _tampilkan_steps_siklus(period_id: int) -> None:
-    """Menampilkan indikator progress siklus akuntansi."""
+def _tampilkan_progress_siklus(period_id: int) -> None:
+    """Menampilkan tahapan siklus akuntansi berdasarkan data jurnal dan periode."""
     progress = ds.cek_progress_siklus(period_id)
 
-    # Tentukan tahap aktif berdasarkan progress
     if progress["periode_tutup"]:
-        tahap = 5  # Penutupan (selesai semua)
+        tahap = 5
     elif progress["ada_penutup"]:
         tahap = 5
     elif progress["ada_penyesuaian"]:
-        tahap = 4  # Laporan Keuangan
+        tahap = 4
     elif progress["ada_transaksi"]:
-        tahap = 2  # Neraca Saldo
+        tahap = 2
     else:
-        tahap = 0  # Belum ada transaksi
+        tahap = 0
 
+    divider_dengan_judul("Progress Siklus Akuntansi")
     render_steps_siklus(tahap_aktif=tahap)
 
-    # Tampilkan status masing-masing tahap
-    kol1, kol2, kol3, kol4 = st.columns(4)
-    with kol1:
-        if progress["ada_transaksi"]:
-            st.success("✅ Transaksi diinput")
-        else:
-            st.warning("⏳ Belum ada transaksi")
-    with kol2:
-        if progress["ada_penyesuaian"]:
-            st.success("✅ Ayat penyesuaian dibuat")
-        else:
-            st.warning("⏳ Belum ada penyesuaian")
-    with kol3:
-        if progress["ada_penutup"]:
-            st.success("✅ Jurnal penutup dibuat")
-        else:
-            st.warning("⏳ Belum ditutup")
-    with kol4:
-        if progress["periode_tutup"]:
-            st.success("✅ Periode ditutup")
-        else:
-            st.warning("⏳ Periode masih buka")
+    status = [
+        ("Transaksi", progress["ada_transaksi"]),
+        ("Penyesuaian", progress["ada_penyesuaian"]),
+        ("Jurnal penutup", progress["ada_penutup"]),
+        ("Periode ditutup", progress["periode_tutup"]),
+    ]
+    kolom = st.columns(4)
+    for kol, (label, selesai) in zip(kolom, status):
+        with kol:
+            if selesai:
+                st.success(f"{label}\nSelesai")
+            else:
+                st.info(f"{label}\nBelum dilakukan")
 
 
-# ---------------------------------------------------------------
-# FUNGSI UTAMA
-# ---------------------------------------------------------------
 def tampilkan() -> None:
-    """Fungsi utama halaman Dashboard. Dipanggil oleh app.py."""
+    """Fungsi utama dashboard. Hanya membaca data melalui service."""
     render_page_header(
-        "Dashboard",
-        "Pantau posisi keuangan, aktivitas transaksi, dan persediaan dalam satu tampilan.",
-        eyebrow="RINGKASAN EKSEKUTIF",
+        "Dashboard Usaha & Finansial",
+        "Pantau posisi kas, penjualan cabai, laba kotor, piutang, dan persediaan dalam satu ruang kerja.",
+        eyebrow="EXECUTIVE FINANCE OVERVIEW",
     )
+
     with st.container(border=True):
         period_id = selector_periode(
-            label="Periode laporan",
+            label="Periode Laporan",
             key="dashboard_periode",
             hanya_buka=False,
             tampilkan_kalender=True,
-            help="Pilih periode untuk memperbarui metrik dan grafik keuangan",
+            help="Pilih periode akuntansi untuk memperbarui seluruh ringkasan dashboard.",
         )
 
     if period_id is None:
-        st.warning(
-            "⚠️ Tidak ada periode yang dipilih. "
-            "Pilih periode di atas atau tambahkan di menu **Master Data → Periode**."
-        )
+        st.warning("Tidak ada periode tersedia. Tambahkan periode melalui menu Master Data.")
         return
 
     info_periode = ds.ambil_info_periode(period_id)
     if info_periode:
-        label_periode = f"{info_periode['nama_bulan']} {info_periode['tahun']}"
-        st.caption(f"Periode aktif: **{label_periode}** · Status: {info_periode['status'].title()}")
+        nama_periode = f"{info_periode['nama_bulan']} {info_periode['tahun']}"
+        st.caption(f"Periode aktif: **{nama_periode}** · Status: **{info_periode['status'].title()}**")
 
-    # ================================================================
-    # BAGIAN 1: METRIK UTAMA
-    # ================================================================
-    divider_dengan_judul("Ringkasan Keuangan", "bar-chart")
+    divider_dengan_judul("Ringkasan Keuangan")
     try:
-        _tampilkan_metrik_utama(period_id)
-    except Exception as e:
-        st.error(f"Gagal memuat metrik: {e}")
+        _tampilkan_kpi(period_id)
+    except Exception as error:
+        st.error(f"Gagal memuat ringkasan keuangan: {error}")
 
-    # ================================================================
-    # BAGIAN 2: GRAFIK & RINGKASAN TRANSAKSI
-    # ================================================================
-    st.divider()
-    kol_grafik, kol_jurnal = st.columns([3, 2])
-
-    with kol_grafik:
-        divider_dengan_judul("Grafik Keuangan", "bar-chart-line")
-        tab_penjualan, tab_pv = st.tabs(["🌶️ Penjualan Cabai", "⚖️ Penjualan vs Beban"])
-        with tab_penjualan:
+    kolom_grafik, kolom_komposisi = st.columns([1.6, 1])
+    with kolom_grafik:
+        with st.container(border=True):
+            st.subheader("Tren Penjualan Cabai")
             try:
-                _tampilkan_grafik_penjualan_cabai(period_id)
-            except Exception as e:
-                st.error(f"Gagal memuat grafik: {e}")
-        with tab_pv:
+                _tampilkan_grafik_penjualan(period_id)
+            except Exception as error:
+                st.error(f"Gagal memuat grafik penjualan: {error}")
+
+    with kolom_komposisi:
+        with st.container(border=True):
+            st.subheader("Penjualan dan Beban")
             try:
-                _tampilkan_grafik_penjualan_vs_beban(period_id)
-            except Exception as e:
-                st.error(f"Gagal memuat grafik: {e}")
+                _tampilkan_perbandingan_penjualan_beban(period_id)
+            except Exception as error:
+                st.error(f"Gagal memuat perbandingan penjualan dan beban: {error}")
 
-    with kol_jurnal:
-        divider_dengan_judul("Aktivitas Transaksi", "journal-text")
-        try:
-            _tampilkan_ringkasan_jurnal(period_id)
-        except Exception as e:
-            st.error(f"Gagal memuat ringkasan jurnal: {e}")
-
-    # ================================================================
-    # BAGIAN 3: PERINGATAN PIUTANG JATUH TEMPO
-    # ================================================================
-    st.divider()
-    divider_dengan_judul("Piutang Jatuh Tempo", "exclamation-triangle")
+    divider_dengan_judul("Aktivitas Transaksi")
     try:
-        _tampilkan_piutang_overdue()
-    except Exception as e:
-        st.error(f"Gagal memuat piutang: {e}")
+        _tampilkan_ringkasan_jurnal(period_id)
+    except Exception as error:
+        st.error(f"Gagal memuat aktivitas transaksi: {error}")
 
-    # ================================================================
-    # BAGIAN 4: STOK PERSEDIAAN
-    # ================================================================
-    st.divider()
-    divider_dengan_judul("Stok Persediaan Terkini", "box-seam")
+    _tampilkan_piutang_jatuh_tempo()
+    _tampilkan_stok_persediaan()
+
     try:
-        _tampilkan_stok_persediaan()
-    except Exception as e:
-        st.error(f"Gagal memuat stok: {e}")
+        _tampilkan_progress_siklus(period_id)
+    except Exception as error:
+        st.error(f"Gagal memuat progress siklus akuntansi: {error}")
 
-    # ================================================================
-    # BAGIAN 5: INDIKATOR SIKLUS AKUNTANSI
-    # ================================================================
-    st.divider()
-    divider_dengan_judul("Progress Siklus Akuntansi", "arrow-right-circle")
-    try:
-        _tampilkan_steps_siklus(period_id)
-    except Exception as e:
-        st.error(f"Gagal memuat progress siklus: {e}")
 
-from services.permission_service import wajib_punya_izin
 wajib_punya_izin("dashboard.view")
 tampilkan()
