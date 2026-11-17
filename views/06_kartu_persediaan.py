@@ -8,7 +8,7 @@ Output  : Tabel kartu persediaan + metrik ringkasan + grafik saldo.
 Dipanggil oleh : app.py (st.navigation)
 
 KONSEP KARTU PERSEDIAAN:
-  Metode rata-rata bergerak: setiap kali bahan masuk, harga rata-rata dihitung ulang.
+  Metode rata-rata bergerak: setiap kali barang dagang cabai masuk, harga rata-rata dihitung ulang.
   Kartu ini menunjukkan setiap gerakan beserta saldo kumulatif.
 """
 
@@ -24,7 +24,12 @@ def _ambil_daftar_items() -> list[dict]:
     """Ambil semua item persediaan dari database."""
     koneksi = get_connection()
     rows = koneksi.execute(
-        "SELECT id, kode_item, nama_item, satuan, tipe FROM items ORDER BY tipe, kode_item"
+        """
+        SELECT id, kode_item, nama_item, satuan, tipe
+        FROM items
+        WHERE tipe = 'hasil_panen' AND aktif = 1
+        ORDER BY kode_item
+        """
     ).fetchall()
     koneksi.close()
     return [dict(r) for r in rows]
@@ -58,7 +63,7 @@ def _tampilkan_ringkasan_saldo(item_id: int, satuan: str) -> None:
 def _tampilkan_tabel_kartu(df: pd.DataFrame, satuan: str) -> None:
     """Tampilkan tabel kartu persediaan dengan format yang rapi."""
     if df.empty:
-        st.info("Belum ada gerakan untuk item ini. Lakukan transaksi pembelian bahan atau panen terlebih dahulu.")
+        st.info("Belum ada gerakan untuk item ini. Catat hasil panen atau pembelian barang dagang cabai terlebih dahulu.")
         return
 
     # Format tampilan tabel
@@ -133,45 +138,23 @@ def tampilkan() -> None:
     """Fungsi utama halaman Kartu Persediaan."""
     st.title("📦 Kartu Persediaan")
     st.caption(
-        "Persediaan dicatat dengan sistem perpetual dan metode rata-rata bergerak. "
-        "Setiap pembelian, pemakaian, panen, dan penjualan langsung memperbarui saldo stok."
+        "Persediaan barang dagang cabai dicatat dengan sistem perpetual dan metode rata-rata bergerak. "
+        "Saldo bertambah melalui pencatatan panen atau pembelian cabai dan berkurang saat penjualan."
     )
 
     # Ambil data semua item
     semua_items = _ambil_daftar_items()
 
     if not semua_items:
-        st.warning("⚠️ Belum ada item persediaan. Tambahkan item di halaman Master Data → Persediaan.")
+        st.warning("⚠️ Belum ada item barang dagang cabai aktif. Tambahkan item hasil panen di halaman Master Data → Item Persediaan.")
         return
 
-    # Filter berdasarkan tipe item
-    tipe_pilihan = st.radio(
-        "Filter Tipe Item",
-        ["Semua", "Bahan Produksi", "Hasil Panen"],
-        horizontal=True,
-        key="filter_tipe_kartu",
-    )
-
-    tipe_map = {
-        "Semua": None,
-        "Bahan Produksi": "bahan",
-        "Hasil Panen": "hasil_panen",
-    }
-    tipe_filter = tipe_map[tipe_pilihan]
-
-    # Filter items berdasarkan tipe
-    if tipe_filter:
-        items_tampil = [i for i in semua_items if i["tipe"] == tipe_filter]
-    else:
-        items_tampil = semua_items
-
-    if not items_tampil:
-        st.info(f"Tidak ada item dengan tipe '{tipe_pilihan}'.")
-        return
+    # Hanya barang dagang cabai hasil panen yang ditampilkan.
+    items_tampil = semua_items
 
     # Dropdown pilih item
     opsi_item = {
-        f"[{i['tipe'].upper()[:1]}] {i['kode_item']} - {i['nama_item']} ({i['satuan']})": i
+        f"{i['kode_item']} - {i['nama_item']} ({i['satuan']})": i
         for i in items_tampil
     }
 
