@@ -13,12 +13,8 @@ SESSION_IDLE_SECONDS = 8 * 60 * 60
 
 
 def hapus_session_login() -> None:
-    for key in (
-        "auth_user_id", "auth_login_at", "auth_last_activity", "auth_session_version",
-        "permissions_admin_owner", "permissions_accountant",
-        "permissions_inventory", "permissions_leadership",
-    ):
-        st.session_state.pop(key, None)
+    """Bersihkan seluruh state sesi agar data sementara tidak berpindah antar pengguna."""
+    st.session_state.clear()
 
 
 def pengguna_aktif() -> dict | None:
