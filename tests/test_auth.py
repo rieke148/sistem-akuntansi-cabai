@@ -43,14 +43,14 @@ def test_validasi_password():
 def test_setup_admin_pertama_dan_setup_kedua_ditolak(auth_db):
     user_id = auth_service.buat_admin_pertama(
         "owner01", "Pemilik Sistem", "PasswordAman!2026",
-        "setup-secret", "setup-secret",
+        "setup-secret-yang-panjang-2026", "setup-secret-yang-panjang-2026",
     )
     assert user_id > 0
     assert auth_service.jumlah_pengguna() == 1
     with pytest.raises(ValueError, match="sudah pernah"):
         auth_service.buat_admin_pertama(
             "owner02", "Admin Kedua", "PasswordAman!2026",
-            "setup-secret", "setup-secret",
+            "setup-secret-yang-panjang-2026", "setup-secret-yang-panjang-2026",
         )
 
 
@@ -58,7 +58,7 @@ def test_setup_admin_membutuhkan_kunci_yang_benar(auth_db):
     with pytest.raises(ValueError, match="tidak valid"):
         auth_service.buat_admin_pertama(
             "owner01", "Pemilik Sistem", "PasswordAman!2026",
-            "salah", "benar",
+            "salah", "setup-secret-yang-panjang-2026",
         )
     assert auth_service.jumlah_pengguna() == 0
 
@@ -66,7 +66,7 @@ def test_setup_admin_membutuhkan_kunci_yang_benar(auth_db):
 def test_autentikasi_pengguna_aktif(auth_db):
     user_id = auth_service.buat_admin_pertama(
         "owner01", "Pemilik Sistem", "PasswordAman!2026",
-        "setup-secret", "setup-secret",
+        "setup-secret-yang-panjang-2026", "setup-secret-yang-panjang-2026",
     )
     user = auth_service.autentikasi("OWNER01", "PasswordAman!2026")
     assert user["id"] == user_id
@@ -77,7 +77,7 @@ def test_autentikasi_pengguna_aktif(auth_db):
 def test_login_salah_dikunci_setelah_lima_percobaan(auth_db):
     auth_service.buat_admin_pertama(
         "owner01", "Pemilik Sistem", "PasswordAman!2026",
-        "setup-secret", "setup-secret",
+        "setup-secret-yang-panjang-2026", "setup-secret-yang-panjang-2026",
     )
     for _ in range(auth_service.MAX_LOGIN_FAILURES):
         assert auth_service.autentikasi("owner01", "PasswordSalah!2026") is None
@@ -107,7 +107,7 @@ def test_role_memiliki_permission_yang_berbeda(auth_db):
 def test_admin_terakhir_tidak_bisa_dinonaktifkan(auth_db):
     admin_id = auth_service.buat_admin_pertama(
         "owner01", "Pemilik Sistem", "PasswordAman!2026",
-        "setup-secret", "setup-secret",
+        "setup-secret-yang-panjang-2026", "setup-secret-yang-panjang-2026",
     )
     with pytest.raises(ValueError, match="terakhir"):
         auth_service.ubah_status_pengguna(admin_id, False, actor_user_id=999)
@@ -116,10 +116,19 @@ def test_admin_terakhir_tidak_bisa_dinonaktifkan(auth_db):
 def test_akun_duplikat_ditolak(auth_db):
     auth_service.buat_admin_pertama(
         "owner01", "Pemilik Sistem", "PasswordAman!2026",
-        "setup-secret", "setup-secret",
+        "setup-secret-yang-panjang-2026", "setup-secret-yang-panjang-2026",
     )
     with pytest.raises(ValueError, match="Username sudah digunakan"):
         auth_service.buat_pengguna(
             "OWNER01", "Admin Kedua", "PasswordAman!2026",
             "admin_owner", actor_user_id=1,
         )
+
+
+def test_akun_nonaktif_tidak_bisa_login(auth_db):
+    user_id = auth_service.buat_admin_pertama(
+        "owner01", "Pemilik Sistem", "PasswordAman!2026",
+        "setup-secret-yang-panjang-2026", "setup-secret-yang-panjang-2026",
+    )
+    auth_service.ubah_status_pengguna(user_id, False, actor_user_id=999)
+    assert auth_service.autentikasi("owner01", "PasswordAman!2026") is None
