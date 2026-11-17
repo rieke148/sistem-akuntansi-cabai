@@ -14,7 +14,7 @@ SESSION_IDLE_SECONDS = 8 * 60 * 60
 
 def hapus_session_login() -> None:
     for key in (
-        "auth_user_id", "auth_login_at", "auth_last_activity",
+        "auth_user_id", "auth_login_at", "auth_last_activity", "auth_session_version",
         "permissions_admin_owner", "permissions_accountant",
         "permissions_inventory", "permissions_leadership",
     ):
@@ -37,6 +37,10 @@ def pengguna_aktif() -> dict | None:
 
     user = auth_service.ambil_pengguna(int(user_id))
     if not user:
+        hapus_session_login()
+        return None
+    session_version = st.session_state.get("auth_session_version")
+    if session_version is None or int(session_version) != int(user["session_version"]):
         hapus_session_login()
         return None
 
