@@ -331,17 +331,59 @@ def tambah_item(
     tipe: str,
     komoditas: str,
     account_id: int | None,
-) -> None:
-    if not kode_item.strip():
-        raise ValueError("Kode item tidak boleh kosong.")
-    if not nama_item.strip():
-        raise ValueError("Nama item tidak boleh kosong.")
-    account_id = _ambil_id_akun_persediaan_otomatis(tipe)
-    _eksekusi(
-        "INSERT INTO items (kode_item, nama_item, satuan, tipe, komoditas, account_id) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        (kode_item.strip(), nama_item.strip(), satuan.strip(), tipe, komoditas, account_id),
-    )
+) -> int:
+    """
+    Menambahkan variasi barang dagang cabai baru.
+
+    Akun persediaan ditetapkan otomatis ke akun 1140. Item baru langsung
+    aktif sehingga tersedia pada transaksi pembelian, panen, penjualan,
+    kartu persediaan, dan dashboard.
+    """
+    kode = str(kode_item or "").strip().upper()
+    nama = str(nama_item or "").strip()
+    unit = str(satuan or "").strip()
+
+    if not kode:
+        raise ValueError("Kode barang tidak boleh kosong.")
+    if not nama:
+        raise ValueError("Nama barang tidak boleh kosong.")
+    if not unit:
+        raise ValueError("Satuan barang tidak boleh kosong.")
+    if tipe not in TIPE_ITEM:
+        raise ValueError("Jenis barang tidak valid. Persediaan hanya untuk barang dagang hasil panen.")
+    if komoditas not in KOMODITAS_ITEM:
+        raise ValueError("Komoditas barang tidak valid.")
+
+    # Semua alur penjualan dan pencatatan panen cabai menggunakan satuan kg.
+    if unit.lower() != "kg":
+        raise ValueError("Satuan barang dagang cabai harus kg agar konsisten dengan transaksi penjualan dan panen.")
+
+    akun_persediaan_id = _ambil_id_akun_persediaan_otomatis(tipe)
+    koneksi = get_connection()
+    try:
+        cursor = koneksi.execute(
+            """
+            INSERT INTO items
+                (kode_item, nama_item, satuan, tipe, komoditas, account_id, aktif)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
+            """,
+            (kode, nama, "kg", tipe, komoditas, akun_persediaan_id),
+        )
+        koneksi.commit()
+        return int(cursor.lastrowid)
+    except sqlite3.IntegrityError as error:
+        koneksi.rollback()
+        pesan = str(error).lower()
+        if "items.kode_item" in pesan or "unique constraint failed" in pesan:
+            raise ValueError(
+                f"Kode barang '{kode}' sudah digunakan. Gunakan kode barang yang berbeda."
+            ) from error
+        raise
+    except Exception:
+        koneksi.rollback()
+        raise
+    finally:
+        koneksi.close()
 
 
 def ubah_item(
@@ -353,11 +395,24 @@ def ubah_item(
     account_id: int | None,
     aktif: bool,
 ) -> None:
-    account_id = _ambil_id_akun_persediaan_otomatis(tipe)
+    nama = str(nama_item or "").strip()
+    unit = str(satuan or "").strip()
+    if not nama:
+        raise ValueError("Nama barang tidak boleh kosong.")
+    if not unit:
+        raise ValueError("Satuan barang tidak boleh kosong.")
+    if unit.lower() != "kg":
+        raise ValueError("Satuan barang dagang cabai harus kg agar konsisten dengan transaksi penjualan dan panen.")
+    if tipe not in TIPE_ITEM:
+        raise ValueError("Jenis barang tidak valid.")
+    if komoditas not in KOMODITAS_ITEM:
+        raise ValueError("Komoditas barang tidak valid.")
+
+    akun_persediaan_id = _ambil_id_akun_persediaan_otomatis(tipe)
     _eksekusi(
-        "UPDATE items SET nama_item=?, satuan=?, tipe=?, komoditas=?, account_id=?, aktif=? "
+        "UPDATE items SET nama_item=?, satuan='kg', tipe=?, komoditas=?, account_id=?, aktif=? "
         "WHERE id=?",
-        (nama_item.strip(), satuan.strip(), tipe, komoditas, account_id, int(aktif), item_id),
+        (nama, tipe, komoditas, akun_persediaan_id, int(aktif), item_id),
     )
 
 
