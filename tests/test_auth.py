@@ -1,6 +1,7 @@
 """Pengujian autentikasi dan otorisasi berbasis SQLite sementara."""
 
 import sqlite3
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -171,3 +172,72 @@ def test_non_admin_tidak_bisa_mengelola_pengguna(auth_db):
         auth_service.ubah_status_pengguna(
             admin_id, False, actor_user_id=accountant_id
         )
+
+
+
+def test_lockout_kedaluwarsa_dan_login_kembali_berhasil(auth_db, monkeypatch):
+    """Setelah 15 menit, pengguna dapat login dan penghitung gagal direset."""
+    waktu_awal = datetime(2026, 11, 17, 10, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(auth_service, "_utc_now", lambda: waktu_awal)
+    auth_service.buat_admin_pertama(
+        "owner01", "Pemilik Sistem", "PasswordAman!2026",
+        "setup-secret-yang-panjang-2026", "setup-secret-yang-panjang-2026",
+    )
+
+    for _ in range(auth_service.MAX_LOGIN_FAILURES):
+        assert auth_service.autentikasi("owner01", "PasswordSalah!2026") is None
+
+    monkeypatch.setattr(
+        auth_service, "_utc_now", lambda: waktu_awal + timedelta(minutes=16)
+    )
+    user = auth_service.autentikasi("owner01", "PasswordAman!2026")
+    assert user is not None
+    assert user["username"] == "owner01"
+
+    koneksi = auth_db()
+    jumlah_attempt = koneksi.execute(
+        "SELECT COUNT(*) FROM login_attempts WHERE username_key = 'owner01'"
+    ).fetchone()[0]
+    koneksi.close()
+    assert jumlah_attempt == 0
+
+
+def test_login_berhasil_menghapus_percobaan_gagal(auth_db):
+    """Login yang benar menghapus hitungan gagal sebelum akun terkunci."""
+    auth_service.buat_admin_pertama(
+        "owner01", "Pemilik Sistem", "PasswordAman!2026",
+        "setup-secret-yang-panjang-2026", "setup-secret-yang-panjang-2026",
+    )
+    auth_service.autentikasi("owner01", "PasswordSalah!2026")
+    auth_service.autentikasi("owner01", "PasswordSalah!2026")
+
+    assert auth_service.autentikasi("owner01", "PasswordAman!2026") is not None
+
+    koneksi = auth_db()
+    jumlah_attempt = koneksi.execute(
+        "SELECT COUNT(*) FROM login_attempts WHERE username_key = 'owner01'"
+    ).fetchone()[0]
+    koneksi.close()
+    assert jumlah_attempt == 0
+
+
+def test_reset_password_mengganti_password_dan_membatalkan_session(auth_db):
+    """Reset password menaikkan session_version dan menolak password lama."""
+    admin_id = auth_service.buat_admin_pertama(
+        "owner01", "Pemilik Sistem", "PasswordAman!2026",
+        "setup-secret-yang-panjang-2026", "setup-secret-yang-panjang-2026",
+    )
+    user_id = auth_service.buat_pengguna(
+        "accountant01", "Akuntan", "PasswordAman!2026",
+        "accountant", actor_user_id=admin_id,
+    )
+    versi_sebelum = auth_service.ambil_pengguna(user_id)["session_version"]
+
+    auth_service.reset_password_pengguna(
+        user_id, "PasswordBaru!2026", actor_user_id=admin_id
+    )
+
+    pengguna = auth_service.ambil_pengguna(user_id)
+    assert pengguna["session_version"] == versi_sebelum + 1
+    assert auth_service.autentikasi("accountant01", "PasswordAman!2026") is None
+    assert auth_service.autentikasi("accountant01", "PasswordBaru!2026") is not None
