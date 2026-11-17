@@ -234,20 +234,54 @@ def buat_admin_pertama(
     setup_key: str,
     expected_setup_key: str,
 ) -> int:
-    """Membuat admin pertama hanya jika database belum memiliki pengguna."""
-    if not expected_setup_key:
+    """Membuat Admin pertama secara atomik hanya jika belum ada pengguna."""
+    if not expected_setup_key or len(str(expected_setup_key)) < 24:
         raise ValueError(
-            "Setup admin belum diaktifkan. Atur BOOTSTRAP_SETUP_KEY pada secrets aplikasi terlebih dahulu."
+            "BOOTSTRAP_SETUP_KEY harus diatur sebagai secret minimal 24 karakter."
         )
     if not hmac.compare_digest(str(setup_key), str(expected_setup_key)):
         raise ValueError("Kunci setup tidak valid.")
-    if jumlah_pengguna() != 0:
-        raise ValueError("Setup admin pertama sudah pernah dilakukan.")
-    return _buat_pengguna(
-        username, full_name, password, "admin_owner", actor_user_id=None,
-        action="initial_admin_created",
-    )
 
+    username = validasi_username(username)
+    nama = str(full_name or "").strip()
+    if len(nama) < 2 or len(nama) > 100:
+        raise ValueError("Nama lengkap harus berisi 2–100 karakter.")
+    validasi_password(password)
+    password_hash = buat_hash_password(password)
+
+    koneksi = get_connection()
+    try:
+        # Kunci penulisan SQLite agar hanya satu request setup admin yang lolos.
+        koneksi.execute("BEGIN IMMEDIATE")
+        jumlah = int(koneksi.execute("SELECT COUNT(*) FROM users").fetchone()[0])
+        if jumlah:
+            raise ValueError("Setup admin pertama sudah pernah dilakukan.")
+
+        role = koneksi.execute(
+            "SELECT id FROM roles WHERE role_code = 'admin_owner'"
+        ).fetchone()
+        if not role:
+            raise ValueError("Role Admin / Owner belum tersedia.")
+
+        cursor = koneksi.execute(
+            """INSERT INTO users (username, full_name, password_hash, role_id)
+               VALUES (?, ?, ?, ?)""",
+            (username, nama, password_hash, role["id"]),
+        )
+        user_id = int(cursor.lastrowid)
+        _catat_audit(
+            koneksi, None, "initial_admin_created", "users", user_id,
+            {"username": username, "role": "admin_owner"},
+        )
+        koneksi.commit()
+        return user_id
+    except Exception as error:
+        koneksi.rollback()
+        if "UNIQUE constraint failed: users.username" in str(error):
+            raise ValueError("Username sudah digunakan.") from error
+        raise
+    finally:
+        koneksi.close()
 
 def buat_pengguna(
     username: str,
