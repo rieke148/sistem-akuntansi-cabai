@@ -21,7 +21,7 @@ from utils.formatting import format_rupiah, format_tanggal, format_qty
 
 @st.cache_data(ttl=30)
 def _ambil_daftar_items() -> list[dict]:
-    """Ambil semua item persediaan dari database."""
+    """Ambil item barang dagang cabai aktif dari database."""
     koneksi = get_connection()
     rows = koneksi.execute(
         """
