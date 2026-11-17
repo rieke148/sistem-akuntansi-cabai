@@ -130,8 +130,11 @@ def _siapkan_db_persediaan(tmp_path, monkeypatch):
     koneksi.executescript("""
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
+            kode_item TEXT NOT NULL UNIQUE,
             nama_item TEXT NOT NULL,
             satuan TEXT NOT NULL,
+            tipe TEXT NOT NULL CHECK (tipe IN ('bahan', 'hasil_panen')),
+            komoditas TEXT NOT NULL DEFAULT 'cabai' CHECK (komoditas = 'cabai'),
             account_id INTEGER,
             aktif INTEGER DEFAULT 1
         );
@@ -165,8 +168,9 @@ def _siapkan_db_persediaan(tmp_path, monkeypatch):
             UNIQUE (period_id, account_id)
         );
 
-        INSERT INTO items (id, nama_item, satuan, account_id, aktif)
-        VALUES (1, 'Cabai Rawit', 'kg', 13, 1);
+        INSERT INTO items
+            (id, kode_item, nama_item, satuan, tipe, komoditas, account_id, aktif)
+        VALUES (1, 'CAB-001', 'Cabai Rawit', 'kg', 'hasil_panen', 'cabai', 13, 1);
         INSERT INTO periods (id, tahun, bulan, status)
         VALUES (1, 2026, 10, 'buka'), (2, 2026, 11, 'buka');
     """)
@@ -185,7 +189,7 @@ def test_mutasi_perpetual_menghitung_rata_rata_dan_hpp(tmp_path, monkeypatch):
 
     catat_gerakan_masuk(1, "2026-10-01", 100, 25_000, "Saldo awal uji")
     catat_gerakan_masuk(1, "2026-10-02", 100, 30_000, "Pembelian kedua")
-    hasil_keluar = catat_gerakan_keluar(1, "2026-10-03", 50, "Pemakaian uji")
+    hasil_keluar = catat_gerakan_keluar(1, "2026-10-03", 50, "Penjualan uji")
 
     saldo = ambil_saldo_persediaan(1)
     assert hasil_keluar["total_keluar"] == 1_375_000
