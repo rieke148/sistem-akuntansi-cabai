@@ -23,6 +23,7 @@ from database.schema import (
     migrasikan_akun_persediaan_bahan_produksi,
     pastikan_akun_hpp_penjualan_tersedia,
     migrasikan_coa_baru,
+    migrasikan_persediaan_barang_dagang_saja,
 )
 from database.seed import jalankan_seed
 from theme import NAMA_APLIKASI, NAMA_PERUSAHAAN, WARNA_PRIMER
@@ -88,6 +89,8 @@ def inisialisasi_database() -> bool:
     migrasikan_akun_persediaan_bahan_produksi()
     # Migrasi COA lama ke COA baru (coa_cabai_baru.csv)
     migrasikan_coa_baru()
+    # Arsipkan item bahan lama; seluruh jurnal dan mutasi historis tetap dipertahankan.
+    migrasikan_persediaan_barang_dagang_saja()
 
     # Pastikan periode dasar (2025-2027) tersedia
     from services.period_service import pastikan_periode_dasar_tersedia
