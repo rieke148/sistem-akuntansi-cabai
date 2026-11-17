@@ -168,3 +168,32 @@ Kertas kerja 10 kolom menghubungkan seluruh proses dari neraca saldo hingga lapo
   2. *Shortcut Cepat*: Tombol instan untuk beralih ke Bulan Ini, Bulan Lalu, Tahun Lalu, atau Oktober 2026.
   3. *Kalender Manual*: Input bulan & tahun bebas. Jika periode belum terdaftar di database, sistem otomatis membuatnya (`INSERT INTO periods ... status='buka'`).
   4. *Session State Persistence*: Periode yang dipilih tersinkronisasi saat berpindah menu.
+
+
+---
+
+## J. Autentikasi dan Session Pengguna
+
+### 1. Membuat dan memverifikasi password — `services/auth_service.py`
+- `buat_hash_password()` membuat salt acak 16 byte, lalu menghitung PBKDF2-HMAC-SHA256 sebanyak 600.000 iterasi.
+- `verifikasi_password()` menghitung ulang hash dari password yang dimasukkan dan membandingkannya dengan `hmac.compare_digest()`. Fungsi mengembalikan nilai benar/salah, bukan password.
+- `validasi_password()` mewajibkan minimal 12 karakter dan sedikitnya tiga kelompok karakter: huruf kecil, huruf besar, angka, atau simbol.
+
+### 2. Proses login dan penguncian akun
+- `autentikasi(username, password)` mencari akun berdasarkan username tanpa membedakan huruf besar/kecil.
+- Setelah verifikasi hash, fungsi memulai transaksi tulis SQLite (`BEGIN IMMEDIATE`) dan membaca ulang status akun. Langkah ini mencegah hitungan percobaan login yang berjalan berdekatan saling menimpa serta menolak akun yang dinonaktifkan atau password-nya berubah saat proses login.
+- Percobaan gagal disimpan pada tabel `login_attempts`. Setelah lima kegagalan, username dikunci selama 15 menit. Login yang berhasil menghapus catatan kegagalan sebelumnya.
+- Profil yang dikembalikan tidak menyertakan `password_hash`.
+
+### 3. Memvalidasi session — `services/permission_service.py`
+- Saat login berhasil, `views/login.py` menyimpan ID pengguna, versi sesi, dan waktu aktivitas terakhir ke `st.session_state`.
+- `pengguna_aktif()` memeriksa tiga hal pada setiap rerun: waktu tidak aktif maksimal 8 jam, akun masih aktif, dan versi sesi sama dengan nilai terbaru di database.
+- Jika waktu aktivitas atau versi sesi hilang/rusak, pemeriksaan ditolak (*fail closed*) dan seluruh state dibersihkan.
+- Perubahan role, reset password, atau penonaktifan akun menaikkan `session_version`; sesi lama otomatis tidak berlaku.
+
+### 4. Logout yang selalu membersihkan state
+- `keluar_pengguna(user_id)` mencoba mencatat aktivitas logout melalui `auth_service.catat_logout()`.
+- Pembersihan `st.session_state` berada di blok `finally`, sehingga kegagalan penyimpanan audit tidak membuat pengguna tetap masuk.
+- `app.py` menggunakan fungsi ini saat tombol **Keluar** ditekan.
+
+**Contoh:** pengguna login dengan `session_version = 2`. Administrator mereset password sehingga database menyimpan versi 3. Pada rerun berikutnya, `pengguna_aktif()` membandingkan 2 dengan 3, menghapus session lama, lalu aplikasi meminta pengguna login kembali.
