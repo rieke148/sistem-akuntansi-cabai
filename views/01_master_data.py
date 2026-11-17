@@ -329,7 +329,7 @@ def _tab_supplier() -> None:
 # ================================================================
 def _tab_item() -> None:
     """CRUD Item Persediaan."""
-    divider_dengan_judul("Item Persediaan & Hasil Panen", "box-seam")
+    divider_dengan_judul("Item Barang Dagang Cabai", "box-seam")
     st.caption("Persediaan hanya digunakan untuk barang dagang cabai hasil panen yang siap dijual. Item bahan dari data lama tetap tersimpan sebagai arsip nonaktif.")
 
     df = svc.ambil_semua_item()
@@ -342,9 +342,9 @@ def _tab_item() -> None:
     with kol1:
         with st.expander("➕ Tambah Item"):
             with st.form("form_tambah_item", clear_on_submit=True):
-                kode = st.text_input("Kode Item *", placeholder="Contoh: BHN-007")
+                kode = st.text_input("Kode Item *", placeholder="Contoh: HSL-002")
                 nama = st.text_input("Nama Item *")
-                satuan = st.text_input("Satuan *", placeholder="Contoh: kg, karung, batang")
+                satuan = st.text_input("Satuan *", placeholder="Contoh: kg")
                 tipe = st.selectbox(
                     "Tipe",
                     svc.TIPE_ITEM,
