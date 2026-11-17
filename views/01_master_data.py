@@ -94,7 +94,8 @@ def _tab_bagan_akun() -> None:
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
     df_tampil.columns = ["Kode Akun", "Nama Akun", "Kategori", "Saldo Normal", "Kontra?", "Status"]
 
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
     st.caption(f"Total: {len(df_tampil)} akun")
 
     kol1, kol2 = st.columns(2)
@@ -226,7 +227,8 @@ def _tab_pelanggan() -> None:
     df_tampil = df[["nama", "tipe", "telepon", "alamat", "aktif"]].copy()
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
     df_tampil.columns = ["Nama", "Tipe", "Telepon", "Alamat", "Status"]
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
     st.caption(f"{len(df)} pelanggan terdaftar")
 
     kol1, kol2 = st.columns(2)
@@ -286,7 +288,8 @@ def _tab_supplier() -> None:
     df_tampil = df[["nama", "telepon", "alamat", "aktif"]].copy()
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
     df_tampil.columns = ["Nama", "Telepon", "Alamat", "Status"]
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     kol1, kol2 = st.columns(2)
     with kol1:
@@ -338,7 +341,8 @@ def _tab_item() -> None:
     df_tampil = df[["kode_item", "nama_item", "satuan", "tipe", "akun_persediaan", "aktif"]].copy()
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
     df_tampil.columns = ["Kode", "Nama Item", "Satuan", "Tipe", "Akun Persediaan", "Status"]
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     if not punya_izin("master_data.items.manage"):
         st.info("Role Anda hanya memiliki akses untuk melihat daftar item persediaan.")
@@ -470,7 +474,8 @@ def _tab_pekerja() -> None:
     df_tampil["upah_harian"] = df_tampil["upah_harian"].apply(format_rupiah)
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
     df_tampil.columns = ["Nama", "Tipe", "Upah Harian", "Status"]
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     # Info upah dari parameter
     upah_tetap = int(svc.ambil_nilai_parameter("upah_tetap_harian", "90000"))
@@ -552,7 +557,8 @@ def _tab_aset_tetap() -> None:
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
     df_tampil.columns = ["Kode", "Nama Aset", "Kategori", "Harga Perolehan",
                          "Nilai Residu", "Umur (Th)", "Unit", "Disusutkan?", "Status"]
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     # Preview penyusutan semua aset
     with st.expander("📊 Preview Penyusutan Semua Aset"):
@@ -603,12 +609,14 @@ def _preview_penyusutan_semua(df: pd.DataFrame) -> None:
         })
     if baris_list:
         df_prev = pd.DataFrame(baris_list)
-        st.dataframe(df_prev, use_container_width=True, hide_index=True)
+        with st.container(border=True):
+            st.dataframe(df_prev, use_container_width=True, hide_index=True)
         total_bln = sum(svc.hitung_penyusutan_preview(
             int(r["harga_perolehan"]), int(r["nilai_residu"]),
             int(r["umur_ekonomis_tahun"]), int(r["jumlah_unit"])
         )["penyusutan_per_bulan"] for _, r in df[df["is_disusutkan"] == 1].iterrows())
-        st.metric("Total Penyusutan per Bulan", format_rupiah(total_bln))
+        with st.container(border=True):
+            st.metric("Total Penyusutan per Bulan", format_rupiah(total_bln))
     else:
         st.info("Belum ada aset yang perlu disusutkan.")
 
@@ -745,7 +753,8 @@ def _tab_blok_lahan() -> None:
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
     df_tampil.columns = ["Blok", "Jml Pohon", "Tgl Tanam",
                           "Luas (m²)", "Jarak Tanam (cm)", "Keterangan", "Status"]
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     kol1, kol2 = st.columns(2)
     with kol1:
@@ -828,7 +837,8 @@ def _tab_saldo_awal() -> None:
         df_tampil["saldo_kredit"] = df_tampil["saldo_kredit"].apply(format_rupiah)
         df_tampil.columns = ["Kode Akun", "Nama Akun", "Kategori",
                               "Saldo Normal", "Debit", "Kredit", "Catatan"]
-        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+        with st.container(border=True):
+            st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
         # Validasi keseimbangan saldo awal
         seimbang, total_d, total_k = svc.validasi_saldo_awal_seimbang(period_id)
@@ -983,7 +993,8 @@ def _tab_periode() -> None:
     df_tampil = df[["nama_bulan", "tahun", "bulan", "status"]].copy()
     df_tampil["status"] = df_tampil["status"].map({"buka": "🔓 Buka", "tutup": "🔒 Tutup"})
     df_tampil.columns = ["Periode", "Tahun", "Bulan", "Status"]
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     with st.expander("➕ Tambah Periode Baru"):
         with st.form("form_tambah_periode", clear_on_submit=True):
@@ -1022,7 +1033,8 @@ def _tab_parameter() -> None:
     # Tampilkan tabel
     df_tampil = df[["kunci", "nilai", "satuan", "catatan"]].copy()
     df_tampil.columns = ["Parameter", "Nilai", "Satuan", "Keterangan"]
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     # Form edit parameter (satu per satu)
     with st.expander("✏️ Ubah Nilai Parameter"):

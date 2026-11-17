@@ -173,7 +173,8 @@ def _tampilkan_pratinjau(baris: list[dict], params: dict) -> bool:
         lambda x: format_rupiah(x) if x > 0 else "-"
     )
 
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     # Tampilkan status keseimbangan
     if seimbang:

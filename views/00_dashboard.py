@@ -102,11 +102,12 @@ def _tampilkan_grafik_penjualan(period_id: int) -> None:
     data_grafik = df.copy()
     data_grafik["tanggal"] = pd.to_datetime(data_grafik["tanggal"])
     data_grafik = data_grafik.set_index("tanggal")["penjualan"]
-    st.area_chart(
-        data_grafik,
-        color=WARNA_PRIMER,
-        use_container_width=True,
-    )
+    with st.container(border=True):
+        st.area_chart(
+            data_grafik,
+            color=WARNA_PRIMER,
+            use_container_width=True,
+        )
     st.caption("Penjualan tunai dan tempo berdasarkan tanggal jurnal akun penjualan cabai.")
 
 
@@ -128,7 +129,8 @@ def _tampilkan_perbandingan_penjualan_beban(period_id: int) -> None:
             "Nominal": nilai,
         }
     ).set_index("Kategori")
-    st.bar_chart(df, color=WARNA_PRIMER, use_container_width=True)
+    with st.container(border=True):
+        st.bar_chart(df, color=WARNA_PRIMER, use_container_width=True)
     st.caption("Beban produksi lain disajikan terpisah dari HPP penjualan.")
 
 
@@ -178,7 +180,8 @@ def _tampilkan_piutang_jatuh_tempo() -> None:
     if "Sisa Piutang" in df.columns:
         df["Sisa Piutang"] = df["Sisa Piutang"].apply(format_rupiah)
     kolom = [c for c in ["No. Faktur", "Pelanggan", "Sisa Piutang", "Jatuh Tempo", "Telat (Hari)"] if c in df.columns]
-    st.dataframe(df[kolom], use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df[kolom], use_container_width=True, hide_index=True)
 
 
 def _tampilkan_stok_persediaan() -> None:
@@ -202,7 +205,8 @@ def _tampilkan_stok_persediaan() -> None:
         df["Nilai Persediaan"] = df["Nilai Persediaan"].apply(
             lambda nilai: format_rupiah(int(nilai or 0))
         )
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
 
 def _tampilkan_progress_siklus(period_id: int) -> None:

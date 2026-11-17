@@ -158,13 +158,17 @@ def tampilkan() -> None:
     kol_m1, kol_m2, kol_m3, kol_m4 = st.columns(4)
     with kol_m1:
         jumlah_entry = df["entry_id"].nunique()
-        st.metric("Total Entri Jurnal", f"{jumlah_entry:,}".replace(",", "."))
+        with st.container(border=True):
+            st.metric("Total Entri Jurnal", f"{jumlah_entry:,}".replace(",", "."))
     with kol_m2:
-        st.metric("Total Debit", format_rupiah(total_debit))
+        with st.container(border=True):
+            st.metric("Total Debit", format_rupiah(total_debit))
     with kol_m3:
-        st.metric("Total Kredit", format_rupiah(total_kredit))
+        with st.container(border=True):
+            st.metric("Total Kredit", format_rupiah(total_kredit))
     with kol_m4:
-        st.metric("Status", "✅ Seimbang" if seimbang else "❌ Tidak Seimbang")
+        with st.container(border=True):
+            st.metric("Status", "✅ Seimbang" if seimbang else "❌ Tidak Seimbang")
 
     # Tampilkan peringatan jika tidak seimbang
     if not seimbang:
@@ -198,16 +202,17 @@ def tampilkan() -> None:
 
     kolom_tampil = ["Tanggal", "No. Bukti", "Keterangan", "Kode", "Nama Akun", "Debit", "Kredit"]
 
-    st.dataframe(
-        df_tampil[kolom_tampil],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Debit": st.column_config.TextColumn(width="medium"),
-            "Kredit": st.column_config.TextColumn(width="medium"),
-            "Keterangan": st.column_config.TextColumn(width="large"),
-        },
-    )
+    with st.container(border=True):
+        st.dataframe(
+            df_tampil[kolom_tampil],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Debit": st.column_config.TextColumn(width="medium"),
+                "Kredit": st.column_config.TextColumn(width="medium"),
+                "Keterangan": st.column_config.TextColumn(width="large"),
+            },
+        )
 
     st.caption(
         f"Menampilkan **{len(df)}** baris dari **{jumlah_entry}** entri jurnal. "

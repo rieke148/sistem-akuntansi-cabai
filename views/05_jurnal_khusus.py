@@ -87,7 +87,8 @@ def _tampilkan_total_kolom(
     for i, (col_key, nilai) in enumerate(total.items()):
         label = label_map.get(col_key, col_key)
         with cols[i]:
-            st.metric(label=label, value=format_rupiah(nilai))
+            with st.container(border=True):
+                st.metric(label=label, value=format_rupiah(nilai))
 
 
 def _tampilkan_pesan_kosong(jenis: str) -> None:
@@ -158,18 +159,19 @@ def _tampilkan_jurnal_penjualan(period_id: int | None) -> None:
         "HPP Penjualan (D)", "Persediaan (1140) (K)",
     ]
 
-    st.dataframe(
-        df_tampil[kolom_tampil],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Pelanggan": st.column_config.TextColumn(width="medium"),
-            "Keterangan": st.column_config.TextColumn(width="large"),
-            "Piutang Usaha (D)": st.column_config.TextColumn(width="medium"),
-            "Penjualan (K)": st.column_config.TextColumn(width="medium"),
-            "Ref": st.column_config.TextColumn(width="small"),
-        },
-    )
+    with st.container(border=True):
+        st.dataframe(
+            df_tampil[kolom_tampil],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Pelanggan": st.column_config.TextColumn(width="medium"),
+                "Keterangan": st.column_config.TextColumn(width="large"),
+                "Piutang Usaha (D)": st.column_config.TextColumn(width="medium"),
+                "Penjualan (K)": st.column_config.TextColumn(width="medium"),
+                "Ref": st.column_config.TextColumn(width="small"),
+            },
+        )
 
     st.caption(f"Total {len(df)} transaksi penjualan tempo.")
 
@@ -266,16 +268,17 @@ def _tampilkan_jurnal_pembelian(period_id: int | None) -> None:
         "Ref", "Persediaan (D)", "Utang Usaha (K)",
     ]
 
-    st.dataframe(
-        df_tampil[kolom_tampil],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Persediaan (D)": st.column_config.TextColumn(width="medium"),
-            "Utang Usaha (K)": st.column_config.TextColumn(width="medium"),
-            "Ref": st.column_config.TextColumn(width="small"),
-        },
-    )
+    with st.container(border=True):
+        st.dataframe(
+            df_tampil[kolom_tampil],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Persediaan (D)": st.column_config.TextColumn(width="medium"),
+                "Utang Usaha (K)": st.column_config.TextColumn(width="medium"),
+                "Ref": st.column_config.TextColumn(width="small"),
+            },
+        )
 
     st.caption(f"Total {len(df)} transaksi pembelian kredit.")
 
@@ -348,19 +351,20 @@ def _tampilkan_jurnal_penerimaan_kas(period_id: int | None) -> None:
         "HPP Penjualan (D)", "Persediaan (1140) (K)",
     ]
 
-    st.dataframe(
-        df_tampil[kolom_tampil],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Keterangan": st.column_config.TextColumn(width="large"),
-            "Kas (D)": st.column_config.TextColumn(width="medium"),
-            "Piutang (K)": st.column_config.TextColumn(width="medium"),
-            "Penjualan (K)": st.column_config.TextColumn(width="medium"),
-            "Lain-lain (K)": st.column_config.TextColumn(width="medium"),
-            "Ref": st.column_config.TextColumn(width="small"),
-        },
-    )
+    with st.container(border=True):
+        st.dataframe(
+            df_tampil[kolom_tampil],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Keterangan": st.column_config.TextColumn(width="large"),
+                "Kas (D)": st.column_config.TextColumn(width="medium"),
+                "Piutang (K)": st.column_config.TextColumn(width="medium"),
+                "Penjualan (K)": st.column_config.TextColumn(width="medium"),
+                "Lain-lain (K)": st.column_config.TextColumn(width="medium"),
+                "Ref": st.column_config.TextColumn(width="small"),
+            },
+        )
 
     st.caption(f"Total {len(df)} transaksi penerimaan kas.")
 
@@ -457,21 +461,22 @@ def _tampilkan_jurnal_pengeluaran_kas(period_id: int | None) -> None:
         "HPP (5110) (D)", "Beban Operasional (D)", "Lain-lain (D)",
     ]
 
-    st.dataframe(
-        df_tampil[kolom_tampil],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Keterangan": st.column_config.TextColumn(width="large"),
-            "Kas (K)": st.column_config.TextColumn(width="medium"),
-            "Persediaan (D)": st.column_config.TextColumn(width="medium"),
-            "Beban Gaji (D)": st.column_config.TextColumn(width="medium"),
-            "HPP (5110) (D)": st.column_config.TextColumn(width="medium"),
-            "Beban Operasional (D)": st.column_config.TextColumn(width="medium"),
-            "Lain-lain (D)": st.column_config.TextColumn(width="medium"),
-            "Ref": st.column_config.TextColumn(width="small"),
-        },
-    )
+    with st.container(border=True):
+        st.dataframe(
+            df_tampil[kolom_tampil],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Keterangan": st.column_config.TextColumn(width="large"),
+                "Kas (K)": st.column_config.TextColumn(width="medium"),
+                "Persediaan (D)": st.column_config.TextColumn(width="medium"),
+                "Beban Gaji (D)": st.column_config.TextColumn(width="medium"),
+                "HPP (5110) (D)": st.column_config.TextColumn(width="medium"),
+                "Beban Operasional (D)": st.column_config.TextColumn(width="medium"),
+                "Lain-lain (D)": st.column_config.TextColumn(width="medium"),
+                "Ref": st.column_config.TextColumn(width="small"),
+            },
+        )
 
     st.caption(f"Total {len(df)} transaksi pengeluaran kas.")
 
