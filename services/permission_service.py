@@ -17,26 +17,57 @@ def hapus_session_login() -> None:
     st.session_state.clear()
 
 
+def keluar_pengguna(user_id: int) -> bool:
+    """
+    Catat logout lalu selalu bersihkan seluruh state sesi.
+    Mengembalikan False jika audit log gagal, tetapi pengguna tetap dikeluarkan.
+    """
+    audit_berhasil = True
+    try:
+        auth_service.catat_logout(int(user_id))
+    except Exception:
+        # Kegagalan audit tidak boleh membuat sesi pengguna tetap terbuka.
+        audit_berhasil = False
+    finally:
+        hapus_session_login()
+    return audit_berhasil
+
+
 def pengguna_aktif() -> dict | None:
+    """Memvalidasi akun, versi sesi, dan batas tidak aktif sebelum halaman dibuka."""
     user_id = st.session_state.get("auth_user_id")
     if not user_id:
         return None
 
     now = time.time()
-    last_activity = float(st.session_state.get("auth_last_activity", now))
+    aktivitas_terakhir = st.session_state.get("auth_last_activity")
+
+    # Sesi yang kehilangan waktu aktivitas dianggap tidak valid (fail closed).
+    try:
+        if aktivitas_terakhir is None:
+            raise ValueError("Waktu aktivitas sesi tidak tersedia.")
+        last_activity = float(aktivitas_terakhir)
+    except (TypeError, ValueError):
+        hapus_session_login()
+        return None
+
     if now - last_activity > SESSION_IDLE_SECONDS:
-        try:
-            auth_service.catat_logout(int(user_id))
-        finally:
-            hapus_session_login()
+        keluar_pengguna(int(user_id))
         return None
 
     user = auth_service.ambil_pengguna(int(user_id))
     if not user:
         hapus_session_login()
         return None
-    session_version = st.session_state.get("auth_session_version")
-    if session_version is None or int(session_version) != int(user["session_version"]):
+
+    # Nilai versi yang hilang/rusak tidak boleh melewati pemeriksaan sesi.
+    try:
+        session_version = int(st.session_state.get("auth_session_version"))
+    except (TypeError, ValueError):
+        hapus_session_login()
+        return None
+
+    if session_version != int(user["session_version"]):
         hapus_session_login()
         return None
 
@@ -45,6 +76,7 @@ def pengguna_aktif() -> dict | None:
 
 
 def punya_izin(permission_code: str) -> bool:
+    """Memeriksa apakah role pengguna aktif memiliki izin yang diminta."""
     user = pengguna_aktif()
     if not user:
         return False
@@ -57,6 +89,7 @@ def punya_izin(permission_code: str) -> bool:
 
 
 def wajib_punya_izin(permission_code: str) -> None:
+    """Menghentikan halaman jika pengguna tidak memiliki izin yang diperlukan."""
     if not punya_izin(permission_code):
         st.error("Anda tidak memiliki hak akses untuk membuka halaman atau menjalankan tindakan ini.")
         st.stop()
