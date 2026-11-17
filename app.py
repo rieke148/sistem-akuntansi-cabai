@@ -27,6 +27,8 @@ from database.schema import (
 )
 from database.seed import jalankan_seed
 from theme import NAMA_APLIKASI, NAMA_PERUSAHAAN, WARNA_PRIMER
+from services import auth_service
+from services.permission_service import pengguna_aktif, hapus_session_login, punya_izin
 
 
 # ---------------------------------------------------------------
@@ -117,6 +119,9 @@ def inisialisasi_database() -> bool:
 # Jalankan inisialisasi
 seed_baru = inisialisasi_database()
 
+# Siapkan role, permission, dan tabel akun setelah database akuntansi siap.
+auth_service.inisialisasi_otorisasi()
+
 # Tampilkan notifikasi jika baru di-seed
 if seed_baru:
     st.toast(
@@ -205,33 +210,80 @@ halaman_backup = st.Page(
     title="Backup & Export",
 )
 
-
-# ---------------------------------------------------------------
-# NAVIGASI (st.navigation — pengganti st.sidebar.radio versi baru)
-# ---------------------------------------------------------------
-# Grup navigasi mengikuti urutan siklus akuntansi
-navigasi = st.navigation(
-    {
-        "🏠 Beranda": [halaman_dashboard],
-        "🗄️ Setup": [halaman_master_data],
-        "✏️ Input": [halaman_transaksi, halaman_penggajian],
-        "📔 Jurnal": [halaman_jurnal_umum, halaman_jurnal_khusus],
-        "📖 Buku Besar": [
-            halaman_kartu_persediaan,
-            halaman_buku_besar,
-            halaman_bb_pembantu,
-        ],
-        "📊 Laporan": [
-            halaman_neraca_saldo,
-            halaman_penyesuaian,
-            halaman_neraca_lajur,
-            halaman_laporan_keuangan,
-            halaman_jurnal_penutup,
-        ],
-        "💾 Utilitas": [halaman_backup],
-    },
-    position="sidebar",
+halaman_manajemen_pengguna = st.Page(
+    "views/15_manajemen_pengguna.py",
+    title="Manajemen Pengguna",
 )
 
-# Jalankan halaman yang dipilih
+
+# ---------------------------------------------------------------
+# LOGIN, SESSION, DAN OTORISASI
+# ---------------------------------------------------------------
+user_aktif = pengguna_aktif()
+if not user_aktif:
+    from views.login import tampilkan as tampilkan_login
+    tampilkan_login()
+    st.stop()
+
+with st.sidebar:
+    st.divider()
+    st.caption("Pengguna aktif")
+    st.markdown(f"**{user_aktif['full_name']}**")
+    st.caption(user_aktif["role_name"])
+    if st.button("Keluar", use_container_width=True, key="auth_logout"):
+        auth_service.catat_logout(int(user_aktif["id"]))
+        hapus_session_login()
+        st.rerun()
+
+# ---------------------------------------------------------------
+# NAVIGASI BERDASARKAN ROLE
+# ---------------------------------------------------------------
+# Tiap halaman juga memiliki guard sendiri; menyembunyikan menu saja
+# tidak dianggap sebagai pemeriksaan otorisasi yang cukup.
+role = user_aktif["role_code"]
+
+halaman_role = {
+    "admin_owner": {
+        "Beranda": [halaman_dashboard],
+        "Setup": [halaman_master_data],
+        "Input": [halaman_transaksi, halaman_penggajian],
+        "Jurnal": [halaman_jurnal_umum, halaman_jurnal_khusus],
+        "Buku Besar": [halaman_kartu_persediaan, halaman_buku_besar, halaman_bb_pembantu],
+        "Laporan": [halaman_neraca_saldo, halaman_penyesuaian, halaman_neraca_lajur, halaman_laporan_keuangan, halaman_jurnal_penutup],
+        "Utilitas": [halaman_backup, halaman_manajemen_pengguna],
+    },
+    "accountant": {
+        "Beranda": [halaman_dashboard],
+        "Setup": [halaman_master_data],
+        "Input": [halaman_transaksi, halaman_penggajian],
+        "Jurnal": [halaman_jurnal_umum, halaman_jurnal_khusus],
+        "Buku Besar": [halaman_kartu_persediaan, halaman_buku_besar, halaman_bb_pembantu],
+        "Laporan": [halaman_neraca_saldo, halaman_penyesuaian, halaman_neraca_lajur, halaman_laporan_keuangan, halaman_jurnal_penutup],
+        "Utilitas": [halaman_backup],
+    },
+    "inventory": {
+        "Setup": [halaman_master_data],
+        "Operasional Persediaan": [halaman_transaksi, halaman_kartu_persediaan],
+    },
+    "leadership": {
+        "Beranda": [halaman_dashboard],
+        "Pemantauan": [halaman_jurnal_umum, halaman_jurnal_khusus, halaman_kartu_persediaan, halaman_buku_besar, halaman_bb_pembantu],
+        "Laporan": [halaman_neraca_saldo, halaman_neraca_lajur, halaman_laporan_keuangan],
+    },
+}
+
+navigasi_role = halaman_role.get(role, {})
+if not navigasi_role:
+    st.error("Role akun tidak dikenali. Hubungi Administrator.")
+    st.stop()
+
+# Beri halaman awal yang sesuai untuk tiap role.
+for grup in navigasi_role.values():
+    for halaman in grup:
+        if halaman is halaman_dashboard:
+            halaman.default = (role != "inventory")
+        elif role == "inventory" and halaman is halaman_master_data:
+            halaman.default = True
+
+navigasi = st.navigation(navigasi_role, position="sidebar")
 navigasi.run()
