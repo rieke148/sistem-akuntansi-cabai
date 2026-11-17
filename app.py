@@ -277,13 +277,5 @@ if not navigasi_role:
     st.error("Role akun tidak dikenali. Hubungi Administrator.")
     st.stop()
 
-# Beri halaman awal yang sesuai untuk tiap role.
-for grup in navigasi_role.values():
-    for halaman in grup:
-        if halaman is halaman_dashboard:
-            halaman.default = (role != "inventory")
-        elif role == "inventory" and halaman is halaman_master_data:
-            halaman.default = True
-
 navigasi = st.navigation(navigasi_role, position="sidebar")
 navigasi.run()
