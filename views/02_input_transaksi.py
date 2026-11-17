@@ -1539,7 +1539,7 @@ def tampilkan() -> None:
             label="📅 Periode Transaksi Aktif",
             key="input_transaksi_periode",
             hanya_buka=True,
-            tampilkan_kalender=True,
+            tampilkan_kalender=punya_izin("master_data.settings.manage"),
             help="Pilih periode pembukuan transaksi (otomatis membuat periode jika memilih tanggal baru)",
         )
 
@@ -1549,15 +1549,26 @@ def tampilkan() -> None:
 
     st.divider()
 
-    # Navigasi jenis transaksi dengan segmented
-    kelompok = sac.segmented(
-        items=[
+    # Pilihan jenis transaksi mengikuti izin masing-masing role.
+    opsi_kelompok = []
+    if punya_izin("transactions.financial.manage"):
+        opsi_kelompok.extend([
             sac.SegmentedItem(label="Penjualan", icon="cart-check"),
             sac.SegmentedItem(label="Pembelian", icon="cart-plus"),
             sac.SegmentedItem(label="Kas", icon="cash-coin"),
-            sac.SegmentedItem(label="Persediaan", icon="box-seam"),
             sac.SegmentedItem(label="Lainnya", icon="three-dots"),
-        ],
+        ])
+    if punya_izin("transactions.inventory.manage"):
+        opsi_kelompok.append(
+            sac.SegmentedItem(label="Persediaan", icon="box-seam")
+        )
+
+    if not opsi_kelompok:
+        st.info("Role Anda belum memiliki izin untuk mencatat transaksi.")
+        return
+
+    kelompok = sac.segmented(
+        items=opsi_kelompok,
         label="Kelompok Transaksi",
         color=WARNA_PRIMER,
         return_index=False,
@@ -1604,5 +1615,6 @@ def tampilkan() -> None:
             _form_pembelian_aset(period_id)
 
 
-# Panggil fungsi utama
+from services.permission_service import punya_izin, wajib_punya_izin
+wajib_punya_izin("transactions.view")
 tampilkan()
