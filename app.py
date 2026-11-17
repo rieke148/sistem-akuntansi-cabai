@@ -27,6 +27,8 @@ from database.schema import (
 )
 from database.seed import jalankan_seed
 from theme import NAMA_APLIKASI, NAMA_PERUSAHAAN, WARNA_PRIMER
+from services import auth_service
+from services.permission_service import pengguna_aktif, keluar_pengguna, punya_izin
 
 
 # ---------------------------------------------------------------
@@ -117,6 +119,16 @@ def inisialisasi_database() -> bool:
 # Jalankan inisialisasi
 seed_baru = inisialisasi_database()
 
+# Siapkan role, permission, dan tabel akun setelah database akuntansi siap.
+@st.cache_resource(show_spinner=False)
+def _inisialisasi_otorisasi() -> bool:
+    """Siapkan role dan permission satu kali per proses aplikasi."""
+    auth_service.inisialisasi_otorisasi()
+    return True
+
+
+_inisialisasi_otorisasi()
+
 # Tampilkan notifikasi jika baru di-seed
 if seed_baru:
     st.toast(
@@ -205,33 +217,84 @@ halaman_backup = st.Page(
     title="Backup & Export",
 )
 
-
-# ---------------------------------------------------------------
-# NAVIGASI (st.navigation — pengganti st.sidebar.radio versi baru)
-# ---------------------------------------------------------------
-# Grup navigasi mengikuti urutan siklus akuntansi
-navigasi = st.navigation(
-    {
-        "🏠 Beranda": [halaman_dashboard],
-        "🗄️ Setup": [halaman_master_data],
-        "✏️ Input": [halaman_transaksi, halaman_penggajian],
-        "📔 Jurnal": [halaman_jurnal_umum, halaman_jurnal_khusus],
-        "📖 Buku Besar": [
-            halaman_kartu_persediaan,
-            halaman_buku_besar,
-            halaman_bb_pembantu,
-        ],
-        "📊 Laporan": [
-            halaman_neraca_saldo,
-            halaman_penyesuaian,
-            halaman_neraca_lajur,
-            halaman_laporan_keuangan,
-            halaman_jurnal_penutup,
-        ],
-        "💾 Utilitas": [halaman_backup],
-    },
-    position="sidebar",
+halaman_manajemen_pengguna = st.Page(
+    "views/15_manajemen_pengguna.py",
+    title="Manajemen Pengguna",
 )
 
-# Jalankan halaman yang dipilih
+
+# ---------------------------------------------------------------
+# LOGIN, SESSION, DAN OTORISASI
+# ---------------------------------------------------------------
+user_aktif = pengguna_aktif()
+if not user_aktif:
+    from views.login import tampilkan as tampilkan_login
+    tampilkan_login()
+    st.stop()
+
+with st.sidebar:
+    st.divider()
+    st.caption("Pengguna aktif")
+    st.markdown(f"**{user_aktif['full_name']}**")
+    st.caption(user_aktif["role_name"])
+    if st.button("Keluar", use_container_width=True, key="auth_logout"):
+        audit_berhasil = keluar_pengguna(int(user_aktif["id"]))
+        if not audit_berhasil:
+            st.toast("Sesi ditutup, tetapi catatan logout gagal disimpan.", icon="⚠️")
+        st.rerun()
+
+# ---------------------------------------------------------------
+# NAVIGASI BERDASARKAN PERMISSION
+# ---------------------------------------------------------------
+# Permission dari database menjadi sumber keputusan navigasi.
+# Setiap halaman tetap memiliki pemeriksaan izin internal sebagai lapisan kedua.
+grup_halaman = {
+    "Beranda": [
+        ("dashboard.view", halaman_dashboard),
+    ],
+    "Setup": [
+        ("master_data.view", halaman_master_data),
+    ],
+    "Input": [
+        ("transactions.view", halaman_transaksi),
+        ("payroll.manage", halaman_penggajian),
+        ("payroll.summary.view", halaman_penggajian),
+    ],
+    "Jurnal": [
+        ("journals.view", halaman_jurnal_umum),
+        ("journals.view", halaman_jurnal_khusus),
+    ],
+    "Buku Besar": [
+        ("inventory.view", halaman_kartu_persediaan),
+        ("ledger.view", halaman_buku_besar),
+        ("ledger.view", halaman_bb_pembantu),
+    ],
+    "Laporan": [
+        ("reports.view", halaman_neraca_saldo),
+        ("reports.manage", halaman_penyesuaian),
+        ("reports.view", halaman_neraca_lajur),
+        ("reports.view", halaman_laporan_keuangan),
+        ("closing.manage", halaman_jurnal_penutup),
+    ],
+    "Utilitas": [
+        ("backup.access", halaman_backup),
+        ("users.manage", halaman_manajemen_pengguna),
+    ],
+}
+
+navigasi_role = {}
+for nama_grup, daftar_halaman in grup_halaman.items():
+    halaman_diizinkan = []
+    for permission_code, halaman in daftar_halaman:
+        # Halaman Penggajian dapat dibuka oleh pengelola maupun pembaca ringkasan.
+        if punya_izin(permission_code) and halaman not in halaman_diizinkan:
+            halaman_diizinkan.append(halaman)
+    if halaman_diizinkan:
+        navigasi_role[nama_grup] = halaman_diizinkan
+
+if not navigasi_role:
+    st.error("Akun Anda belum memiliki hak akses ke halaman aplikasi mana pun.")
+    st.stop()
+
+navigasi = st.navigation(navigasi_role, position="sidebar")
 navigasi.run()

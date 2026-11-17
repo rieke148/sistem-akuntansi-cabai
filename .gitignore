@@ -1,16 +1,18 @@
-# Secrets and local configuration
+# Rahasia lokal Streamlit — jangan pernah commit
 .streamlit/secrets.toml
+
+# Environment dan virtual environment
 .env
 .env.*
 venv/
 .venv/
 
-# SQLite files may contain production accounting data.
-# Existing tracked databases are deliberately preserved; this rule blocks new local DB files.
+# Database SQLite dapat berisi data keuangan, hash password, dan audit log.
+# Catatan: aturan ini tidak otomatis melepas file .db yang sudah terlanjur dilacak Git.
 database/*.db
 database/*.db-*
 
-# Python caches and test artifacts
+# Cache Python dan pengujian
 __pycache__/
 *.py[cod]
 .pytest_cache/
