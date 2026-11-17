@@ -6,10 +6,12 @@ on:
       - main
       - feature/hapus-item-persediaan
       - feature/login-otorisasi
+      - feature/ui-enterprise
   pull_request:
     branches:
       - main
       - feature/hapus-item-persediaan
+      - feature/login-otorisasi
 
 permissions:
   contents: read
@@ -47,6 +49,8 @@ jobs:
           if [ "$status" -eq 0 ]; then
             echo "Read-only HPP migration preflight completed."
           else
-            echo "::error::Read-only HPP migration preflight failed; inspect the local database privately."
+            reason=$(grep -Eo '^[A-Za-z][A-Za-z0-9_]*Error:' "${RUNNER_TEMP}/hpp-preview.log" | tail -n 1 | cut -d: -f1)
+            if [ -z "$reason" ]; then reason="validation error"; fi
+            echo "::error::Read-only HPP migration preflight failed ($reason). Details are suppressed."
           fi
           exit "$status"
