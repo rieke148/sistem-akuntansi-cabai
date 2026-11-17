@@ -136,3 +136,18 @@ def test_akun_nonaktif_tidak_bisa_login(auth_db):
     )
     auth_service.ubah_status_pengguna(user_id, False, actor_user_id=admin_id)
     assert auth_service.autentikasi("accountant01", "PasswordAman!2026") is None
+
+
+def test_perubahan_role_membatalkan_versi_session(auth_db):
+    admin_id = auth_service.buat_admin_pertama(
+        "owner01", "Pemilik Sistem", "PasswordAman!2026",
+        "setup-secret-yang-panjang-2026", "setup-secret-yang-panjang-2026",
+    )
+    user_id = auth_service.buat_pengguna(
+        "accountant01", "Akuntan", "PasswordAman!2026",
+        "accountant", actor_user_id=admin_id,
+    )
+    sebelum = auth_service.ambil_pengguna(user_id)["session_version"]
+    auth_service.ubah_role_pengguna(user_id, "inventory", actor_user_id=admin_id)
+    sesudah = auth_service.ambil_pengguna(user_id)["session_version"]
+    assert sesudah == sebelum + 1
