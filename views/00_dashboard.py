@@ -13,7 +13,13 @@ import streamlit_antd_components as sac
 import pandas as pd
 
 from theme import NAMA_PERUSAHAAN, WARNA_PRIMER
-from utils.ui_components import render_steps_siklus, divider_dengan_judul, selector_periode
+from utils.ui_components import (
+    render_steps_siklus,
+    divider_dengan_judul,
+    selector_periode,
+    render_page_header,
+    render_metric_card,
+)
 from utils.formatting import format_rupiah
 import services.dashboard_service as ds
 
@@ -27,47 +33,48 @@ def _warna_saldo(nilai: int) -> str:
 
 
 def _tampilkan_metrik_utama(period_id: int) -> None:
-    """Menampilkan 5 metrik utama termasuk HPP Penjualan dan laba kotor."""
+    """Menampilkan lima metrik utama dalam kartu yang konsisten."""
     kas_bank = ds.ambil_saldo_kas_bank(period_id)
     overdue = ds.ambil_piutang_overdue()
     jual_beban = ds.ambil_ringkasan_penjualan_beban(period_id)
 
-    kol1, kol2, kol3, kol4, kol5 = st.columns(5)
-    with kol1:
-        st.metric(
-            label="💵 Total Kas & Bank",
-            value=format_rupiah(kas_bank["total"]),
-            delta=f"Kas {format_rupiah(kas_bank['kas'])} | Bank {format_rupiah(kas_bank['bank'])}",
+    total_overdue = sum(r["sisa_piutang"] for r in overdue)
+    jumlah_overdue = len(overdue)
+
+    kolom = st.columns(5)
+    with kolom[0]:
+        render_metric_card(
+            "Kas & Bank",
+            format_rupiah(kas_bank["total"]),
+            delta=f"Kas {format_rupiah(kas_bank['kas'])} · Bank {format_rupiah(kas_bank['bank'])}",
+            help="Saldo kas dan bank pada periode terpilih",
             delta_color="off",
-            help="Saldo Kas Tunai (1110) periode ini",
         )
-    with kol2:
-        jml_overdue = len(overdue)
-        total_overdue = sum(r["sisa_piutang"] for r in overdue)
-        st.metric(
-            label="⚠️ Piutang Jatuh Tempo",
-            value=f"{jml_overdue} faktur",
-            delta=format_rupiah(total_overdue) if jml_overdue else "Semua lancar ✓",
-            delta_color="inverse" if jml_overdue else "off",
+    with kolom[1]:
+        render_metric_card(
+            "Piutang lewat jatuh tempo",
+            f"{jumlah_overdue} faktur",
+            delta=format_rupiah(total_overdue) if jumlah_overdue else "Tidak ada yang terlambat",
             help="Faktur yang sudah melewati tanggal jatuh tempo",
+            delta_color="inverse" if jumlah_overdue else "off",
         )
-    with kol3:
-        st.metric(
-            label="📈 Penjualan Periode Ini",
-            value=format_rupiah(jual_beban["penjualan"]),
-            help="Total kredit akun 4110 - Penjualan Cabai",
+    with kolom[2]:
+        render_metric_card(
+            "Penjualan",
+            format_rupiah(jual_beban["penjualan"]),
+            help="Total penjualan cabai pada periode terpilih",
         )
-    with kol4:
-        st.metric(
-            label="📦 HPP Penjualan",
-            value=format_rupiah(jual_beban["hpp_penjualan"]),
-            help="Total debit ke akun 5110 - Harga Pokok Penjualan",
+    with kolom[3]:
+        render_metric_card(
+            "HPP Penjualan",
+            format_rupiah(jual_beban["hpp_penjualan"]),
+            help="Harga pokok persediaan yang keluar karena penjualan",
         )
-    with kol5:
-        st.metric(
-            label="📈 Laba Kotor",
-            value=format_rupiah(jual_beban["laba_kotor"]),
-            help="Penjualan dikurangi HPP Penjualan (akun 5110)",
+    with kolom[4]:
+        render_metric_card(
+            "Laba Kotor",
+            format_rupiah(jual_beban["laba_kotor"]),
+            help="Penjualan dikurangi HPP penjualan",
         )
 
 
@@ -232,17 +239,18 @@ def _tampilkan_steps_siklus(period_id: int) -> None:
 # ---------------------------------------------------------------
 def tampilkan() -> None:
     """Fungsi utama halaman Dashboard. Dipanggil oleh app.py."""
-    kol_head, kol_periode = st.columns([3, 2])
-    with kol_head:
-        st.title("🏠 Dashboard")
-        st.caption(NAMA_PERUSAHAAN)
-    with kol_periode:
+    render_page_header(
+        "Dashboard",
+        "Pantau posisi keuangan, aktivitas transaksi, dan persediaan dalam satu tampilan.",
+        eyebrow="RINGKASAN EKSEKUTIF",
+    )
+    with st.container(border=True):
         period_id = selector_periode(
-            label="📅 Filter Periode Dashboard",
+            label="Periode laporan",
             key="dashboard_periode",
             hanya_buka=False,
             tampilkan_kalender=True,
-            help="Pilih periode untuk melihat metrik dan grafik keuangan",
+            help="Pilih periode untuk memperbarui metrik dan grafik keuangan",
         )
 
     if period_id is None:
@@ -255,7 +263,7 @@ def tampilkan() -> None:
     info_periode = ds.ambil_info_periode(period_id)
     if info_periode:
         label_periode = f"{info_periode['nama_bulan']} {info_periode['tahun']}"
-        st.info(f"📅 Menampilkan data **{label_periode}** (Status: {info_periode['status'].title()})")
+        st.caption(f"Periode aktif: **{label_periode}** · Status: {info_periode['status'].title()}")
 
     # ================================================================
     # BAGIAN 1: METRIK UTAMA
@@ -322,26 +330,6 @@ def tampilkan() -> None:
         _tampilkan_steps_siklus(period_id)
     except Exception as e:
         st.error(f"Gagal memuat progress siklus: {e}")
-
-    # ================================================================
-    # BAGIAN 6: INFO PROGRESS PEMBANGUNAN
-    # ================================================================
-    st.divider()
-    divider_dengan_judul("Progress Pembangunan Sistem", "tools")
-    fase_list = [
-        ("✅", "F0", "Fondasi (Struktur, Database, COA, Tema)"),
-        ("✅", "F1", "Master Data (COA, Pelanggan, Supplier, Pekerja, Aset, Parameter)"),
-        ("✅", "F2", "Input Transaksi + Mesin Jurnal (10 jenis transaksi + pratinjau jurnal)"),
-        ("✅", "F3", "Jurnal Umum & 4 Jurnal Khusus"),
-        ("✅", "F4", "Buku Besar + BB Pembantu + Kartu Persediaan"),
-        ("✅", "F5", "Neraca Saldo + Penggajian + Penyesuaian"),
-        ("✅", "F6", "Neraca Lajur + Laporan Keuangan + Jurnal Penutup"),
-        ("✅", "F7", "Dashboard (data nyata) + Export Excel/PDF + Backup/Restore"),
-        ("⏳", "F8", "Tes Akhir, Rapikan, Deploy"),
-    ]
-    for ikon, kode, nama in fase_list:
-        st.markdown(f"{ikon} **{kode}** — {nama}")
-
 
 from services.permission_service import wajib_punya_izin
 wajib_punya_izin("dashboard.view")

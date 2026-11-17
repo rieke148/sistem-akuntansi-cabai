@@ -5,6 +5,7 @@ Administrasi pengguna dan audit aktivitas. Hanya Admin / Owner.
 """
 
 import streamlit as st
+from utils.ui_components import render_page_header
 import pandas as pd
 
 from services import auth_service
@@ -17,7 +18,7 @@ if not user:
     st.stop()
 actor_id = int(user["id"])
 
-st.title("👥 Manajemen Pengguna")
+render_page_header("Manajemen Pengguna", "Atur akun, peran, izin akses, dan riwayat aktivitas pengguna.", eyebrow="administrasi")
 st.caption("Buat akun, atur role, aktif/nonaktifkan pengguna, dan reset password.")
 
 label_tab = ["Pengguna"]

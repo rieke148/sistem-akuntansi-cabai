@@ -23,66 +23,99 @@ def _bootstrap_key() -> str:
 
 
 def tampilkan() -> None:
-    st.title("🌶️ Sistem Informasi Siklus Akuntansi")
-    st.caption("PT Sari Subur Langgeng Jaya Hidroponik Farm")
-    st.markdown("### Masuk ke akun Anda")
+    """Menampilkan halaman akses akun dan setup administrator pertama."""
+    panel_brand, panel_login = st.columns([1.15, 1])
 
-    if auth_service.jumlah_pengguna() == 0:
-        st.info(
-            "Belum ada akun pengguna. Buat akun Admin / Owner pertama menggunakan "
-            "kunci setup yang disimpan di konfigurasi rahasia aplikasi."
+    with panel_brand:
+        st.caption("SISTEM INFORMASI AKUNTANSI · ENTERPRISE")
+        st.title("Kelola bisnis cabai dengan lebih terukur.")
+        st.write(
+            "Satu ruang kerja untuk transaksi, persediaan, jurnal, "
+            "dan laporan keuangan perusahaan."
         )
-        expected_key = _bootstrap_key()
-        if not expected_key:
-            st.error(
-                "Setup belum diaktifkan. Tambahkan BOOTSTRAP_SETUP_KEY pada "
-                "Streamlit Secrets atau environment variable sebelum membuat admin pertama."
-            )
-            st.code('BOOTSTRAP_SETUP_KEY = "buat-kunci-rahasia-yang-panjang-dan-unik"')
-            return
+        st.divider()
+        st.markdown("**Siklus akuntansi terintegrasi**")
+        st.caption("Transaksi → Jurnal → Buku Besar → Laporan Keuangan")
+        st.markdown("**Kontrol akses berbasis peran**")
+        st.caption("Akses pengguna disesuaikan dengan tanggung jawab operasional.")
+        st.markdown("**Data keuangan terpusat**")
+        st.caption("Riwayat transaksi tersimpan dalam database perusahaan.")
 
-        with st.form("form_setup_admin", clear_on_submit=False):
-            setup_key = st.text_input("Kunci setup", type="password")
-            full_name = st.text_input("Nama pemilik / administrator")
-            username = st.text_input("Username admin")
-            password = st.text_input("Password baru", type="password")
-            confirm = st.text_input("Ulangi password", type="password")
-            submitted = st.form_submit_button("Buat Admin Pertama", use_container_width=True)
-        if submitted:
-            if password != confirm:
-                st.error("Konfirmasi password tidak cocok.")
-                return
-            try:
-                user_id = auth_service.buat_admin_pertama(
-                    username, full_name, password, setup_key, expected_key
+    with panel_login:
+        with st.container(border=True):
+            jumlah_user = auth_service.jumlah_pengguna()
+            if jumlah_user == 0:
+                st.subheader("Setup administrator")
+                st.caption("Buat akun Admin / Owner pertama untuk mengaktifkan aplikasi.")
+                st.info(
+                    "Setup awal memerlukan kunci rahasia yang disimpan pada "
+                    "environment variable atau Streamlit Secrets."
                 )
-                st.session_state["auth_user_id"] = user_id
-                st.session_state["auth_session_version"] = 0
-                st.session_state["auth_login_at"] = time.time()
-                st.session_state["auth_last_activity"] = time.time()
-                st.success("Akun Admin / Owner berhasil dibuat. Anda sudah masuk.")
+                expected_key = _bootstrap_key()
+                if not expected_key:
+                    st.error(
+                        "Setup belum diaktifkan. Tambahkan BOOTSTRAP_SETUP_KEY "
+                        "pada konfigurasi rahasia aplikasi sebelum membuat admin pertama."
+                    )
+                    return
+
+                with st.form("form_setup_admin", clear_on_submit=False):
+                    setup_key = st.text_input("Kunci setup", type="password")
+                    full_name = st.text_input("Nama pemilik / administrator")
+                    username = st.text_input("Username admin")
+                    password = st.text_input("Password baru", type="password")
+                    confirm = st.text_input("Ulangi password", type="password")
+                    submitted = st.form_submit_button(
+                        "Buat Admin Pertama",
+                        use_container_width=True,
+                        type="primary",
+                    )
+                if submitted:
+                    if password != confirm:
+                        st.error("Konfirmasi password tidak cocok.")
+                        return
+                    try:
+                        user_id = auth_service.buat_admin_pertama(
+                            username, full_name, password, setup_key, expected_key
+                        )
+                        st.session_state["auth_user_id"] = user_id
+                        st.session_state["auth_session_version"] = 0
+                        st.session_state["auth_login_at"] = time.time()
+                        st.session_state["auth_last_activity"] = time.time()
+                        st.success("Akun Admin / Owner berhasil dibuat.")
+                        st.rerun()
+                    except ValueError as error:
+                        st.error(str(error))
+                return
+
+            st.subheader("Masuk ke akun")
+            st.caption("Gunakan username dan password yang telah terdaftar.")
+            with st.form("form_login", clear_on_submit=True):
+                username = st.text_input("Username", autocomplete="username")
+                password = st.text_input(
+                    "Password",
+                    type="password",
+                    autocomplete="current-password",
+                )
+                submitted = st.form_submit_button(
+                    "Masuk",
+                    use_container_width=True,
+                    type="primary",
+                )
+
+            if submitted:
+                user = auth_service.autentikasi(username, password)
+                if not user:
+                    st.error(
+                        "Username atau password salah, akun nonaktif, "
+                        "atau login sedang dikunci."
+                    )
+                    return
+                hapus_session_login()
+                st.session_state["auth_user_id"] = int(user["id"])
+                st.session_state["auth_session_version"] = int(user["session_version"])
+                now = time.time()
+                st.session_state["auth_login_at"] = now
+                st.session_state["auth_last_activity"] = now
+                st.success(f"Selamat datang, {user['full_name']}!")
                 st.rerun()
-            except ValueError as error:
-                st.error(str(error))
-        return
-
-    with st.form("form_login", clear_on_submit=True):
-        username = st.text_input("Username", autocomplete="username")
-        password = st.text_input("Password", type="password", autocomplete="current-password")
-        submitted = st.form_submit_button("Masuk", use_container_width=True)
-
-    if submitted:
-        user = auth_service.autentikasi(username, password)
-        if not user:
-            st.error("Username atau password salah, akun nonaktif, atau login sedang dikunci.")
-            return
-        hapus_session_login()
-        st.session_state["auth_user_id"] = int(user["id"])
-        st.session_state["auth_session_version"] = int(user["session_version"])
-        now = time.time()
-        st.session_state["auth_login_at"] = now
-        st.session_state["auth_last_activity"] = now
-        st.success(f"Selamat datang, {user['full_name']}!")
-        st.rerun()
-
-

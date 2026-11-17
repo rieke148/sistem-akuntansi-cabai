@@ -19,7 +19,7 @@ from services.closing_service import (
     hapus_jurnal_penutup,
 )
 from utils.formatting import format_rupiah
-from utils.ui_components import selector_periode
+from utils.ui_components import selector_periode, render_page_header
 import services.period_service as ps
 import streamlit_antd_components as sac
 
@@ -136,7 +136,7 @@ def _tampilkan_ns_setelah_penutup(period_id: int) -> None:
 
 def tampilkan() -> None:
     """Halaman utama Jurnal Penutup."""
-    st.title("🔒 Jurnal Penutup")
+    render_page_header("Jurnal Penutup", "Tutup akun nominal dan periode setelah seluruh proses akuntansi selesai.", eyebrow="periode")
     st.caption(
         "Jurnal penutup menutup akun sementara (Pendapatan dan Beban) dan "
         "memindahkan laba/rugi ke Laba. Setelah periode ditutup, "
