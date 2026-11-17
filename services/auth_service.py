@@ -174,6 +174,13 @@ def inisialisasi_otorisasi() -> None:
             role = koneksi.execute(
                 "SELECT id FROM roles WHERE role_code = ?", (role_code,)
             ).fetchone()
+
+            # Matriks di kode adalah sumber kebenaran. Hapus relasi lama
+            # agar izin yang dicabut tidak tertinggal di database.
+            koneksi.execute(
+                "DELETE FROM role_permissions WHERE role_id = ?", (role["id"],)
+            )
+
             for permission_code in codes:
                 permission = koneksi.execute(
                     "SELECT id FROM permissions WHERE permission_code = ?",
