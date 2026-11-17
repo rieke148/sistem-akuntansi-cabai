@@ -1539,7 +1539,7 @@ def tampilkan() -> None:
             label="📅 Periode Transaksi Aktif",
             key="input_transaksi_periode",
             hanya_buka=True,
-            tampilkan_kalender=True,
+            tampilkan_kalender=punya_izin("master_data.settings.manage"),
             help="Pilih periode pembukuan transaksi (otomatis membuat periode jika memilih tanggal baru)",
         )
 
