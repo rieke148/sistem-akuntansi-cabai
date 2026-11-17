@@ -389,3 +389,44 @@ def selector_periode(
 
     return terpilih_id
 
+
+
+# ------------------------------------------------------------------
+# POLA TAMPILAN ENTERPRISE
+# ------------------------------------------------------------------
+def render_page_header(
+    title: str,
+    description: str = "",
+    eyebrow: str = "SISTEM AKUNTANSI CABAI",
+) -> None:
+    """Menampilkan kepala halaman yang konsisten dan ringkas."""
+    st.caption(eyebrow.upper())
+    st.title(title)
+    if description:
+        st.caption(description)
+    st.divider()
+
+
+def render_section_header(title: str, description: str | None = None) -> None:
+    """Menampilkan judul bagian dengan deskripsi opsional."""
+    st.subheader(title)
+    if description:
+        st.caption(description)
+
+
+def render_metric_card(
+    label: str,
+    value: str,
+    delta: str | None = None,
+    help: str | None = None,
+    delta_color: str = "normal",
+) -> None:
+    """Menampilkan metrik di dalam kartu native Streamlit."""
+    with st.container(border=True):
+        st.metric(
+            label=label,
+            value=value,
+            delta=delta,
+            delta_color=delta_color,
+            help=help,
+        )

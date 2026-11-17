@@ -23,7 +23,7 @@ from database.connection import get_connection
 from services import transaction_service as ts
 from services.inventory_service import hitung_nilai_keluar, ambil_daftar_item_persediaan
 from utils.formatting import format_rupiah, format_tanggal
-from utils.ui_components import divider_dengan_judul, selector_periode
+from utils.ui_components import divider_dengan_judul, selector_periode, render_page_header
 from theme import WARNA_PRIMER, WARNA_SUKSES, WARNA_BAHAYA
 
 
@@ -1529,7 +1529,7 @@ def _form_pembelian_aset(period_id: int):
 
 def tampilkan() -> None:
     """Fungsi utama halaman Input Transaksi."""
-    st.title("✏️ Input Transaksi")
+    render_page_header("Input Transaksi", "Catat transaksi usaha dengan pratinjau jurnal sebelum data disimpan.", eyebrow="operasional")
     st.caption("Pilih jenis transaksi, isi form, lalu pratinjau jurnal sebelum disimpan.")
 
     # Pilih periode aktif

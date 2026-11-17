@@ -12,7 +12,7 @@ import pandas as pd
 from database.connection import get_connection
 from services.worksheet_service import buat_neraca_lajur, hitung_laba_rugi_dari_lajur, validasi_neraca_lajur
 from utils.formatting import format_rupiah
-from utils.ui_components import selector_periode
+from utils.ui_components import selector_periode, render_page_header
 import streamlit_antd_components as sac
 
 
@@ -134,7 +134,7 @@ def _tampilkan_subtotal(df: pd.DataFrame, judul: str, kol_d: str, kol_k: str) ->
 
 def tampilkan() -> None:
     """Halaman utama Neraca Lajur."""
-    st.title("📊 Neraca Lajur (Worksheet 10 Kolom)")
+    render_page_header("Neraca Lajur", "Tinjau alur saldo dari neraca saldo hingga kolom laba rugi dan neraca.", eyebrow="laporan")
     st.caption(
         "Neraca Lajur adalah alat bantu untuk menyusun laporan keuangan. "
         "Terdiri dari 5 pasang kolom: NS sebelum penyesuaian, Penyesuaian, "
