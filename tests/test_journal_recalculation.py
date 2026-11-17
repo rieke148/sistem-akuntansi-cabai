@@ -28,7 +28,9 @@ def _db_persediaan(tmp_path, monkeypatch, qty_keluar=50):
         CREATE TABLE journal_entries (
             id INTEGER PRIMARY KEY,
             period_id INTEGER NOT NULL REFERENCES periods(id),
-            no_bukti TEXT NOT NULL
+            no_bukti TEXT NOT NULL,
+            journal_type TEXT NOT NULL,
+            keterangan TEXT NOT NULL
         );
         CREATE TABLE journal_lines (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,9 +63,9 @@ def _db_persediaan(tmp_path, monkeypatch, qty_keluar=50):
             (3, '1110', 'Kas', 'Aset');
         INSERT INTO items VALUES (1, 1);
         INSERT INTO journal_entries VALUES
-            (1, 1, 'PB-001'),
-            (2, 1, 'PB-002'),
-            (3, 1, 'JU-003');
+            (1, 1, 'PB-001', 'pembelian', 'Pembelian pertama'),
+            (2, 1, 'PB-002', 'pembelian', 'Pembelian kedua'),
+            (3, 1, 'JU-003', 'penjualan', 'Penjualan cabai');
         INSERT INTO journal_lines (journal_entry_id, account_id, debit, kredit) VALUES
             (1, 1, 1000000, 0), (1, 3, 0, 1000000),
             (2, 1, 2000000, 0), (2, 3, 0, 2000000),
