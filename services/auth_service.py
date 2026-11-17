@@ -380,7 +380,7 @@ def autentikasi(username: str, password: str) -> dict | None:
 
         row = koneksi.execute(
             """SELECT u.id, u.username, u.full_name, u.password_hash,
-                      u.is_active, u.role_id, r.role_code, r.role_name
+                      u.is_active, u.role_id, u.session_version, r.role_code, r.role_name
                FROM users u JOIN roles r ON r.id = u.role_id
                WHERE u.username = ? COLLATE NOCASE""",
             (username_key,),
@@ -430,6 +430,7 @@ def autentikasi(username: str, password: str) -> dict | None:
             "full_name": row["full_name"],
             "is_active": bool(row["is_active"]),
             "role_id": int(row["role_id"]),
+            "session_version": int(row["session_version"]),
             "role_code": row["role_code"],
             "role_name": row["role_name"],
         }
@@ -442,7 +443,7 @@ def ambil_pengguna(user_id: int) -> dict | None:
     try:
         row = koneksi.execute(
             """SELECT u.id, u.username, u.full_name, u.is_active,
-                      u.role_id, r.role_code, r.role_name
+                      u.role_id, u.session_version, r.role_code, r.role_name
                FROM users u JOIN roles r ON r.id = u.role_id
                WHERE u.id = ?""",
             (user_id,),
@@ -507,7 +508,7 @@ def ubah_role_pengguna(user_id: int, role_code: str, actor_user_id: int) -> None
             if int(jumlah_admin) <= 1:
                 raise ValueError("Role admin terakhir tidak boleh diturunkan.")
         koneksi.execute(
-            "UPDATE users SET role_id = ?, updated_at = ? WHERE id = ?",
+            "UPDATE users SET role_id = ?, session_version = session_version + 1, updated_at = ? WHERE id = ?",
             (role["id"], _utc_text(), user_id),
         )
         _catat_audit(
@@ -544,7 +545,7 @@ def ubah_status_pengguna(
             if int(jumlah_admin) <= 1:
                 raise ValueError("Admin aktif terakhir tidak boleh dinonaktifkan.")
         koneksi.execute(
-            "UPDATE users SET is_active = ?, updated_at = ? WHERE id = ?",
+            "UPDATE users SET is_active = ?, session_version = session_version + 1, updated_at = ? WHERE id = ?",
             (int(is_active), _utc_text(), user_id),
         )
         _catat_audit(
@@ -573,7 +574,7 @@ def reset_password_pengguna(
         if not target:
             raise ValueError("Pengguna tidak ditemukan.")
         koneksi.execute(
-            "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
+            "UPDATE users SET password_hash = ?, session_version = session_version + 1, updated_at = ? WHERE id = ?",
             (password_hash, _utc_text(), user_id),
         )
         koneksi.execute(
