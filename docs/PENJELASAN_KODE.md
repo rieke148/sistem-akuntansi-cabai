@@ -197,3 +197,30 @@ Kertas kerja 10 kolom menghubungkan seluruh proses dari neraca saldo hingga lapo
 - `app.py` menggunakan fungsi ini saat tombol **Keluar** ditekan.
 
 **Contoh:** pengguna login dengan `session_version = 2`. Administrator mereset password sehingga database menyimpan versi 3. Pada rerun berikutnya, `pengguna_aktif()` membandingkan 2 dengan 3, menghapus session lama, lalu aplikasi meminta pengguna login kembali.
+
+
+## K. Otorisasi Role dan Permission
+
+### 1. Matriks role — `services/auth_service.py`
+- `ROLES` menyimpan empat jenis pengguna: Admin/Owner, Akuntan, Petugas Gudang/Persediaan, dan Pimpinan.
+- `PERMISSIONS` berisi kode izin untuk setiap kegiatan, misalnya `transactions.financial.manage` untuk transaksi keuangan dan `transactions.inventory.manage` untuk transaksi persediaan.
+- `ROLE_PERMISSIONS` menentukan kumpulan izin untuk setiap role. Contohnya, Petugas Gudang mendapat izin transaksi persediaan tetapi tidak mendapat izin transaksi keuangan.
+
+### 2. Sinkronisasi izin ke database
+- `inisialisasi_otorisasi()` membuat role dan permission jika belum tersedia.
+- Sebelum memasukkan ulang relasi izin suatu role, sistem menghapus relasi lama role tersebut dari `role_permissions`. Dengan begitu, izin yang sudah dicabut dari matriks kode tidak tertinggal di database.
+- Proses ini aman dijalankan berulang karena data role dan permission memakai `INSERT OR IGNORE`, sedangkan relasi role-permission dibangun ulang sesuai konfigurasi terbaru.
+
+### 3. Navigasi dan pemeriksaan halaman — `app.py`
+- Daftar menu dibentuk dari permission aktual melalui `punya_izin()`, bukan dari daftar role yang ditulis ulang secara terpisah.
+- Setiap halaman tetap memiliki `wajib_punya_izin(kode)` sendiri. Jadi, mengetahui alamat halaman saja tidak cukup untuk melewati pemeriksaan akses.
+- Pemeriksaan di halaman dilakukan sebelum fungsi tampilan dipanggil. Menu yang tidak memiliki izin tidak dimasukkan ke navigasi.
+
+### 4. Izin untuk tindakan khusus
+- Halaman Input Transaksi menampilkan kelompok transaksi berdasarkan izin keuangan atau persediaan.
+- Halaman Penggajian membedakan pengguna yang boleh mengelola absensi/jurnal dengan Pimpinan yang hanya boleh membaca ringkasan.
+- Jurnal Umum hanya menampilkan kontrol hapus kepada pengguna dengan izin `journals.manage`.
+- Ayat Penyesuaian dan Jurnal Penutup dibatasi oleh izin proses masing-masing.
+- Backup database/restore/reset memerlukan `backup.restore`, sedangkan ekspor laporan memerlukan `backup.export`.
+
+**Catatan arsitektur:** service di folder `services/` tetap bebas dari Streamlit sesuai aturan proyek. Karena itu, pemeriksaan session dan permission saat ini menjadi tanggung jawab lapisan `views/` dan `app.py`. Jika kelak service diakses dari API atau worker, otorisasi untuk jalur tersebut harus ditambahkan secara terpisah.
