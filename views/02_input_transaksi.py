@@ -64,7 +64,7 @@ def _ambil_suppliers():
 
 @st.cache_data(ttl=60)
 def _ambil_items(tipe: str | None = None):
-    """Ambil items, opsional filter per tipe ('bahan'/'hasil_panen')."""
+    """Ambil items, mengambil item berdasarkan tipe hasil panen cabai."""
     koneksi = get_connection()
     if tipe:
         rows = koneksi.execute(
@@ -580,11 +580,11 @@ def _form_setoran_modal(period_id: int):
 
 
 # ================================================================
-# FORM 5: BELI BAHAN TUNAI
+# FORM 5: PEMBELIAN BARANG DAGANG TUNAI
 # ================================================================
 
-def _form_beli_bahan_tunai(period_id: int):
-    """Form pembelian bahan produksi, perlengkapan, atau peralatan secara tunai."""
+def _form_pembelian_barang_dagang_tunai(period_id: int):
+    """Form pembelian barang dagang cabai, perlengkapan, atau peralatan secara tunai."""
     st.subheader("🛒 Beli Tunai")
 
     suppliers = _ambil_suppliers()
@@ -906,10 +906,10 @@ def _form_beli_bahan_tunai(period_id: int):
 
 
 # ================================================================
-# FORM 6: BELI KREDIT
+# FORM 6: PEMBELIAN KREDIT
 # ================================================================
 
-def _form_beli_kredit(period_id: int):
+def _form_pembelian_kredit(period_id: int):
     """Form pembelian barang dagang, perlengkapan, atau peralatan secara kredit (menambah utang usaha)."""
     st.subheader("🏷️ Pembelian Barang Dagang Kredit (Utang Dagang)")
 
@@ -1586,9 +1586,9 @@ def tampilkan() -> None:
     elif kelompok == "Pembelian":
         tab1, tab2 = st.tabs(["🛒 Beli Tunai", "🏷️ Beli Kredit"])
         with tab1:
-            _form_beli_bahan_tunai(period_id)
+            _form_pembelian_barang_dagang_tunai(period_id)
         with tab2:
-            _form_beli_kredit(period_id)
+            _form_pembelian_kredit(period_id)
 
     elif kelompok == "Kas":
         tab1, tab2 = st.tabs(["💰 Terima Pelunasan Piutang", "💼 Setoran Modal"])
