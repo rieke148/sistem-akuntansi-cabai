@@ -809,12 +809,12 @@ def migrasikan_coa_baru() -> None:
             ("1505K", "1251", "Akumulasi Penyusutan Peralatan",   "Aset"),
             # Aset lain yang dihapus (tidak ada di COA baru)
             ("1601",  None,  None, None),   # Plastik Mulsa → masuk ke Persediaan/Perlengkapan
-            ("1601K", None,  None, None),   # Akumulasi Amortisasi Plastik Mulsa → gabung ke 1251
+            ("1601K", None,  None, None),   # Akumulasi amortisasi mulsa → offset kredit Perlengkapan (1130)
             # Liabilitas
             ("2101", "2110", "Utang Usaha",  "Liabilitas"),
             ("2201", "2210", "Utang Gaji",   "Liabilitas"),
-            ("2202", None,   None, None),   # Utang Listrik → gabung ke 2210
-            ("2203", None,   None, None),   # Utang Lain-lain → gabung ke 2210
+            ("2202", None,   None, None),   # Utang listrik → gabung ke Utang Usaha (2110)
+            ("2203", None,   None, None),   # Utang lain-lain → gabung ke Utang Usaha (2110) sebagai akun kewajiban umum
             # Ekuitas
             ("3101", "3110", "Modal Pribadi",     "Ekuitas"),
             ("3201", "3120", "Laba",              "Ekuitas"),
@@ -826,8 +826,8 @@ def migrasikan_coa_baru() -> None:
             ("5108", "5110", "Harga Pokok Penjualan", "HPP"),
             # Beban Produksi → Beban Operasional
             ("5101", "6110", "Beban Gaji",          "Beban Operasional"),
-            ("5102", "6110", "Beban Gaji",          "Beban Operasional"),  # Pupuk → Gaji
-            ("5103", "6110", "Beban Gaji",          "Beban Operasional"),  # Pestisida → Gaji
+            ("5102", "5110", "Harga Pokok Penjualan", "HPP"),  # Pupuk merupakan biaya produksi langsung
+            ("5103", "5110", "Harga Pokok Penjualan", "HPP"),  # Pestisida merupakan biaya produksi langsung
             ("5104", "6110", "Beban Gaji",          "Beban Operasional"),
             ("5105", "6110", "Beban Gaji",          "Beban Operasional"),
             ("5106", "6160", "Beban Penyusutan",    "Beban Operasional"),
@@ -878,14 +878,37 @@ def migrasikan_coa_baru() -> None:
                 # Akun dihapus: pindahkan referensi ke akun paling dekat yang ada
                 # (misalnya 1102 Bank BCA → pindah ke 1110 Kas)
                 fallback_map = {
-                    "1102": "1110", "1601": "1130", "1601K": "1251",
-                    "2202": "2210", "2203": "2210",
+                    "1102": "1110", "1601": "1130", "1601K": "1130",
+                    "2202": "2110", "2203": "2110",
                 }
                 kode_fallback = fallback_map.get(kode_lama)
                 if kode_fallback:
                     akun_fallback = koneksi.execute(
                         "SELECT id FROM accounts WHERE kode_akun = ?", (kode_fallback,)
                     ).fetchone()
+                    if not akun_fallback:
+                        # Buat akun tujuan minimal sebelum memindahkan FK. Ini
+                        # diperlukan karena beberapa akun baru belum tentu ada
+                        # saat urutan migrasi mencapai akun lama yang dihapus.
+                        data_fallback = {
+                            "1110": ("Kas", "Aset", "Debit", 0),
+                            "1130": ("Perlengkapan", "Aset", "Debit", 0),
+                            "2110": ("Utang Usaha", "Liabilitas", "Kredit", 0),
+                        }.get(kode_fallback)
+                        if data_fallback:
+                            nama_fb, kategori_fb, normal_fb, kontra_fb = data_fallback
+                            koneksi.execute(
+                                """
+                                INSERT INTO accounts
+                                    (kode_akun, nama_akun, kategori, saldo_normal, is_kontra, aktif)
+                                VALUES (?, ?, ?, ?, ?, 1)
+                                """,
+                                (kode_fallback, nama_fb, kategori_fb, normal_fb, kontra_fb),
+                            )
+                            akun_fallback = koneksi.execute(
+                                "SELECT id FROM accounts WHERE kode_akun = ?",
+                                (kode_fallback,),
+                            ).fetchone()
                     if akun_fallback:
                         pindahkan_referensi(id_lama, int(akun_fallback["id"]))
                     else:
