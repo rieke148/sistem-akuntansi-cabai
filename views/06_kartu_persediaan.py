@@ -15,24 +15,18 @@ KONSEP KARTU PERSEDIAAN:
 import streamlit as st
 import pandas as pd
 from database.connection import get_connection
-from services.inventory_service import ambil_kartu_persediaan, ambil_saldo_persediaan
+from services.inventory_service import (
+    ambil_daftar_item_persediaan,
+    ambil_kartu_persediaan,
+    ambil_saldo_persediaan,
+)
 from utils.formatting import format_rupiah, format_tanggal, format_qty
 
 
 @st.cache_data(ttl=30)
 def _ambil_daftar_items() -> list[dict]:
-    """Ambil item barang dagang cabai aktif dari database."""
-    koneksi = get_connection()
-    rows = koneksi.execute(
-        """
-        SELECT id, kode_item, nama_item, satuan, tipe
-        FROM items
-        WHERE tipe = 'hasil_panen' AND aktif = 1
-        ORDER BY kode_item
-        """
-    ).fetchall()
-    koneksi.close()
-    return [dict(r) for r in rows]
+    """Ambil daftar item aktif melalui satu layanan persediaan terpusat."""
+    return ambil_daftar_item_persediaan()
 
 
 def _tampilkan_ringkasan_saldo(item_id: int, satuan: str) -> None:
