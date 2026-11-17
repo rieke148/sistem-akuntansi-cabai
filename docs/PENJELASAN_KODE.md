@@ -35,11 +35,11 @@ sistem-akuntansi-cabai/
 ├── views/                      # Lapisan Tampilan UI (1 file = 1 halaman)
 │   ├── 00_dashboard.py         # Dashboard visual & ringkasan eksekutif
 │   ├── 01_master_data.py       # Pengelolaan data master (10 tab)
-│   ├── 02_input_transaksi.py   # Form input transaksi (10 form + pratinjau)
+│   ├── 02_input_transaksi.py   # Form input transaksi (9 form + pratinjau)
 │   ├── 03_penggajian.py        # Penggajian 2 mingguan & slip gaji
 │   ├── 04_jurnal_umum.py       # Jurnal umum format kronologis
 │   ├── 05_jurnal_khusus.py     # 4 Jurnal khusus format kolom akuntansi
-│   ├── 06_kartu_persediaan.py  # Kartu stok bahan & hasil panen cabai
+│   ├── 06_kartu_persediaan.py  # Kartu stok barang dagang cabai hasil panen
 │   ├── 07_buku_besar.py        # Buku besar saldo berjalan per akun
 │   ├── 08_buku_besar_pembantu.py # BB pembantu piutang usaha & utang usaha
 │   ├── 09_neraca_saldo.py      # Neraca saldo sebelum penyesuaian
@@ -65,16 +65,15 @@ Setiap transaksi yang diinput pengguna dipetakan ke pasangan akun debit dan kred
 - **Penjualan Tempo**: Piutang Usaha (D) / Penjualan (K), sekaligus HPP Penjualan Cabai (D) / Persediaan (1140) (K) + otomatis membuat entri di tabel `receivables` dengan jatuh tempo 7 hari.
 - **Terima Pelunasan Piutang**: Kas (D) / Piutang Usaha (K) + update sisa piutang di `receivables`.
 - **Setoran Modal**: Kas (1110) (D) / Modal Pribadi (3110) (K).
-- **Pembelian Tunai**: Persediaan (D) / Kas (K).
-- **Pembelian Kredit**: Persediaan (D) / Utang Usaha (K).
-- **Pemakaian Bahan**: Beban Bahan Produksi (D) / Persediaan (K).
-- **Pencatatan Panen**: Persediaan Hasil Panen (D) / Beban Bahan Produksi Lain (K).
+- **Pembelian Barang Dagang Tunai**: Persediaan Cabai (D) / Kas (K).
+- **Pembelian Barang Dagang Kredit**: Persediaan Cabai (D) / Utang Usaha (K).
+- **Pencatatan Panen**: Persediaan Barang Dagang Cabai (D) / HPP Panen (K).
 - **Validasi Keseimbangan**: `sum(debit) == sum(kredit)`. Jika tidak sama, transaksi ditolak oleh `journal_service.validasi_jurnal_seimbang()`.
 
 ---
 
 ### B. Kartu Persediaan Perpetual — Rata-Rata Bergerak (`services/inventory_service.py`)
-Setiap pembelian, pemakaian, panen, dan penjualan langsung memperbarui kartu stok serta saldo akun persediaan. Seluruh jenis bahan produksi dan hasil panen diposting ke satu akun **1140 — Persediaan** sesuai COA terbaru. Kartu stok tetap terpisah per item. Penjualan cabai tidak menunggu akhir periode untuk menghitung HPP:
+Setiap pembelian barang dagang, panen, dan penjualan langsung memperbarui kartu stok serta saldo akun persediaan. Persediaan aktif hanya berisi barang dagang cabai hasil panen yang diposting ke akun **1140 — Persediaan**. Kartu stok tetap terpisah per item. Penjualan cabai tidak menunggu akhir periode untuk menghitung HPP:
 - **Saldo Awal**: Kuantitas dan harga pokok diinput per item. Sistem mencatat gerakan `saldo_awal` dan menyelaraskan saldo debit pada `opening_balances`.
 - **Penjualan Tunai**: Kas (D), Penjualan (K), HPP Penjualan (D), Persediaan (1140) (K).
 - **Penjualan Tempo**: Piutang Usaha (D), Penjualan (K), HPP Penjualan (D), Persediaan (1140) (K).
