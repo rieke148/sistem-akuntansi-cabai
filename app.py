@@ -28,7 +28,7 @@ from database.schema import (
 from database.seed import jalankan_seed
 from theme import NAMA_APLIKASI, NAMA_PERUSAHAAN, WARNA_PRIMER
 from services import auth_service
-from services.permission_service import pengguna_aktif, hapus_session_login, punya_izin
+from services.permission_service import pengguna_aktif, keluar_pengguna, punya_izin
 
 
 # ---------------------------------------------------------------
@@ -238,8 +238,9 @@ with st.sidebar:
     st.markdown(f"**{user_aktif['full_name']}**")
     st.caption(user_aktif["role_name"])
     if st.button("Keluar", use_container_width=True, key="auth_logout"):
-        auth_service.catat_logout(int(user_aktif["id"]))
-        hapus_session_login()
+        audit_berhasil = keluar_pengguna(int(user_aktif["id"]))
+        if not audit_berhasil:
+            st.toast("Sesi ditutup, tetapi catatan logout gagal disimpan.", icon="⚠️")
         st.rerun()
 
 # ---------------------------------------------------------------
