@@ -73,8 +73,13 @@ def _db_persediaan(tmp_path, monkeypatch, qty_keluar=50):
              harga_satuan, total_nilai, saldo_qty, saldo_nilai, harga_rata2)
         VALUES
             (1, 1, '2026-01-01', 'masuk', 100, 10000, 1000000, 100, 1000000, 10000),
-            (1, 2, '2026-01-02', 'masuk', 100, 20000, 2000000, 200, 3000000, 15000),
-            (1, 3, '2026-01-03', 'keluar', ?, 15000, ?, 200-?, 3000000-?, 15000);
+            (1, 2, '2026-01-02', 'masuk', 100, 20000, 2000000, 200, 3000000, 15000);
+    """)
+    conn.execute("""
+        INSERT INTO inventory_movements
+            (item_id, journal_entry_id, tanggal, tipe_gerakan, qty,
+             harga_satuan, total_nilai, saldo_qty, saldo_nilai, harga_rata2)
+        VALUES (1, 3, '2026-01-03', 'keluar', ?, 15000, ?, 200-?, 3000000-?, 15000)
     """, (qty_keluar, qty_keluar * 15000, qty_keluar, qty_keluar * 15000))
     conn.commit()
     conn.close()
