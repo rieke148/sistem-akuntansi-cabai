@@ -29,6 +29,7 @@ from services import inventory_service as inv_svc
 from utils.formatting import format_rupiah, format_tanggal, nama_bulan_tahun
 from utils.ui_components import divider_dengan_judul, selector_periode
 from theme import WARNA_PRIMER
+from services.permission_service import punya_izin, wajib_punya_izin
 
 
 # ================================================================
@@ -36,39 +37,36 @@ from theme import WARNA_PRIMER
 # ================================================================
 def tampilkan() -> None:
     """Fungsi utama halaman Master Data. Dipanggil oleh app.py."""
+    wajib_punya_izin("master_data.view")
     st.title("🗄️ Master Data")
-    st.caption("Kelola semua data referensi: akun, pelanggan, supplier, pekerja, dan aset.")
+    st.caption("Kelola data referensi sesuai tanggung jawab dan hak akses akun.")
+
+    konfigurasi_tab = [
+        ("Bagan Akun", "list-ul", "master_data.accounts.manage", _tab_bagan_akun),
+        ("Pelanggan", "person-check", "master_data.partners.manage", _tab_pelanggan),
+        ("Supplier", "truck", "master_data.partners.manage", _tab_supplier),
+        ("Item Persediaan", "box-seam", "master_data.items.view", _tab_item),
+        ("Pekerja", "person-badge", "master_data.staff.manage", _tab_pekerja),
+        ("Aset Tetap", "building", "master_data.staff.manage", _tab_aset_tetap),
+        ("Blok Lahan", "geo-alt", "master_data.staff.manage", _tab_blok_lahan),
+        ("Saldo Awal", "wallet2", "master_data.opening.manage", _tab_saldo_awal),
+        ("Periode", "calendar3", "master_data.settings.manage", _tab_periode),
+        ("Parameter", "gear", "master_data.settings.manage", _tab_parameter),
+    ]
+    tab_tersedia = [
+        item for item in konfigurasi_tab if punya_izin(item[2])
+    ]
+    if not tab_tersedia:
+        st.info("Role Anda belum memiliki hak akses ke data master.")
+        return
 
     tab_dipilih = sac.tabs(
-        items=[
-            sac.TabsItem(label="Bagan Akun", icon="list-ul"),
-            sac.TabsItem(label="Pelanggan", icon="person-check"),
-            sac.TabsItem(label="Supplier", icon="truck"),
-            sac.TabsItem(label="Item Persediaan", icon="box-seam"),
-            sac.TabsItem(label="Pekerja", icon="person-badge"),
-            sac.TabsItem(label="Aset Tetap", icon="building"),
-            sac.TabsItem(label="Blok Lahan", icon="geo-alt"),
-            sac.TabsItem(label="Saldo Awal", icon="wallet2"),
-            sac.TabsItem(label="Periode", icon="calendar3"),
-            sac.TabsItem(label="Parameter", icon="gear"),
-        ],
+        items=[sac.TabsItem(label=item[0], icon=item[1]) for item in tab_tersedia],
         color=WARNA_PRIMER,
         return_index=False,
     )
 
-    # Routing ke sub-fungsi per tab
-    routing = {
-        "Bagan Akun": _tab_bagan_akun,
-        "Pelanggan": _tab_pelanggan,
-        "Supplier": _tab_supplier,
-        "Item Persediaan": _tab_item,
-        "Pekerja": _tab_pekerja,
-        "Aset Tetap": _tab_aset_tetap,
-        "Blok Lahan": _tab_blok_lahan,
-        "Saldo Awal": _tab_saldo_awal,
-        "Periode": _tab_periode,
-        "Parameter": _tab_parameter,
-    }
+    routing = {item[0]: item[3] for item in tab_tersedia}
     if tab_dipilih in routing:
         routing[tab_dipilih]()
 
@@ -340,6 +338,10 @@ def _tab_item() -> None:
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
     df_tampil.columns = ["Kode", "Nama Item", "Satuan", "Tipe", "Akun Persediaan", "Status"]
     st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+
+    if not punya_izin("master_data.items.manage"):
+        st.info("Role Anda hanya memiliki akses untuk melihat daftar item persediaan.")
+        return
 
     kol1, kol2 = st.columns(2)
     with kol1:

@@ -343,5 +343,6 @@ def tampilkan() -> None:
         st.markdown(f"{ikon} **{kode}** — {nama}")
 
 
-# Panggil fungsi utama
+from services.permission_service import wajib_punya_izin
+wajib_punya_izin("dashboard.view")
 tampilkan()

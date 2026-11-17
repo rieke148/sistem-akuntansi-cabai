@@ -277,4 +277,6 @@ def tampilkan() -> None:
             col_lr[9].markdown(f"**{nilai_lr}**")   # Neraca Debit (ekuitas berkurang)
 
 
+from services.permission_service import wajib_punya_izin
+wajib_punya_izin("reports.view")
 tampilkan()

@@ -168,3 +168,59 @@ Kertas kerja 10 kolom menghubungkan seluruh proses dari neraca saldo hingga lapo
   2. *Shortcut Cepat*: Tombol instan untuk beralih ke Bulan Ini, Bulan Lalu, Tahun Lalu, atau Oktober 2026.
   3. *Kalender Manual*: Input bulan & tahun bebas. Jika periode belum terdaftar di database, sistem otomatis membuatnya (`INSERT INTO periods ... status='buka'`).
   4. *Session State Persistence*: Periode yang dipilih tersinkronisasi saat berpindah menu.
+
+
+---
+
+## J. Autentikasi dan Session Pengguna
+
+### 1. Membuat dan memverifikasi password — `services/auth_service.py`
+- `buat_hash_password()` membuat salt acak 16 byte, lalu menghitung PBKDF2-HMAC-SHA256 sebanyak 600.000 iterasi.
+- `verifikasi_password()` menghitung ulang hash dari password yang dimasukkan dan membandingkannya dengan `hmac.compare_digest()`. Fungsi mengembalikan nilai benar/salah, bukan password.
+- `validasi_password()` mewajibkan minimal 12 karakter dan sedikitnya tiga kelompok karakter: huruf kecil, huruf besar, angka, atau simbol.
+
+### 2. Proses login dan penguncian akun
+- `autentikasi(username, password)` mencari akun berdasarkan username tanpa membedakan huruf besar/kecil.
+- Setelah verifikasi hash, fungsi memulai transaksi tulis SQLite (`BEGIN IMMEDIATE`) dan membaca ulang status akun. Langkah ini mencegah hitungan percobaan login yang berjalan berdekatan saling menimpa serta menolak akun yang dinonaktifkan atau password-nya berubah saat proses login.
+- Percobaan gagal disimpan pada tabel `login_attempts`. Setelah lima kegagalan, username dikunci selama 15 menit. Login yang berhasil menghapus catatan kegagalan sebelumnya.
+- Profil yang dikembalikan tidak menyertakan `password_hash`.
+
+### 3. Memvalidasi session — `services/permission_service.py`
+- Saat login berhasil, `views/login.py` menyimpan ID pengguna, versi sesi, dan waktu aktivitas terakhir ke `st.session_state`.
+- `pengguna_aktif()` memeriksa tiga hal pada setiap rerun: waktu tidak aktif maksimal 8 jam, akun masih aktif, dan versi sesi sama dengan nilai terbaru di database.
+- Jika waktu aktivitas atau versi sesi hilang/rusak, pemeriksaan ditolak (*fail closed*) dan seluruh state dibersihkan.
+- Perubahan role, reset password, atau penonaktifan akun menaikkan `session_version`; sesi lama otomatis tidak berlaku.
+
+### 4. Logout yang selalu membersihkan state
+- `keluar_pengguna(user_id)` mencoba mencatat aktivitas logout melalui `auth_service.catat_logout()`.
+- Pembersihan `st.session_state` berada di blok `finally`, sehingga kegagalan penyimpanan audit tidak membuat pengguna tetap masuk.
+- `app.py` menggunakan fungsi ini saat tombol **Keluar** ditekan.
+
+**Contoh:** pengguna login dengan `session_version = 2`. Administrator mereset password sehingga database menyimpan versi 3. Pada rerun berikutnya, `pengguna_aktif()` membandingkan 2 dengan 3, menghapus session lama, lalu aplikasi meminta pengguna login kembali.
+
+
+## K. Otorisasi Role dan Permission
+
+### 1. Matriks role — `services/auth_service.py`
+- `ROLES` menyimpan empat jenis pengguna: Admin/Owner, Akuntan, Petugas Gudang/Persediaan, dan Pimpinan.
+- `PERMISSIONS` berisi kode izin untuk setiap kegiatan, misalnya `transactions.financial.manage` untuk transaksi keuangan dan `transactions.inventory.manage` untuk transaksi persediaan.
+- `ROLE_PERMISSIONS` menentukan kumpulan izin untuk setiap role. Contohnya, Petugas Gudang mendapat izin transaksi persediaan tetapi tidak mendapat izin transaksi keuangan.
+
+### 2. Sinkronisasi izin ke database
+- `inisialisasi_otorisasi()` membuat role dan permission jika belum tersedia.
+- Sebelum memasukkan ulang relasi izin suatu role, sistem menghapus relasi lama role tersebut dari `role_permissions`. Dengan begitu, izin yang sudah dicabut dari matriks kode tidak tertinggal di database.
+- Proses ini aman dijalankan berulang karena data role dan permission memakai `INSERT OR IGNORE`, sedangkan relasi role-permission dibangun ulang sesuai konfigurasi terbaru.
+
+### 3. Navigasi dan pemeriksaan halaman — `app.py`
+- Daftar menu dibentuk dari permission aktual melalui `punya_izin()`, bukan dari daftar role yang ditulis ulang secara terpisah.
+- Setiap halaman tetap memiliki `wajib_punya_izin(kode)` sendiri. Jadi, mengetahui alamat halaman saja tidak cukup untuk melewati pemeriksaan akses.
+- Pemeriksaan di halaman dilakukan sebelum fungsi tampilan dipanggil. Menu yang tidak memiliki izin tidak dimasukkan ke navigasi.
+
+### 4. Izin untuk tindakan khusus
+- Halaman Input Transaksi menampilkan kelompok transaksi berdasarkan izin keuangan atau persediaan.
+- Halaman Penggajian membedakan pengguna yang boleh mengelola absensi/jurnal dengan Pimpinan yang hanya boleh membaca ringkasan.
+- Jurnal Umum hanya menampilkan kontrol hapus kepada pengguna dengan izin `journals.manage`.
+- Ayat Penyesuaian dan Jurnal Penutup dibatasi oleh izin proses masing-masing.
+- Backup database/restore/reset memerlukan `backup.restore`, sedangkan ekspor laporan memerlukan `backup.export`.
+
+**Catatan arsitektur:** service di folder `services/` tetap bebas dari Streamlit sesuai aturan proyek. Karena itu, pemeriksaan session dan permission saat ini menjadi tanggung jawab lapisan `views/` dan `app.py`. Jika kelak service diakses dari API atau worker, otorisasi untuk jalur tersebut harus ditambahkan secara terpisah.

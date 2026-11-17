@@ -189,5 +189,6 @@ def tampilkan() -> None:
             st.warning(f"Grafik tidak dapat ditampilkan: {e}")
 
 
-# Panggil fungsi utama
+from services.permission_service import wajib_punya_izin
+wajib_punya_izin("inventory.view")
 tampilkan()

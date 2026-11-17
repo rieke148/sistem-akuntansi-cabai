@@ -688,4 +688,6 @@ def tampilkan() -> None:
         _tab_arus_kas(period_id)
 
 
+from services.permission_service import wajib_punya_izin
+wajib_punya_izin("reports.view")
 tampilkan()
