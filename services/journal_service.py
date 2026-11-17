@@ -369,13 +369,14 @@ def _rekalkulasi_kartu_persediaan(koneksi: sqlite3.Connection, item_id: int) -> 
                 )
 
             nilai_lama = int(r["total_nilai"])
+            harga_keluar = harga_rata2
             if abs(saldo_qty - qty) < 1e-9:
                 total_nilai = saldo_nilai
                 saldo_qty = 0.0
                 saldo_nilai = 0
                 harga_rata2 = 0
             else:
-                total_nilai = int(qty * harga_rata2)
+                total_nilai = int(qty * harga_keluar)
                 saldo_qty -= qty
                 saldo_nilai -= total_nilai
                 if saldo_nilai < 0:
@@ -387,10 +388,7 @@ def _rekalkulasi_kartu_persediaan(koneksi: sqlite3.Connection, item_id: int) -> 
                 UPDATE inventory_movements
                 SET harga_satuan = ?, total_nilai = ?, saldo_qty = ?, saldo_nilai = ?, harga_rata2 = ?
                 WHERE id = ?
-            """, (int(r["harga_satuan"]) if qty == 0 else (
-                int((saldo_nilai + total_nilai) / (saldo_qty + qty))
-                if saldo_qty + qty > 0 else int(r["harga_satuan"])
-            ), total_nilai, saldo_qty, saldo_nilai, harga_rata2, m_id))
+            """, (harga_keluar, total_nilai, saldo_qty, saldo_nilai, harga_rata2, m_id))
 
             if r["journal_entry_id"] is not None:
                 if account_id_persediaan is None:
