@@ -39,6 +39,13 @@ def pengguna_aktif() -> dict | None:
     if not user_id:
         return None
 
+    # ID akun harus berupa bilangan bulat yang valid; state rusak ditolak.
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        hapus_session_login()
+        return None
+
     now = time.time()
     aktivitas_terakhir = st.session_state.get("auth_last_activity")
 
@@ -52,10 +59,10 @@ def pengguna_aktif() -> dict | None:
         return None
 
     if now - last_activity > SESSION_IDLE_SECONDS:
-        keluar_pengguna(int(user_id))
+        keluar_pengguna(user_id)
         return None
 
-    user = auth_service.ambil_pengguna(int(user_id))
+    user = auth_service.ambil_pengguna(user_id)
     if not user:
         hapus_session_login()
         return None
