@@ -12,7 +12,7 @@
 [Master Data & Saldo Awal]  (views/01_master_data.py)
         │
         ▼
-[Input Transaksi]          (views/02_input_transaksi.py - 10 Form Transaksi)
+[Input Transaksi]          (views/02_input_transaksi.py - 9 Form Transaksi)
         │
         ▼
 [Mesin Jurnal & Validasi]  (services/transaction_service.py + journal_service.py)
@@ -22,9 +22,9 @@
 [5 Jenis Jurnal]                                            [Kartu Persediaan]
   • Jurnal Penjualan (tempo)                                 (services/inventory_service.py)
   • Jurnal Penerimaan Kas (tunai, piutang, modal)            Sistem Perpetual
-  • Jurnal Pengeluaran Kas (beli bahan, upah, beban)         Metode Rata-rata Bergerak
-  • Jurnal Pembelian (kredit)                                Stok Bahan & Hasil Panen Cabai
-  • Jurnal Umum (pemakaian bahan, memorial)                  HPP dan stok berkurang saat penjualan
+  • Jurnal Pengeluaran Kas (pembelian barang dagang tunai, upah, beban)         Metode Rata-rata Bergerak
+  • Jurnal Pembelian (kredit)                                Stok Barang Dagang Cabai Hasil Panen
+  • Jurnal Umum (pencatatan panen, memorial)                  HPP dan stok berkurang saat penjualan
         │
         ▼
 [Posting Buku Besar & BB Pembantu]
@@ -83,17 +83,16 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 - Validasi input di `services/master_data_service.py` tanpa mencampur kode Streamlit.
 
 ### Fase 2 — Input Transaksi & Mesin Jurnal
-- 10 Form transaksi terpisah di `views/02_input_transaksi.py`:
+- 9 Form transaksi terpisah di `views/02_input_transaksi.py`:
   1. Penjualan Tunai
   2. Penjualan Tempo (Faktur & Jatuh Tempo 7 Hari)
   3. Terima Pelunasan Piutang
   4. Setoran Modal
-  5. Pembelian Bahan Tunai (Toko Sido Panen)
+  5. Pembelian Barang Dagang Cabai Tunai
   6. Pembelian Kredit
-  7. Pemakaian Bahan ke Blok Lahan
-  8. Pencatatan Hasil Panen Cabai
-  9. Biaya Operasional (BBM, Listrik, Sewa Traktor)
-  10. Pembelian Aset Tetap Tunai
+  7. Pencatatan Hasil Panen Cabai
+  8. Biaya Operasional (BBM, Listrik, Sewa Traktor)
+  9. Pembelian Aset Tetap Tunai
 - Fitur **Pratinjau Jurnal Interaktif**: Mengharuskan Total Debit == Total Kredit sebelum disimpan. Pratinjau penjualan juga menampilkan HPP dan pengurangan persediaan berdasarkan rata-rata bergerak; stok tidak mencukupi akan ditolak.
 
 ### Fase 3 — Jurnal Umum & 4 Jurnal Khusus
@@ -107,15 +106,15 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 ### Fase 4 — Buku Besar, BB Pembantu & Kartu Persediaan
 - **Buku Besar**: Menampilkan saldo berjalan per akun dengan saldo awal dan mutasi debit/kredit.
 - **BB Pembantu**: Rincian piutang usaha per pelanggan (dilengkapi analisis umur piutang / aging) dan utang usaha per supplier/transaksi. Kartu persediaan ditampilkan terpisah pada menu Kartu Persediaan; aset tetap dikelola melalui Master Data dan Ayat Penyesuaian.
-- **Kartu Persediaan**: Sistem perpetual dengan metode rata-rata bergerak (*moving average*). Pembelian, saldo awal, pemakaian bahan, panen, dan penjualan langsung memperbarui saldo kuantitas serta nilai. Seluruh item bahan produksi dan hasil panen menggunakan satu akun buku besar **1140 — Persediaan**. Kartu stok tetap terpisah per item.
+- **Kartu Persediaan**: Sistem perpetual dengan metode rata-rata bergerak (*moving average*). Pembelian barang dagang, saldo awal, panen, dan penjualan langsung memperbarui saldo kuantitas serta nilai. Persediaan aktif hanya berisi barang dagang cabai hasil panen pada akun buku besar **1140 — Persediaan**. Kartu stok tetap terpisah per item.
 - **Saldo Awal Persediaan**: Kuantitas fisik dan harga pokok dimasukkan per item. Sistem mencatat mutasi `saldo_awal` dan menjumlahkan nilai item dengan akun yang sama untuk menyelaraskan saldo akun pada `opening_balances`.
 - **Penjualan Cabai**: Setiap penjualan memeriksa ketersediaan stok dan membentuk dua pasangan jurnal: Kas/Piutang terhadap Penjualan, serta HPP Penjualan (5110) terhadap Persediaan (1140).
-- **Validasi**: Penjualan atau pemakaian yang melebihi stok ditolak. Mutasi per item harus dicatat kronologis agar rata-rata bergerak akurat.
+- **Validasi**: Penjualan yang melebihi stok ditolak. Mutasi per item harus dicatat kronologis agar rata-rata bergerak akurat.
 
 ### Fase 5 — Neraca Saldo, Penggajian & Penyesuaian
 - **Neraca Saldo**: Menghitung saldo seluruh akun dan memvalidasi keseimbangan Debit == Kredit.
 - **Penggajian**: Menghitung upah pekerja harian tetap (Rp90.000/hari) dan pekerja tambahan (Rp120.000/hari) per periode 2 mingguan, serta mencatat akrual utang gaji.
-- **Ayat Penyesuaian**: Penyusutan aset tetap garis lurus bulanan, amortisasi plastik mulsa (1,5 tahun), akrual upah, dan pemakaian bahan.
+- **Ayat Penyesuaian**: Penyusutan aset tetap garis lurus bulanan, amortisasi plastik mulsa (1,5 tahun), akrual upah.
 
 ### Fase 6 — Neraca Lajur, Laporan Keuangan & Penutupan
 - **Neraca Lajur 10 Kolom**: 5 pasang kolom terverifikasi seimbang (Neraca Saldo, Penyesuaian, NSD, Laba Rugi, dan Neraca).
