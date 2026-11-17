@@ -18,12 +18,11 @@ JENIS TRANSAKSI:
 
 import streamlit as st
 import pandas as pd
-import streamlit_antd_components as sac
 from database.connection import get_connection
 from services import transaction_service as ts
 from services.inventory_service import hitung_nilai_keluar, ambil_daftar_item_persediaan
 from utils.formatting import format_rupiah, format_tanggal
-from utils.ui_components import divider_dengan_judul, selector_periode, render_page_header
+from utils.ui_components import divider_dengan_judul, selector_periode, render_page_header, render_alert
 from theme import WARNA_PRIMER, WARNA_SUKSES, WARNA_BAHAYA
 
 
@@ -153,7 +152,7 @@ def _tampilkan_pratinjau(baris: list[dict], params: dict) -> bool:
     Returns:
         True jika jurnal berhasil disimpan.
     """
-    sac.divider(label="Pratinjau Jurnal", icon="journal-check", align="center", color=WARNA_PRIMER)
+    divider_dengan_judul("Pratinjau Jurnal")
 
     # Ambil nama akun untuk pratinjau
     account_ids = [b["account_id"] for b in baris]
@@ -178,13 +177,13 @@ def _tampilkan_pratinjau(baris: list[dict], params: dict) -> bool:
 
     # Tampilkan status keseimbangan
     if seimbang:
-        sac.alert(
+        render_alert(
             label="Jurnal Seimbang ✅",
             description=f"Total Debit = Total Kredit = {format_rupiah(total_debit)}",
             color="success", icon=True,
         )
     else:
-        sac.alert(
+        render_alert(
             label="Jurnal TIDAK Seimbang ❌",
             description=f"Debit: {format_rupiah(total_debit)} ≠ Kredit: {format_rupiah(total_kredit)}",
             color="error", icon=True,
@@ -1552,27 +1551,20 @@ def tampilkan() -> None:
     # Pilihan jenis transaksi mengikuti izin masing-masing role.
     opsi_kelompok = []
     if punya_izin("transactions.financial.manage"):
-        opsi_kelompok.extend([
-            sac.SegmentedItem(label="Penjualan", icon="cart-check"),
-            sac.SegmentedItem(label="Pembelian", icon="cart-plus"),
-            sac.SegmentedItem(label="Kas", icon="cash-coin"),
-            sac.SegmentedItem(label="Lainnya", icon="three-dots"),
-        ])
+        opsi_kelompok.extend(["Penjualan", "Pembelian", "Kas", "Lainnya"])
     if punya_izin("transactions.inventory.manage"):
-        opsi_kelompok.append(
-            sac.SegmentedItem(label="Persediaan", icon="box-seam")
-        )
+        opsi_kelompok.append("Persediaan")
 
     if not opsi_kelompok:
         st.info("Role Anda belum memiliki izin untuk mencatat transaksi.")
         return
 
-    kelompok = sac.segmented(
-        items=opsi_kelompok,
-        label="Kelompok Transaksi",
-        color=WARNA_PRIMER,
-        return_index=False,
+    kelompok = st.radio(
+        "Kelompok Transaksi",
+        options=opsi_kelompok,
+        horizontal=True,
         key="kelompok_transaksi",
+        label_visibility="collapsed",
     )
 
     # Reset pratinjau jika ganti kelompok

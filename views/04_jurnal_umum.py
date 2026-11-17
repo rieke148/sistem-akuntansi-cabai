@@ -11,11 +11,10 @@ Dipanggil oleh : app.py (st.navigation)
 
 import streamlit as st
 import pandas as pd
-import streamlit_antd_components as sac
 from database.connection import get_connection
 from services.journal_service import ambil_semua_jurnal, hapus_jurnal
 from utils.formatting import format_rupiah, format_tanggal
-from utils.ui_components import divider_dengan_judul, selector_periode, render_page_header
+from utils.ui_components import divider_dengan_judul, selector_periode, render_page_header, render_alert
 from theme import WARNA_PRIMER
 
 
@@ -155,7 +154,7 @@ def tampilkan() -> None:
     seimbang = total_debit == total_kredit
 
     # ---- Metrik ringkasan ----
-    sac.divider(label="Ringkasan", icon="bar-chart", align="center", color=WARNA_PRIMER)
+    divider_dengan_judul("Ringkasan")
     kol_m1, kol_m2, kol_m3, kol_m4 = st.columns(4)
     with kol_m1:
         jumlah_entry = df["entry_id"].nunique()
@@ -169,14 +168,14 @@ def tampilkan() -> None:
 
     # Tampilkan peringatan jika tidak seimbang
     if not seimbang:
-        sac.alert(
+        render_alert(
             label="Peringatan: Jurnal Tidak Seimbang!",
             description=f"Selisih: {format_rupiah(abs(total_debit - total_kredit))}. Mohon periksa data.",
             color="warning", icon=True,
         )
 
     # ---- Tabel jurnal ----
-    sac.divider(label="Detail Jurnal", icon="journal-text", align="center", color=WARNA_PRIMER)
+    divider_dengan_judul("Detail Jurnal")
 
     # Format untuk tampilan
     df_tampil = df.copy()
@@ -218,7 +217,7 @@ def tampilkan() -> None:
     from services.permission_service import punya_izin
     if punya_izin("journals.manage"):
         # ---- Hapus Jurnal ----
-        sac.divider(label="Hapus Jurnal", icon="trash", align="center", color=WARNA_PRIMER)
+        divider_dengan_judul("Hapus Jurnal")
         st.caption("⚠️ Hapus jurnal hanya bisa dilakukan jika periode masih **buka**.")
     
         with st.expander("🗑️ Hapus Jurnal", expanded=False):

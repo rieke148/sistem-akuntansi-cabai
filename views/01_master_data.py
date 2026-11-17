@@ -22,7 +22,6 @@ import streamlit as st
 import pandas as pd
 from datetime import date
 
-import streamlit_antd_components as sac
 
 from services import master_data_service as svc
 from services import inventory_service as inv_svc
@@ -60,10 +59,12 @@ def tampilkan() -> None:
         st.info("Role Anda belum memiliki hak akses ke data master.")
         return
 
-    tab_dipilih = sac.tabs(
-        items=[sac.TabsItem(label=item[0], icon=item[1]) for item in tab_tersedia],
-        color=WARNA_PRIMER,
-        return_index=False,
+    tab_dipilih = st.radio(
+        "Bagian Master Data",
+        options=[item[0] for item in tab_tersedia],
+        horizontal=True,
+        key="master_data_menu_tab",
+        label_visibility="collapsed",
     )
 
     routing = {item[0]: item[3] for item in tab_tersedia}
