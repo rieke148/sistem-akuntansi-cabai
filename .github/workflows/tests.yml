@@ -38,6 +38,12 @@ jobs:
           python -m pip install -r requirements.txt
       - name: Compile application modules
         run: python -m compileall -q app.py database services utils views
+      - name: Validate Docker Compose configuration
+        env:
+          BOOTSTRAP_SETUP_KEY: ci-validation-only
+        run: docker compose config --quiet
+      - name: Build Docker image
+        run: docker build --tag akuntansi-cabai:ci .
       - name: Run test suite
         run: python -m pytest tests/ -v
       - name: Validate automatic startup migrations on disposable main database copy
