@@ -50,14 +50,16 @@ def _tampilkan_tabel_neraca(df: pd.DataFrame) -> None:
     df_tampil = df_tampil.rename(columns={
         "kode_akun": "Kode",
         "nama_akun": "Nama Akun",
-        "kategori": "Kategori",
         "saldo_normal": "Saldo Normal",
         "debit": "Debit",
         "kredit": "Kredit",
     })
 
-    # Sembunyikan kolom saldo_normal dari tampilan
-    df_tampil = df_tampil.drop(columns=["Saldo Normal"], errors="ignore")
+    # Sembunyikan kategori dan saldo_normal agar seluruh akun tampil
+    # dalam satu tabel neraca saldo yang berurutan.
+    df_tampil = df_tampil.drop(
+        columns=["Kategori", "Saldo Normal"], errors="ignore"
+    )
 
     st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
@@ -159,41 +161,13 @@ def tampilkan() -> None:
 
     st.divider()
 
-    # Filter per kategori (opsional)
-    semua_kategori = sorted(df["kategori"].unique().tolist())
-    kategori_pilihan = st.multiselect(
-        "Filter Kategori Akun",
-        semua_kategori,
-        default=semua_kategori,
-        help="Pilih kategori akun yang ingin ditampilkan"
-    )
-
-    df_tampil = df[df["kategori"].isin(kategori_pilihan)] if kategori_pilihan else df
-
-    # Tampilkan per kategori (dengan sub-judul)
+    # Tampilkan seluruh akun dalam satu tabel tanpa pemisahan kategori.
     import services.period_service as ps
     info_p = ps.ambil_info_periode(period_id)
     periode_label = info_p["nama_bulan"] if info_p else f"Periode {period_id}"
     jenis_label = "Sebelum Penyesuaian" if not termasuk_penyesuaian else "Setelah Penyesuaian"
     st.subheader(f"📋 Neraca Saldo — {periode_label} ({jenis_label})")
-
-    for kategori in semua_kategori:
-        if kategori not in kategori_pilihan:
-            continue
-
-        df_kat = df_tampil[df_tampil["kategori"] == kategori]
-        if df_kat.empty:
-            continue
-
-        # Sub-total per kategori
-        sub_debit = int(df_kat["debit"].sum())
-        sub_kredit = int(df_kat["kredit"].sum())
-
-        with st.expander(
-            f"**{kategori}** — Debit: {format_rupiah(sub_debit)} | Kredit: {format_rupiah(sub_kredit)}",
-            expanded=True
-        ):
-            _tampilkan_tabel_neraca(df_kat)
+    _tampilkan_tabel_neraca(df)
 
     # Baris total keseluruhan
     st.divider()
