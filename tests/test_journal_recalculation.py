@@ -17,6 +17,8 @@ def _db_persediaan(tmp_path, monkeypatch, qty_keluar=50):
     conn.executescript("""
         CREATE TABLE periods (
             id INTEGER PRIMARY KEY,
+            tahun INTEGER NOT NULL,
+            bulan INTEGER NOT NULL,
             status TEXT NOT NULL
         );
         CREATE TABLE accounts (
@@ -43,6 +45,15 @@ def _db_persediaan(tmp_path, monkeypatch, qty_keluar=50):
             id INTEGER PRIMARY KEY,
             account_id INTEGER NOT NULL REFERENCES accounts(id)
         );
+        CREATE TABLE opening_balances (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            period_id INTEGER NOT NULL REFERENCES periods(id),
+            account_id INTEGER NOT NULL REFERENCES accounts(id),
+            saldo_debit INTEGER NOT NULL DEFAULT 0,
+            saldo_kredit INTEGER NOT NULL DEFAULT 0,
+            catatan TEXT,
+            UNIQUE(period_id, account_id)
+        );
         CREATE TABLE inventory_movements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             item_id INTEGER NOT NULL REFERENCES items(id),
@@ -56,7 +67,9 @@ def _db_persediaan(tmp_path, monkeypatch, qty_keluar=50):
             saldo_nilai INTEGER NOT NULL,
             harga_rata2 INTEGER NOT NULL
         );
-        INSERT INTO periods VALUES (1, 'buka');
+        INSERT INTO periods VALUES
+            (1, 2026, 1, 'buka'),
+            (2, 2026, 2, 'buka');
         INSERT INTO accounts VALUES
             (1, '1140', 'Persediaan', 'Aset'),
             (2, '5110', 'Harga Pokok Penjualan', 'HPP'),
@@ -83,6 +96,19 @@ def _db_persediaan(tmp_path, monkeypatch, qty_keluar=50):
              harga_satuan, total_nilai, saldo_qty, saldo_nilai, harga_rata2)
         VALUES (1, 3, '2026-01-03', 'keluar', ?, 15000, ?, 200-?, 3000000-?, 15000)
     """, (qty_keluar, qty_keluar * 15000, qty_keluar, qty_keluar * 15000))
+    if qty_keluar == 50:
+        conn.execute("""
+            INSERT INTO inventory_movements
+                (item_id, journal_entry_id, tanggal, tipe_gerakan, qty,
+                 harga_satuan, total_nilai, saldo_qty, saldo_nilai, harga_rata2)
+            VALUES (1, NULL, '2026-02-01', 'saldo_awal', 150, 15000,
+                    2250000, 150, 2250000, 15000)
+        """)
+        conn.execute("""
+            INSERT INTO opening_balances
+                (period_id, account_id, saldo_debit, saldo_kredit, catatan)
+            VALUES (2, 1, 2250000, 0, 'Snapshot awal Februari')
+        """)
     conn.commit()
     conn.close()
     monkeypatch.setattr("services.journal_service.get_connection", buka_koneksi)
@@ -117,6 +143,19 @@ def test_hapus_pembelian_menghitung_ulang_hpp_jurnal_penjualan(tmp_path, monkeyp
             ("1140", 0, 1000000),
             ("5110", 1000000, 0),
         ]
+
+        snapshot = conn.execute("""
+            SELECT qty, total_nilai, saldo_qty, saldo_nilai, harga_rata2
+            FROM inventory_movements
+            WHERE item_id = 1 AND tipe_gerakan = 'saldo_awal'
+        """).fetchone()
+        assert tuple(snapshot) == (50, 1000000, 50, 1000000, 20000)
+        saldo_awal_akun = conn.execute("""
+            SELECT saldo_debit, saldo_kredit
+            FROM opening_balances
+            WHERE period_id = 2 AND account_id = 1
+        """).fetchone()
+        assert tuple(saldo_awal_akun) == (1000000, 0)
     finally:
         conn.close()
 
