@@ -212,15 +212,16 @@ def tampilkan() -> None:
             )
 
     # Tampilkan dengan height yang proporsional
-    st.dataframe(
-        df_tampil,
-        use_container_width=True,
-        height=min(800, 50 + len(df_tampil) * 35),
-        column_config={
-            "Kode": st.column_config.TextColumn("Kode", width="small"),
-            "Nama Akun": st.column_config.TextColumn("Nama Akun", width="medium"),
-        }
-    )
+    with st.container(border=True):
+        st.dataframe(
+            df_tampil,
+            use_container_width=True,
+            height=min(800, 50 + len(df_tampil) * 35),
+            column_config={
+                "Kode": st.column_config.TextColumn("Kode", width="small"),
+                "Nama Akun": st.column_config.TextColumn("Nama Akun", width="medium"),
+            }
+        )
 
     # -------------------------------------------------------------------
     # Baris total (footer)

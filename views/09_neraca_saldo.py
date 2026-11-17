@@ -61,7 +61,8 @@ def _tampilkan_tabel_neraca(df: pd.DataFrame) -> None:
         columns=["Kategori", "Saldo Normal"], errors="ignore"
     )
 
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
 
 def _tampilkan_total_baris(df: pd.DataFrame) -> None:
@@ -153,11 +154,14 @@ def tampilkan() -> None:
     # Metrik ringkasan
     kol_m1, kol_m2, kol_m3 = st.columns(3)
     with kol_m1:
-        st.metric("📊 Total Debit", format_rupiah(total_debit))
+        with st.container(border=True):
+            st.metric("📊 Total Debit", format_rupiah(total_debit))
     with kol_m2:
-        st.metric("📊 Total Kredit", format_rupiah(total_kredit))
+        with st.container(border=True):
+            st.metric("📊 Total Kredit", format_rupiah(total_kredit))
     with kol_m3:
-        st.metric("📋 Jumlah Akun", f"{len(df)} akun")
+        with st.container(border=True):
+            st.metric("📋 Jumlah Akun", f"{len(df)} akun")
 
     st.divider()
 

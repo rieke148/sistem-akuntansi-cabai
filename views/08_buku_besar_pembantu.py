@@ -45,16 +45,19 @@ def _tampilkan_tab_piutang() -> None:
 
     kol_m1, kol_m2, kol_m3 = st.columns(3)
     with kol_m1:
-        st.metric("💰 Total Piutang Beredar", format_rupiah(total_semua))
+        with st.container(border=True):
+            st.metric("💰 Total Piutang Beredar", format_rupiah(total_semua))
     with kol_m2:
-        st.metric("👥 Jumlah Pelanggan", len(df_ringkasan))
+        with st.container(border=True):
+            st.metric("👥 Jumlah Pelanggan", len(df_ringkasan))
     with kol_m3:
-        st.metric(
-            "⚠️ Faktur Jatuh Tempo",
-            str(total_faktur_jatuh_tempo),
-            delta=f"-{total_faktur_jatuh_tempo} perlu ditagih" if total_faktur_jatuh_tempo > 0 else None,
-            delta_color="inverse"
-        )
+        with st.container(border=True):
+            st.metric(
+                "⚠️ Faktur Jatuh Tempo",
+                str(total_faktur_jatuh_tempo),
+                delta=f"-{total_faktur_jatuh_tempo} perlu ditagih" if total_faktur_jatuh_tempo > 0 else None,
+                delta_color="inverse"
+            )
 
     st.divider()
 
@@ -151,9 +154,11 @@ def _tampilkan_tab_utang() -> None:
     total_utang = int(df["total_utang"].sum())
     kol_m1, kol_m2 = st.columns(2)
     with kol_m1:
-        st.metric("💳 Total Utang Usaha", format_rupiah(total_utang))
+        with st.container(border=True):
+            st.metric("💳 Total Utang Usaha", format_rupiah(total_utang))
     with kol_m2:
-        st.metric("🏭 Jumlah Supplier", len(df))
+        with st.container(border=True):
+            st.metric("🏭 Jumlah Supplier", len(df))
 
     st.divider()
 
@@ -167,7 +172,8 @@ def _tampilkan_tab_utang() -> None:
         "jumlah_transaksi": "Jumlah Transaksi",
     })
 
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     st.info(
         "⚠️ **Catatan:** Data ini menampilkan total kredit ke akun Utang Usaha (2110) "

@@ -84,7 +84,8 @@ def _tampilkan_tabel_buku_besar(df: pd.DataFrame) -> None:
         "saldo": "Saldo",
     })
 
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
 
 def tampilkan() -> None:
@@ -153,25 +154,28 @@ def tampilkan() -> None:
 
     kol_m1, kol_m2, kol_m3 = st.columns(3)
     with kol_m1:
-        st.metric(
-            label="💰 Saldo Akhir",
-            value=format_rupiah(saldo_akhir),
-            help=f"Saldo normal: {akun_dipilih['saldo_normal']}"
-        )
+        with st.container(border=True):
+            st.metric(
+                label="💰 Saldo Akhir",
+                value=format_rupiah(saldo_akhir),
+                help=f"Saldo normal: {akun_dipilih['saldo_normal']}"
+            )
     with kol_m2:
         # Hitung total debit dari journal_lines (tidak termasuk baris saldo awal)
         df_transaksi = df[df["no_bukti"] != "-"] if not df.empty else df
         total_debit = int(df_transaksi["debit"].sum()) if not df_transaksi.empty else 0
-        st.metric(
-            label="⬆ Total Debit",
-            value=format_rupiah(total_debit),
-        )
+        with st.container(border=True):
+            st.metric(
+                label="⬆ Total Debit",
+                value=format_rupiah(total_debit),
+            )
     with kol_m3:
         total_kredit = int(df_transaksi["kredit"].sum()) if not df_transaksi.empty else 0
-        st.metric(
-            label="⬇ Total Kredit",
-            value=format_rupiah(total_kredit),
-        )
+        with st.container(border=True):
+            st.metric(
+                label="⬇ Total Kredit",
+                value=format_rupiah(total_kredit),
+            )
 
     if jumlah_transaksi >= 0:
         st.caption(f"📌 Ditemukan **{max(0, jumlah_transaksi)} transaksi** untuk akun dan periode yang dipilih.")
