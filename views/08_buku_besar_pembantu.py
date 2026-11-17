@@ -200,5 +200,6 @@ def tampilkan() -> None:
         _tampilkan_tab_utang()
 
 
-# Panggil fungsi utama
+from services.permission_service import wajib_punya_izin
+wajib_punya_izin("ledger.view")
 tampilkan()
