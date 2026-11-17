@@ -65,10 +65,11 @@ with tab_user:
             "role_name": "Role", "status": "Status",
             "created_at": "Dibuat", "last_login_at": "Login Terakhir",
         })
-        st.dataframe(
-            df[["Nama", "Username", "Role", "Status", "Dibuat", "Login Terakhir"]],
-            use_container_width=True, hide_index=True,
-        )
+        with st.container(border=True):
+            st.dataframe(
+                df[["Nama", "Username", "Role", "Status", "Dibuat", "Login Terakhir"]],
+                use_container_width=True, hide_index=True,
+            )
     else:
         st.info("Belum ada pengguna.")
 
@@ -140,9 +141,10 @@ if tab_audit is not None:
                 "entity_type": "Objek", "entity_id": "ID Objek",
                 "details": "Detail",
             })
-            st.dataframe(
-                audit_df[["Waktu", "Username", "Nama Pengguna", "Aktivitas", "Objek", "ID Objek", "Detail"]],
-                use_container_width=True, hide_index=True,
-            )
+            with st.container(border=True):
+                st.dataframe(
+                    audit_df[["Waktu", "Username", "Nama Pengguna", "Aktivitas", "Objek", "ID Objek", "Detail"]],
+                    use_container_width=True, hide_index=True,
+                )
         else:
             st.info("Belum ada aktivitas tercatat.")

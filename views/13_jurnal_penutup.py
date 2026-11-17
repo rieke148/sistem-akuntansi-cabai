@@ -100,7 +100,8 @@ def _tampilkan_ns_setelah_penutup(period_id: int) -> None:
     )
     df_tampil.columns = ["Kode", "Nama Akun", "Kategori", "Debit", "Kredit"]
 
-    st.dataframe(df_tampil, use_container_width=True, height=400)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, height=400)
 
     # Total
     total_d = int(df["debit"].sum())
