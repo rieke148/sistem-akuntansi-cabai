@@ -22,7 +22,7 @@ import pandas as pd
 from pathlib import Path
 
 from database.connection import get_connection, PATH_DATABASE
-from utils.ui_components import divider_dengan_judul, selector_periode
+from utils.ui_components import divider_dengan_judul, selector_periode, render_page_header
 from utils.formatting import format_rupiah
 from utils.export import (
     export_dataframe_ke_excel,
@@ -369,7 +369,7 @@ def _section_reset_database() -> None:
 # ---------------------------------------------------------------
 def tampilkan() -> None:
     """Fungsi utama halaman Backup & Export. Dipanggil oleh app.py."""
-    st.title("💾 Backup & Export")
+    render_page_header("Backup & Ekspor", "Amankan database dan ekspor laporan dalam format Excel atau PDF.", eyebrow="administrasi")
     st.caption("Simpan, pulihkan, dan ekspor data sistem akuntansi.")
 
     sac.alert(

@@ -13,6 +13,7 @@ KONSEP BB PEMBANTU:
 """
 
 import streamlit as st
+from utils.ui_components import render_page_header
 from datetime import date
 from services.subsidiary_service import (
     ambil_bb_piutang,
@@ -181,7 +182,7 @@ def _tampilkan_tab_utang() -> None:
 
 def tampilkan() -> None:
     """Fungsi utama halaman Buku Besar Pembantu."""
-    st.title("🔖 Buku Besar Pembantu")
+    render_page_header("Buku Besar Pembantu", "Rincian piutang pelanggan dan utang pemasok sebagai pendukung buku besar.", eyebrow="akuntansi")
     st.caption(
         "Sub-ledger yang merinci saldo akun kontrol di Buku Besar. "
         "Terdiri dari Piutang Usaha per pelanggan dan Utang Usaha per supplier."
