@@ -38,7 +38,7 @@ huruf kecil, huruf besar, angka, atau simbol. Username 4–32 karakter.
 - Password disimpan sebagai PBKDF2-HMAC-SHA256 dengan salt acak per akun
   dan 600.000 iterasi.
 - Lima percobaan login gagal mengunci username selama 15 menit.
-- Session berakhir setelah 8 jam tidak aktif.
+- Session berakhir setelah 8 jam tidak aktif. Logout, session kedaluwarsa, atau akun yang dinonaktifkan juga membersihkan seluruh state sementara Streamlit agar pratinjau transaksi dan form tidak terbawa ke pengguna berikutnya.
 - Akun nonaktif ditolak saat login dan saat session diperiksa ulang.
 - Perubahan pengguna, login, dan logout dicatat dalam `audit_logs`.
 - Admin aktif terakhir tidak dapat dinonaktifkan atau diturunkan role-nya.
@@ -47,10 +47,10 @@ huruf kecil, huruf besar, angka, atau simbol. Username 4–32 karakter.
 
 ## Catatan pengujian dan deployment
 
-Jalankan pengujian autentikasi:
+Jalankan pengujian autentikasi dan session:
 
 ```bash
-pytest tests/test_auth.py -v
+pytest tests/test_auth.py tests/test_permission_service.py -v
 ```
 
 Lalu jalankan seluruh suite:
