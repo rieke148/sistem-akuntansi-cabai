@@ -382,13 +382,17 @@ def tampilkan() -> None:
         icon=True,
     )
 
-    _section_backup_database()
-    st.divider()
-    _section_export_laporan()
-    st.divider()
-    _section_restore_database()
-    st.divider()
-    _section_reset_database()
+    if punya_izin("backup.restore"):
+        _section_backup_database()
+        st.divider()
+        _section_export_laporan()
+        st.divider()
+        _section_restore_database()
+        st.divider()
+        _section_reset_database()
+    else:
+        st.info("Akses dibatasi ke ekspor laporan. Backup database dan restore hanya dapat dilakukan Admin / Owner.")
+        _section_export_laporan()
 
 
 from services.permission_service import wajib_punya_izin
