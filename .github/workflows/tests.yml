@@ -40,6 +40,57 @@ jobs:
         run: python -m compileall -q app.py database services utils views
       - name: Run test suite
         run: python -m pytest tests/ -v
+      - name: Validate automatic startup migrations on disposable main database copy
+        shell: bash
+        run: |
+          set -e
+          cp database/akuntansi_cabai.db "${RUNNER_TEMP}/akuntansi_cabai_main_before.db"
+          cp "${RUNNER_TEMP}/akuntansi_cabai_main_before.db" database/akuntansi_cabai.db
+          python - <<'PY' > "${RUNNER_TEMP}/startup-migration-check.log" 2>&1
+          from pathlib import Path
+          from database.connection import get_connection
+          from database.schema import (
+              buat_semua_tabel,
+              migrasikan_komoditas_cabai_saja,
+              migrasikan_akun_persediaan_bahan_produksi,
+              migrasikan_coa_baru,
+              migrasikan_persediaan_barang_dagang_saja,
+              pastikan_akun_hpp_penjualan_tersedia,
+          )
+          from services.period_service import pastikan_periode_dasar_tersedia
+
+          tables = ("journal_entries", "journal_lines", "inventory_movements", "opening_balances")
+          before = {}
+          conn = get_connection()
+          for name in tables:
+              before[name] = conn.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]
+          conn.close()
+
+          buat_semua_tabel()
+          migrasikan_komoditas_cabai_saja()
+          migrasikan_akun_persediaan_bahan_produksi()
+          migrasikan_coa_baru()
+          migrasikan_persediaan_barang_dagang_saja()
+          pastikan_periode_dasar_tersedia()
+          pastikan_akun_hpp_penjualan_tersedia()
+
+          if Path("services/auth_service.py").exists():
+              from services import auth_service
+              auth_service.inisialisasi_otorisasi()
+
+          conn = get_connection()
+          after = {
+              name: conn.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]
+              for name in tables
+          }
+          violations = conn.execute("PRAGMA foreign_key_check").fetchall()
+          conn.close()
+          if violations:
+              raise RuntimeError("Foreign key validation failed after startup migrations.")
+          if before != after:
+              raise RuntimeError("Historical accounting row counts changed during startup migrations.")
+          PY
+          echo "Automatic startup migrations completed on disposable main database copy."
       - name: Read-only HPP migration preflight on disposable snapshot
         shell: bash
         run: |
