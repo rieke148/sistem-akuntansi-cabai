@@ -215,34 +215,35 @@ def tampilkan() -> None:
         f"Total Debit = Total Kredit = **{format_rupiah(total_debit)}**"
     )
 
-    # ---- Hapus Jurnal ----
-    sac.divider(label="Hapus Jurnal", icon="trash", align="center", color=WARNA_PRIMER)
-    st.caption("⚠️ Hapus jurnal hanya bisa dilakukan jika periode masih **buka**.")
-
-    with st.expander("🗑️ Hapus Jurnal", expanded=False):
-        # Buat dropdown daftar entri jurnal (unik per no_bukti)
-        df_entri = df[["entry_id", "no_bukti", "keterangan", "tanggal"]].drop_duplicates("entry_id")
-        opsi_hapus = [
-            f"{row['no_bukti']} | {row['keterangan'][:40]}"
-            for _, row in df_entri.iterrows()
-        ]
-
-        if opsi_hapus:
-            hapus_idx = st.selectbox("Pilih Jurnal yang Akan Dihapus", range(len(opsi_hapus)),
-                                     format_func=lambda i: opsi_hapus[i])
-            entry_id_hapus = int(df_entri.iloc[hapus_idx]["entry_id"])
-
-            if st.button("🗑️ Hapus Jurnal Ini", type="secondary"):
-                try:
-                    hapus_jurnal(entry_id_hapus)
-                    st.success("✅ Jurnal berhasil dihapus.")
-                    st.cache_data.clear()
-                    st.rerun()
-                except PermissionError as e:
-                    st.error(str(e))
-                except Exception as e:
-                    st.error(f"Gagal menghapus jurnal: {e}")
-
+    from services.permission_service import punya_izin
+    if punya_izin("journals.manage"):
+        # ---- Hapus Jurnal ----
+        sac.divider(label="Hapus Jurnal", icon="trash", align="center", color=WARNA_PRIMER)
+        st.caption("⚠️ Hapus jurnal hanya bisa dilakukan jika periode masih **buka**.")
+    
+        with st.expander("🗑️ Hapus Jurnal", expanded=False):
+            # Buat dropdown daftar entri jurnal (unik per no_bukti)
+            df_entri = df[["entry_id", "no_bukti", "keterangan", "tanggal"]].drop_duplicates("entry_id")
+            opsi_hapus = [
+                f"{row['no_bukti']} | {row['keterangan'][:40]}"
+                for _, row in df_entri.iterrows()
+            ]
+    
+            if opsi_hapus:
+                hapus_idx = st.selectbox("Pilih Jurnal yang Akan Dihapus", range(len(opsi_hapus)),
+                                         format_func=lambda i: opsi_hapus[i])
+                entry_id_hapus = int(df_entri.iloc[hapus_idx]["entry_id"])
+    
+                if st.button("🗑️ Hapus Jurnal Ini", type="secondary"):
+                    try:
+                        hapus_jurnal(entry_id_hapus)
+                        st.success("✅ Jurnal berhasil dihapus.")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except PermissionError as e:
+                        st.error(str(e))
+                    except Exception as e:
+                        st.error(f"Gagal menghapus jurnal: {e}")
 
 from services.permission_service import wajib_punya_izin
 wajib_punya_izin("journals.view")
