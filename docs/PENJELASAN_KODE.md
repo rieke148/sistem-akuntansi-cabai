@@ -25,7 +25,7 @@ sistem-akuntansi-cabai/
 │   ├── ledger_service.py       # Posting buku besar saldo berjalan
 │   ├── subsidiary_service.py   # Buku pembantu piutang, persediaan, aset
 │   ├── payroll_service.py      # Penggajian & perhitungan utang gaji
-│   ├── depreciation_service.py # Penyusutan garis lurus & amortisasi mulsa
+│   ├── depreciation_service.py # Penyusutan aset tetap garis lurus
 │   ├── adjusting_service.py    # Pembuatan jurnal penyesuaian otomatis
 │   ├── trial_balance_service.py# Penyusunan & validasi neraca saldo
 │   ├── worksheet_service.py    # Penyusunan neraca lajur 10 kolom
@@ -106,13 +106,10 @@ Jika stok 100 kg dengan harga rata-rata Rp25.000/kg dan terjual 20 kg:
 
 ---
 
-### D. Penyusutan & Amortisasi (`services/depreciation_service.py`)
+### D. Penyusutan Aset Tetap (`services/depreciation_service.py`)
 - **Penyusutan Aset Tetap (Metode Garis Lurus Bulanan)**:
   $$\text{Penyusutan per Bulan} = \frac{\text{Harga Perolehan} - \text{Nilai Residu}}{\text{Umur Ekonomis (Tahun)} \times 12}$$
   - Tanah memiliki umur ekonomis 0 (tidak disusutkan).
-- **Amortisasi Plastik Mulsa**:
-  - Plastik mulsa dipakai per blok dengan masa pakai 1,5 tahun (18 bulan):
-  $$\text{Amortisasi per Bulan} = \frac{\text{Total Biaya Mulsa}}{18}$$
 
 ---
 

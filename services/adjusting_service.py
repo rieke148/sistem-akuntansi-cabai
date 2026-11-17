@@ -4,8 +4,7 @@ services/adjusting_service.py
 Tujuan  : Membuat ayat jurnal penyesuaian di akhir periode.
           Jenis penyesuaian yang didukung:
           1. Penyusutan aset tetap (dari depreciation_service, metode garis lurus)
-          2. Amortisasi plastik mulsa (masa pakai 1,5 tahun)
-          3. Akrual upah (sisa upah belum dibayar di akhir periode)
+          2. Akrual upah (sisa upah belum dibayar di akhir periode)
 Input   : period_id, tanggal, parameter akun.
 Output  : Jurnal penyesuaian disimpan ke journal_entries dengan journal_type='umum',
           no_bukti diawali 'PA-' (Penyesuaian Akhir).
@@ -15,7 +14,6 @@ KONVENSI NOMOR BUKTI:
   Semua jurnal penyesuaian menggunakan prefix 'PA-' agar mudah diidentifikasi
   dan difilter dari Neraca Saldo sebelum penyesuaian.
   Format: 'PA-PENYUSUTAN-{asset_id}-{period_id}'
-           'PA-MULSA-{period_id}'
            'PA-AKRUAL-UPAH-{period_id}'
 
 CATATAN AKUNTANSI:
@@ -25,7 +23,7 @@ CATATAN AKUNTANSI:
 
 import pandas as pd
 from database.connection import get_connection
-from services.depreciation_service import hitung_penyusutan_bulanan, hitung_amortisasi_mulsa_bulanan
+from services.depreciation_service import hitung_penyusutan_bulanan
 from services.journal_service import simpan_jurnal
 
 
@@ -107,85 +105,6 @@ def buat_penyesuaian_penyusutan(
         id_jurnal_dibuat.append(journal_id)
 
     return id_jurnal_dibuat
-def buat_penyesuaian_amortisasi_mulsa(
-    period_id: int,
-    tanggal: str,
-    akun_beban_id: int,
-    akun_perlengkapan_id: int,
-    harga_per_blok: int = 400_000,
-    jumlah_blok: int = 5,
-    umur_tahun: float = 1.5,
-) -> int:
-    """
-    Membuat jurnal penyesuaian amortisasi plastik mulsa.
-
-    Plastik mulsa dipakai selama 1,5 tahun (18 bulan).
-    Amortisasi per bulan = total harga / 18 bulan.
-
-    Jurnal:
-      Debit : Beban Penyusutan (6160)
-      Kredit: Perlengkapan (1130)
-
-    Args:
-        period_id        : ID periode akuntansi.
-        tanggal          : Tanggal jurnal 'YYYY-MM-DD'.
-        akun_beban_id    : ID akun Beban Penyusutan (6160).
-        akun_perlengkapan_id: ID akun Perlengkapan (1130), tempat nilai mulsa terpasang dikurangi langsung.
-        harga_per_blok   : Harga plastik mulsa per blok (default Rp400.000).
-        jumlah_blok      : Jumlah blok yang memakai mulsa (default 5 blok).
-        umur_tahun       : Masa pakai mulsa dalam tahun (default 1,5 tahun).
-
-    Returns:
-        ID journal_entry yang dibuat. 0 jika sudah ada.
-
-    Rumus:
-        total_harga      = harga_per_blok × jumlah_blok = Rp400.000 × 5 = Rp2.000.000
-        amortisasi/bulan = total_harga / (umur_tahun × 12) = Rp2.000.000 / 18 = Rp111.111
-    """
-    no_bukti = f"PA-MULSA-{period_id}"
-
-    # Cek apakah sudah ada
-    koneksi = get_connection()
-    cek = koneksi.execute(
-        "SELECT id FROM journal_entries WHERE no_bukti = ?",
-        (no_bukti,)
-    ).fetchone()
-    koneksi.close()
-
-    if cek:
-        return cek["id"]
-
-    # Hitung amortisasi bulanan menggunakan fungsi dari depreciation_service
-    amortisasi = hitung_amortisasi_mulsa_bulanan(
-        harga_per_blok=harga_per_blok,
-        jumlah_blok=jumlah_blok,
-        umur_tahun=umur_tahun,
-    )
-
-    if amortisasi <= 0:
-        return 0
-
-    baris_jurnal = [
-        {"account_id": akun_beban_id, "debit": amortisasi, "kredit": 0},
-        {"account_id": akun_perlengkapan_id, "debit": 0, "kredit": amortisasi},
-    ]
-
-    keterangan = (
-        f"Penyesuaian: Amortisasi Plastik Mulsa "
-        f"({jumlah_blok} blok × Rp{harga_per_blok:,} / {int(umur_tahun*12)} bulan)"
-    )
-
-    journal_id = simpan_jurnal(
-        period_id=period_id,
-        tanggal=tanggal,
-        no_bukti=no_bukti,
-        journal_type="umum",
-        keterangan=keterangan,
-        baris=baris_jurnal,
-    )
-    return journal_id
-
-
 def buat_penyesuaian_akrual_upah(
     period_id: int,
     tanggal: str,
@@ -332,14 +251,13 @@ def cek_penyesuaian_sudah_ada(period_id: int, jenis: str) -> bool:
 
     Args:
         period_id : ID periode.
-        jenis     : 'penyusutan', 'mulsa', 'akrual_upah'.
+        jenis     : 'penyusutan' atau 'akrual_upah'.
 
     Returns:
         True jika sudah ada, False jika belum.
     """
     prefix_map = {
         "penyusutan": "PA-PENYUSUTAN-%",
-        "mulsa": f"PA-MULSA-{period_id}",
         "akrual_upah": f"PA-AKRUAL-UPAH-{period_id}",
     }
 

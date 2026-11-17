@@ -37,7 +37,6 @@
         ▼
 [Ayat Jurnal Penyesuaian]          (services/adjusting_service.py + depreciation_service.py)
   • Penyusutan Aset Tetap (Garis Lurus)
-  • Amortisasi Plastik Mulsa (1,5 tahun)
   • Akrual Upah Tenaga Kerja
         │
         ▼
@@ -114,7 +113,7 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 ### Fase 5 — Neraca Saldo, Penggajian & Penyesuaian
 - **Neraca Saldo**: Menghitung saldo seluruh akun dan memvalidasi keseimbangan Debit == Kredit.
 - **Penggajian**: Menghitung upah pekerja harian tetap (Rp90.000/hari) dan pekerja tambahan (Rp120.000/hari) per periode 2 mingguan, serta mencatat akrual utang gaji.
-- **Ayat Penyesuaian**: Penyusutan aset tetap garis lurus bulanan, amortisasi plastik mulsa (1,5 tahun), akrual upah.
+- **Ayat Penyesuaian**: Penyusutan aset tetap garis lurus bulanan dan akrual upah.
 
 ### Fase 6 — Neraca Lajur, Laporan Keuangan & Penutupan
 - **Neraca Lajur 10 Kolom**: 5 pasang kolom terverifikasi seimbang (Neraca Saldo, Penyesuaian, NSD, Laba Rugi, dan Neraca).

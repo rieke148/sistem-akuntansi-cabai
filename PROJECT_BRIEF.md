@@ -30,7 +30,7 @@ Bagian ini adalah peta arsitektur. Jangan mengubah struktur folder, nama tabel, 
 [Neraca Saldo (sebelum penyesuaian)]
         |
         v
-[Ayat Penyesuaian] (penyusutan, amortisasi mulsa, akrual upah, dan biaya terkait)
+[Ayat Penyesuaian] (penyusutan aset tetap, akrual upah, dan biaya terkait)
         |
         v
 [Neraca Lajur / Worksheet 10 kolom]
@@ -68,7 +68,7 @@ sistem-akuntansi-cabai/
 │   ├── subsidiary_service.py   # BB pembantu piutang, persediaan, aset
 │   ├── inventory_service.py    # kartu persediaan (rata-rata bergerak)
 │   ├── payroll_service.py      # hitung upah dari hari kerja
-│   ├── depreciation_service.py # penyusutan & amortisasi
+│   ├── depreciation_service.py # penyusutan aset tetap
 │   ├── adjusting_service.py    # ayat penyesuaian
 │   ├── trial_balance_service.py
 │   ├── worksheet_service.py    # neraca lajur
@@ -196,7 +196,7 @@ Bangun "Sistem Informasi Siklus Akuntansi" untuk usaha budidaya cabai rawit PT S
 7. Buku Besar per akun (saldo berjalan), bisa filter periode.
 8. Buku Besar Pembantu: Piutang Usaha per pelanggan (dengan umur piutang/jatuh tempo) dan Utang Usaha per supplier/transaksi (kosong kalau tidak ada transaksi kredit). Kartu persediaan disajikan terpisah pada menu Kartu Persediaan; rincian aset tetap dikelola melalui Master Data dan Ayat Penyesuaian.
 9. Neraca Saldo (sebelum penyesuaian).
-10. Ayat Penyesuaian: penyusutan semua aset tetap (garis lurus), amortisasi plastik mulsa (1,5 th), akrual upah belum dibayar, stok opname barang dagang, akrual listrik (jika belum dibayar), alokasi biaya bersama untuk kegiatan budidaya cabai. Tiap ayat bisa dilihat rumusnya.
+10. Ayat Penyesuaian: penyusutan semua aset tetap (garis lurus), akrual upah belum dibayar, stok opname barang dagang, akrual listrik (jika belum dibayar), alokasi biaya bersama untuk kegiatan budidaya cabai. Tiap ayat bisa dilihat rumusnya.
 11. Neraca Lajur 10 kolom (NS, Penyesuaian, NS Disesuaikan, Laba Rugi, Neraca).
 12. Laporan Keuangan: Laporan Laba Rugi, Laporan Perubahan Ekuitas, Neraca (bentuk laporan), Arus Kas (opsional, metode langsung). Export Excel dan PDF.
 13. Jurnal Penutup dan Neraca Saldo Setelah Penutup.
@@ -209,7 +209,7 @@ Bangun "Sistem Informasi Siklus Akuntansi" untuk usaha budidaya cabai rawit PT S
 - Nama akun ekuitas mengikuti `coa_cabai_baru.csv`: 3110 Modal Pribadi, 3120 Laba, dan 3130 Ikhtisar Laba Rugi. Tidak menggunakan akun Prive.
 - Tanah tidak disusutkan. Umur ekonomis dan nilai residu SETIAP aset adalah INPUT MANUAL dari user di Master Data (jangan hardcode angka paten; boleh isi awal dari observasi untuk peralatan, sisanya kosong/wajib diisi sebelum penyusutan dihitung). Hal yang sama berlaku untuk jumlah unit peralatan, tanggal perolehan, saldo awal, persentase alokasi biaya bersama, dan hasil panen per pohon: semuanya parameter yang bisa diedit user.
 - Penyusutan dihitung bulanan = (harga - residu) / (umur x 12).
-- Persediaan barang dagang cabai memakai sistem perpetual dan metode rata-rata bergerak pada akun **1140 — Persediaan**. Kartu stok dicatat per item. Persediaan bertambah melalui pencatatan hasil panen atau pembelian cabai dan berkurang saat penjualan. Bahan produksi seperti bibit, pupuk, dan pestisida tidak dicatat sebagai item persediaan. Pembelian perlengkapan seperti plastik mulsa tetap dicatat pada akun Perlengkapan (1130) untuk diamortisasi sesuai masa manfaat.
+- Persediaan barang dagang cabai memakai sistem perpetual dan metode rata-rata bergerak pada akun **1140 — Persediaan**. Kartu stok dicatat per item. Persediaan bertambah melalui pencatatan hasil panen atau pembelian cabai dan berkurang saat penjualan. Bahan produksi seperti bibit, pupuk, dan pestisida tidak dicatat sebagai item persediaan. Pembelian perlengkapan seperti plastik mulsa tetap dicatat pada akun Perlengkapan (1130); sistem tidak membuat jurnal amortisasi untuk mulsa.
 - Saat cabai dijual, sistem langsung mencatat HPP: Dr Harga Pokok Penjualan (5110), Cr Persediaan (1140). Penjualan tanpa stok yang cukup ditolak.
 - Saldo awal persediaan wajib dimasukkan per item berdasarkan kuantitas fisik dan harga pokok per satuan. Sistem menyinkronkan jumlah nilai item ke saldo awal akun persediaan.
 - Mutasi per item harus dicatat secara kronologis supaya perhitungan rata-rata bergerak tetap benar.

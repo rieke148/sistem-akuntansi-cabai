@@ -58,7 +58,7 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
    - Perhitungan upah harian pekerja tetap (Rp90.000/hari) dan pekerja tambahan (Rp120.000/hari) per periode 2 mingguan, cetak slip upah, dan pencatatan akrual utang gaji.
 
 8. **Ayat Jurnal Penyesuaian**:
-   - Perhitungan otomatis penyusutan aset tetap (garis lurus), amortisasi plastik mulsa (1,5 tahun), akrual upah tenaga kerja.
+   - Perhitungan otomatis penyusutan aset tetap (garis lurus) dan akrual upah tenaga kerja.
 
 9. **Neraca Lajur 10 Kolom (Worksheet)**:
    - Kertas kerja lengkap 10 kolom menghubungkan Neraca Saldo, Penyesuaian, NSD, Laba Rugi, dan Neraca dengan verifikasi keseimbangan otomatis.
