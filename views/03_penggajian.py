@@ -276,7 +276,7 @@ def tampilkan() -> None:
             label="📅 Pilih Periode Penggajian",
             key="penggajian_periode",
             hanya_buka=False,
-            tampilkan_kalender=True,
+            tampilkan_kalender=punya_izin("payroll.manage"),
             help="Pilih bulan periode penggajian",
         )
 
@@ -292,6 +292,10 @@ def tampilkan() -> None:
 
     # Tampilkan rekap absensi bulan ini
     _tampilkan_rekap_absensi(period_id)
+
+    # Pimpinan hanya melihat ringkasan; tidak ada form absensi atau jurnal.
+    if not punya_izin("payroll.manage"):
+        return
 
     st.divider()
 
@@ -315,6 +319,8 @@ def tampilkan() -> None:
         )
 
 
-from services.permission_service import wajib_punya_izin
-wajib_punya_izin("payroll.manage")
+from services.permission_service import punya_izin, wajib_punya_izin
+if not (punya_izin("payroll.manage") or punya_izin("payroll.summary.view")):
+    st.error("Anda tidak memiliki hak akses ke halaman penggajian.")
+    st.stop()
 tampilkan()
