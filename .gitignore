@@ -1,0 +1,18 @@
+# Secrets and local configuration
+.streamlit/secrets.toml
+.env
+.env.*
+venv/
+.venv/
+
+# SQLite files may contain production accounting data.
+# Existing tracked databases are deliberately preserved; this rule blocks new local DB files.
+database/*.db
+database/*.db-*
+
+# Python caches and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
