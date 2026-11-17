@@ -127,3 +127,95 @@ def test_migrasi_coa_baru_menggabungkan_persediaan_dan_menjaga_riwayat(
         assert koneksi.execute("PRAGMA foreign_key_check").fetchall() == []
     finally:
         koneksi.close()
+
+
+
+def test_migrasi_coa_memetakan_akun_lama_ke_akun_yang_semakna(tmp_path, monkeypatch):
+    buka_koneksi = _database_lama(tmp_path, monkeypatch)
+    conn = buka_koneksi()
+    conn.executemany(
+        """
+        INSERT INTO accounts
+            (id, kode_akun, nama_akun, kategori, saldo_normal, is_kontra)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (8, "5102", "Beban Pupuk", "Beban Produksi", "Debit", 0),
+            (9, "5103", "Beban Pestisida", "Beban Produksi", "Debit", 0),
+            (10, "1601K", "Akumulasi Amortisasi Plastik Mulsa", "Aset", "Kredit", 1),
+            (11, "2202", "Utang Listrik", "Liabilitas", "Kredit", 0),
+            (12, "2203", "Utang Lain-lain", "Liabilitas", "Kredit", 0),
+        ],
+    )
+    conn.executemany(
+        """
+        INSERT INTO journal_lines (journal_entry_id, account_id, debit, kredit)
+        VALUES (?, ?, ?, ?)
+        """,
+        [
+            (1, 8, 120, 0),
+            (2, 9, 80, 0),
+            (3, 10, 0, 30),
+            (4, 11, 0, 40),
+            (5, 12, 0, 50),
+        ],
+    )
+    conn.executemany(
+        """
+        INSERT INTO opening_balances
+            (period_id, account_id, saldo_debit, saldo_kredit, catatan)
+        VALUES (2, ?, ?, ?, ?)
+        """,
+        [
+            (8, 120, 0, "Pupuk"),
+            (9, 80, 0, "Pestisida"),
+            (10, 0, 30, "Akumulasi amortisasi mulsa"),
+            (11, 0, 40, "Utang listrik"),
+            (12, 0, 50, "Utang lain-lain"),
+        ],
+    )
+    conn.commit()
+    conn.close()
+
+    migrasikan_coa_cabai_baru()
+
+    conn = buka_koneksi()
+    try:
+        def kode_akun_dari_baris(journal_entry_id):
+            return conn.execute(
+                """
+                SELECT a.kode_akun
+                FROM journal_lines jl JOIN accounts a ON a.id = jl.account_id
+                WHERE jl.journal_entry_id = ?
+                ORDER BY jl.id DESC LIMIT 1
+                """,
+                (journal_entry_id,),
+            ).fetchone()["kode_akun"]
+
+        assert kode_akun_dari_baris(1) == "5110"
+        assert kode_akun_dari_baris(2) == "5110"
+        assert kode_akun_dari_baris(3) == "1130"
+        assert kode_akun_dari_baris(4) == "2110"
+        assert kode_akun_dari_baris(5) == "2110"
+
+        saldo = {
+            row["kode_akun"]: (row["saldo_debit"], row["saldo_kredit"])
+            for row in conn.execute(
+                """
+                SELECT a.kode_akun, ob.saldo_debit, ob.saldo_kredit
+                FROM opening_balances ob
+                JOIN accounts a ON a.id = ob.account_id
+                WHERE ob.period_id = 2
+                """
+            ).fetchall()
+        }
+        assert saldo["5110"] == (200, 0)
+        assert saldo["1130"] == (0, 30)
+        assert saldo["2110"] == (0, 90)
+
+        assert conn.execute(
+            "SELECT COUNT(*) FROM accounts WHERE kode_akun IN ('5102','5103','1601K','2202','2203')"
+        ).fetchone()[0] == 0
+        assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
+    finally:
+        conn.close()
