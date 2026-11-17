@@ -353,32 +353,23 @@ def catat_penerimaan_piutang(
     keterangan_tambahan: str = "",
 ) -> int:
     """
-    Mencatat penerimaan pembayaran piutang dari pelanggan.
-
-    Jurnal yang dibuat:
-      Debit : Kas
-      Kredit: Piutang Usaha
-
-    Efek samping:
-      UPDATE receivables SET jumlah_terbayar, status = 'lunas' WHERE id = receivable_id.
-
-    Args:
-        receivable_id : ID baris di tabel receivables.
-        jumlah        : Jumlah yang diterima (harus <= sisa piutang).
-
-    Returns:
-        ID journal_entry yang dibuat.
+    Mencatat pembayaran piutang dan menyimpan relasi jurnal ke faktur terkait.
+    Relasi ini dipakai saat jurnal pembayaran dihapus agar saldo piutang dipulihkan.
     """
-    # Ambil info piutang yang akan dilunasi
+    if jumlah <= 0:
+        raise ValueError("Jumlah pembayaran harus lebih besar dari nol.")
+
     koneksi = get_connection()
-    row = koneksi.execute("""
-        SELECT r.jumlah, r.jumlah_terbayar, r.no_faktur,
-               c.nama AS pelanggan_nama
-        FROM receivables r
-        LEFT JOIN customers c ON r.customer_id = c.id
-        WHERE r.id = ?
-    """, (receivable_id,)).fetchone()
-    koneksi.close()
+    try:
+        row = koneksi.execute("""
+            SELECT r.jumlah, r.jumlah_terbayar, r.no_faktur,
+                   c.nama AS pelanggan_nama
+            FROM receivables r
+            LEFT JOIN customers c ON r.customer_id = c.id
+            WHERE r.id = ?
+        """, (receivable_id,)).fetchone()
+    finally:
+        koneksi.close()
 
     if not row:
         raise ValueError(f"Piutang ID {receivable_id} tidak ditemukan.")
@@ -391,7 +382,6 @@ def catat_penerimaan_piutang(
 
     pelanggan_nama = row["pelanggan_nama"] or "Pelanggan"
     no_faktur = row["no_faktur"]
-
     no_bukti = generate_nomor_bukti("KM", _label_periode(period_id))
     keterangan = f"Pelunasan piutang {pelanggan_nama} No.{no_faktur}"
     if keterangan_tambahan:
@@ -401,27 +391,47 @@ def catat_penerimaan_piutang(
         {"account_id": akun_kas_id, "debit": jumlah, "kredit": 0},
         {"account_id": akun_piutang_id, "debit": 0, "kredit": jumlah},
     ]
-
     entry_id = simpan_jurnal(
         period_id=period_id, tanggal=tanggal, no_bukti=no_bukti,
         journal_type="penerimaan_kas", keterangan=keterangan, baris=baris,
         pihak_terkait=pelanggan_nama,
     )
 
-    # Update status piutang
-    jumlah_terbayar_baru = int(row["jumlah_terbayar"]) + jumlah
-    status_baru = "lunas" if jumlah_terbayar_baru >= int(row["jumlah"]) else "belum_lunas"
-
     koneksi = get_connection()
-    koneksi.execute("""
-        UPDATE receivables
-        SET jumlah_terbayar = ?, status = ?
-        WHERE id = ?
-    """, (jumlah_terbayar_baru, status_baru, receivable_id))
-    koneksi.commit()
-    koneksi.close()
+    try:
+        koneksi.execute("BEGIN IMMEDIATE")
+        # Update bersyarat untuk mencegah pembayaran melebihi sisa tagihan
+        # apabila ada proses pembayaran lain setelah validasi awal.
+        hasil_update = koneksi.execute("""
+            UPDATE receivables
+            SET jumlah_terbayar = jumlah_terbayar + ?,
+                status = CASE
+                    WHEN jumlah_terbayar + ? >= jumlah THEN 'lunas'
+                    ELSE 'sebagian'
+                END
+            WHERE id = ? AND jumlah_terbayar + ? <= jumlah
+        """, (jumlah, jumlah, receivable_id, jumlah))
+        if hasil_update.rowcount != 1:
+            raise ValueError(
+                "Saldo piutang berubah saat pembayaran diproses. "
+                "Muat ulang data piutang dan coba kembali."
+            )
 
-    return entry_id
+        koneksi.execute("""
+            INSERT INTO receivable_payments
+                (receivable_id, journal_entry_id, jumlah_bayar)
+            VALUES (?, ?, ?)
+        """, (receivable_id, entry_id, jumlah))
+        koneksi.commit()
+        return entry_id
+    except Exception:
+        koneksi.rollback()
+        # Jurnal tidak boleh tertinggal tanpa pembaruan saldo dan relasi piutang.
+        koneksi.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
+        koneksi.commit()
+        raise
+    finally:
+        koneksi.close()
 
 
 # ================================================================
