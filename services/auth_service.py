@@ -72,7 +72,7 @@ ACCOUNTANT_PERMISSIONS = {
     "closing.manage", "backup.access", "backup.export",
 }
 INVENTORY_PERMISSIONS = {
-    "dashboard.view", "master_data.view", "master_data.items.view",
+    "master_data.view", "master_data.items.view",
     "master_data.items.manage", "transactions.view",
     "transactions.inventory.manage", "inventory.view", "inventory.manage",
 }
