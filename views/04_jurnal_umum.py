@@ -244,5 +244,6 @@ def tampilkan() -> None:
                     st.error(f"Gagal menghapus jurnal: {e}")
 
 
-# Panggil fungsi utama
+from services.permission_service import wajib_punya_izin
+wajib_punya_izin("journals.view")
 tampilkan()
