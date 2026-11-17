@@ -263,11 +263,7 @@ def _seed_item(cursor: sqlite3.Cursor, akun: dict) -> dict:
     """Membuat item persediaan."""
     items_list = [
         # (kode, nama, satuan, tipe, komoditas, kode_akun)
-        # Persediaan (1140): bahan produksi utama dan hasil panen
-        ("BHN-001", "Bibit Cabai Rawit", "batang", "bahan", "cabai", "1140"),
-        ("BHN-002", "Pupuk (Awal Tanam)", "karung", "bahan", "cabai", "1140"),
-        ("BHN-003", "Pupuk NPK", "paket/blok", "bahan", "cabai", "1140"),
-        ("BHN-004", "Pestisida", "paket/blok", "bahan", "cabai", "1140"),
+        # Persediaan hanya untuk barang dagang cabai hasil panen
         ("HSL-001", "Cabai Rawit", "kg", "hasil_panen", "cabai", "1140"),
     ]
     result = {}
@@ -542,7 +538,7 @@ def _seed_transaksi(
     pekerja: dict,
 ) -> None:
     """
-    Membuat 25+ transaksi realistis Oktober 2026.
+    Membuat transaksi contoh Oktober 2026 untuk siklus barang dagang cabai.
     Semua transaksi mengikuti pemetaan jurnal di PROJECT_BRIEF.md.
     """
     # -----------------------------------------------------------------
@@ -550,7 +546,6 @@ def _seed_transaksi(
     # -----------------------------------------------------------------
     KAS = akun["1110"]
     PIUTANG = akun["1120"]
-    PERSEDIAAN_BAHAN_PRODUKSI = akun["1140"]
     PERLENGKAPAN = akun["1130"]   # Bambu & Plastik Mulsa masuk Perlengkapan
     BEBAN_UPAH = akun["6110"]
 
@@ -566,9 +561,6 @@ def _seed_transaksi(
     UTANG_USAHA = akun["2110"]
     UTANG_GAJI = akun["2210"]
     HPP = akun["5110"]
-    # Pemakaian bahan → dicatat sebagai HPP (Debit HPP / Kredit Persediaan)
-    BEBAN_PUPUK = akun["5110"]
-    BEBAN_PESTISIDA = akun["5110"]
     MODAL = akun["3110"]
 
     no = 1  # nomor urut bukti
@@ -626,53 +618,6 @@ def _seed_transaksi(
         "jumlah": jml,
         "jumlah_terbayar": 0,
         "status": "belum_lunas",
-    })
-
-    # -----------------------------------------------------------------
-    # 3. Beli Pupuk TUNAI di Toko Sido Panen (6 Okt, 4 karung Rp720.000)
-    # -----------------------------------------------------------------
-    jml = 720_000
-    _buat_jurnal(cursor, period_id, "2026-10-06", nb("KK"),
-                 "pengeluaran_kas",
-                 "Beli pupuk awal tanam 4 karung di Toko Sido Panen",
-                 [{"account_id": PERSEDIAAN_BAHAN_PRODUKSI, "debit": jml, "kredit": 0},
-                  {"account_id": KAS, "debit": 0, "kredit": jml}],
-                 pihak_terkait="Toko Sido Panen")
-    # Catat kartu persediaan
-    _insert(cursor, "inventory_movements", {
-        "item_id": item["BHN-002"],
-        "tanggal": "2026-10-06",
-        "tipe_gerakan": "masuk",
-        "qty": 4,
-        "harga_satuan": 180_000,
-        "total_nilai": jml,
-        "saldo_qty": 4,
-        "saldo_nilai": jml,
-        "harga_rata2": 180_000,
-        "keterangan": "Pembelian tunai Toko Sido Panen",
-    })
-
-    # -----------------------------------------------------------------
-    # 4. Beli Pestisida TUNAI (7 Okt, 1 blok Rp380.000)
-    # -----------------------------------------------------------------
-    jml = 380_000
-    _buat_jurnal(cursor, period_id, "2026-10-07", nb("KK"),
-                 "pengeluaran_kas",
-                 "Beli pestisida 5 jenis untuk 1 blok di Toko Sido Panen",
-                 [{"account_id": PERSEDIAAN_BAHAN_PRODUKSI, "debit": jml, "kredit": 0},
-                  {"account_id": KAS, "debit": 0, "kredit": jml}],
-                 pihak_terkait="Toko Sido Panen")
-    _insert(cursor, "inventory_movements", {
-        "item_id": item["BHN-004"],
-        "tanggal": "2026-10-07",
-        "tipe_gerakan": "masuk",
-        "qty": 1,
-        "harga_satuan": 380_000,
-        "total_nilai": 380_000,
-        "saldo_qty": 1,
-        "saldo_nilai": 380_000,
-        "harga_rata2": 380_000,
-        "keterangan": "Pembelian tunai Toko Sido Panen",
     })
 
     # -----------------------------------------------------------------
@@ -918,19 +863,6 @@ def _seed_transaksi(
                  pihak_terkait="Restoran Pronto")
 
     # -----------------------------------------------------------------
-    # 23. PEMBELIAN KREDIT (SIMULASI) — pupuk NPK 1 blok dari supplier
-    #     Catatan: Dari observasi, semua beli TUNAI. Ini simulasi untuk
-    #     memenuhi syarat fitur Jurnal Pembelian. Tercantum di laporan.
-    # -----------------------------------------------------------------
-    jml = 1_190_000
-    _buat_jurnal(cursor, period_id, "2026-10-25", nb("PB"),
-                 "pembelian",
-                 "[SIMULASI] Beli pupuk NPK 1 blok kredit dari Toko Sido Panen",
-                 [{"account_id": PERSEDIAAN_BAHAN_PRODUKSI, "debit": jml, "kredit": 0},
-                  {"account_id": UTANG_USAHA, "debit": 0, "kredit": jml}],
-                 pihak_terkait="Toko Sido Panen")
-
-    # -----------------------------------------------------------------
     # 24. Setoran modal tambahan (1 Okt, Rp50.000.000 — CONTOH)
     # -----------------------------------------------------------------
     _buat_jurnal(cursor, period_id, "2026-10-01", nb("KM"),
@@ -939,49 +871,6 @@ def _seed_transaksi(
                  [{"account_id": KAS, "debit": 50_000_000, "kredit": 0},
                   {"account_id": MODAL, "debit": 0, "kredit": 50_000_000}])
 
-    # -----------------------------------------------------------------
-    # 25. Pemakaian bahan (Jurnal Umum) — Pupuk dipakai ke blok A (31 Okt)
-    # -----------------------------------------------------------------
-    jml = 720_000
-    _buat_jurnal(cursor, period_id, "2026-10-31", nb("JU"),
-                 "umum",
-                 "Pemakaian pupuk ke blok A (penyesuaian persediaan)",
-                 [{"account_id": BEBAN_PUPUK, "debit": jml, "kredit": 0},
-                  {"account_id": PERSEDIAAN_BAHAN_PRODUKSI, "debit": 0, "kredit": jml}])
-    _insert(cursor, "inventory_movements", {
-        "item_id": item["BHN-002"],
-        "tanggal": "2026-10-31",
-        "tipe_gerakan": "keluar",
-        "qty": 4,
-        "harga_satuan": 180_000,
-        "total_nilai": jml,
-        "saldo_qty": 0,
-        "saldo_nilai": 0,
-        "harga_rata2": 0,
-        "keterangan": "Pemakaian ke blok A",
-    })
-
-    # -----------------------------------------------------------------
-    # 26. Pemakaian pestisida (31 Okt)
-    # -----------------------------------------------------------------
-    jml = 380_000
-    _buat_jurnal(cursor, period_id, "2026-10-31", nb("JU"),
-                 "umum",
-                 "Pemakaian pestisida blok A (penyesuaian persediaan)",
-                 [{"account_id": BEBAN_PESTISIDA, "debit": jml, "kredit": 0},
-                  {"account_id": PERSEDIAAN_BAHAN_PRODUKSI, "debit": 0, "kredit": jml}])
-    _insert(cursor, "inventory_movements", {
-        "item_id": item["BHN-004"],
-        "tanggal": "2026-10-31",
-        "tipe_gerakan": "keluar",
-        "qty": 1,
-        "harga_satuan": 380_000,
-        "total_nilai": 380_000,
-        "saldo_qty": 0,
-        "saldo_nilai": 0,
-        "harga_rata2": 0,
-        "keterangan": "Pemakaian ke blok A",
-    })
 
 
 def _seed_hpp_penjualan(
