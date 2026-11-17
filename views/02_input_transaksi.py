@@ -63,21 +63,19 @@ def _ambil_suppliers():
 
 
 @st.cache_data(ttl=60)
-def _ambil_items(tipe: str | None = None):
-    """Ambil items, mengambil item berdasarkan tipe hasil panen cabai."""
+def _ambil_items():
+    """Ambil item barang dagang cabai hasil panen yang aktif."""
     koneksi = get_connection()
-    if tipe:
-        rows = koneksi.execute(
-            "SELECT id, nama_item AS nama, satuan, account_id FROM items WHERE tipe = ? AND aktif = 1 ORDER BY nama_item",
-            (tipe,)
-        ).fetchall()
-    else:
-        rows = koneksi.execute(
-            "SELECT id, nama_item AS nama, satuan, tipe, account_id FROM items WHERE aktif = 1 ORDER BY nama_item"
-        ).fetchall()
+    rows = koneksi.execute(
+        """
+        SELECT id, nama_item AS nama, satuan, account_id
+        FROM items
+        WHERE tipe = 'hasil_panen' AND aktif = 1
+        ORDER BY nama_item
+        """
+    ).fetchall()
     koneksi.close()
     return [dict(r) for r in rows]
-
 
 @st.cache_data(ttl=60)
 def _ambil_blok_lahan():
@@ -218,7 +216,7 @@ def _form_penjualan_tunai(period_id: int):
 
     customers = _ambil_customers()
     nama_customers = [f"{c['nama']}" for c in customers]
-    items_panen = _ambil_items("hasil_panen")
+    items_panen = _ambil_items()
     if not items_panen:
         st.warning("Belum ada item hasil panen cabai. Tambahkan item hasil panen di Master Data dan hubungkan ke akun persediaan.")
         return
@@ -341,7 +339,7 @@ def _form_penjualan_tempo(period_id: int):
     st.subheader("📋 Penjualan Tempo (Kredit)")
 
     customers = _ambil_customers()
-    items_panen = _ambil_items("hasil_panen")
+    items_panen = _ambil_items()
     if not customers:
         st.warning("Belum ada data pelanggan. Tambahkan di menu Master Data > Pelanggan.")
         return
@@ -588,7 +586,7 @@ def _form_pembelian_tunai(period_id: int):
     st.subheader("🛒 Beli Tunai")
 
     suppliers = _ambil_suppliers()
-    items_panen = _ambil_items("hasil_panen")
+    items_panen = _ambil_items()
 
     kategori_pembelian = st.radio(
         "Kategori Pembelian *",
@@ -911,10 +909,10 @@ def _form_pembelian_tunai(period_id: int):
 
 def _form_pembelian_kredit(period_id: int):
     """Form pembelian barang dagang, perlengkapan, atau peralatan secara kredit (menambah utang usaha)."""
-    st.subheader("🏷️ Pembelian Barang Dagang Kredit (Utang Dagang)")
+    st.subheader("🏷️ Beli Kredit (Utang Dagang)")
 
     suppliers = _ambil_suppliers()
-    items_panen = _ambil_items("hasil_panen")
+    items_panen = _ambil_items()
 
     kategori_pembelian = st.radio(
         "Kategori Pembelian *",
@@ -1244,7 +1242,7 @@ def _form_catat_panen(period_id: int):
     """Form pencatatan hasil panen masuk persediaan."""
     st.subheader("🌶️ Catat Hasil Panen")
 
-    items_panen = _ambil_items("hasil_panen")
+    items_panen = _ambil_items()
     blok_list = _ambil_blok_lahan()
 
     if not items_panen:
