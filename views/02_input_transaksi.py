@@ -1604,5 +1604,6 @@ def tampilkan() -> None:
             _form_pembelian_aset(period_id)
 
 
-# Panggil fungsi utama
+from services.permission_service import wajib_punya_izin
+wajib_punya_izin("transactions.view")
 tampilkan()
