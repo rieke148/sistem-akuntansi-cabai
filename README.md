@@ -155,19 +155,41 @@ Setelah aplikasi berjalan, buka peramban di `http://localhost:8501`. Database SQ
 
 ---
 
-## ☁️ Panduan Deployment ke Streamlit Community Cloud
+## 🚀 Panduan Deployment dengan Database Persisten
 
-Aplikasi ini telah dioptimalkan untuk deployment ke **Streamlit Community Cloud** langsung dari repositori GitHub:
+Untuk penggunaan operasional yang menyimpan transaksi keuangan, deployment yang disarankan adalah **server/VPS dengan Docker Compose**. Aplikasi menggunakan SQLite pada `database/akuntansi_cabai.db`; karena itu direktori database harus berada pada volume persisten agar perubahan tetap ada setelah container diperbarui atau dibuat ulang.
 
-1. **Push Proyek ke GitHub**:
-   - Pastikan file `requirements.txt`, `.streamlit/config.toml`, folder `database/`, `services/`, `views/`, dan `utils/` telah ter-commit.
-2. **Koneksikan ke Streamlit Community Cloud**:
-   - Buka [share.streamlit.io](https://share.streamlit.io).
-   - Klik **New app**.
-   - Pilih repository GitHub Anda, branch `main`, dan set **Main file path** ke `app.py`.
-3. **Inisialisasi Otomatis (Cold-Start Safe)**:
-   - Karena filesystem Streamlit Cloud bersifat ephemeral, `app.py` secara otomatis mendeteksi keberadaan database. Jika database belum ada, skema tabel, periode dasar (2025-2027), dan data seed contoh akan langsung dibuat otomatis saat pertama kali diakses.
-   - Gunakan menu **Backup & Export** untuk mengunduh berkas `.db` secara berkala sebelum menutup sesi cloud.
+### Opsi utama: VPS / server dengan Docker
+
+Prasyarat: server Linux, Docker Engine, dan Docker Compose plugin.
+
+1. Clone repository pada server dan masuk ke folder proyek.
+2. Buat file konfigurasi rahasia:
+   ```bash
+   cp .env.example .env
+   ```
+   Ganti `BOOTSTRAP_SETUP_KEY` pada `.env` dengan secret acak yang panjang. Jangan commit atau membagikan file `.env`.
+3. Pastikan folder `database/` dan file database yang akan dipakai sudah benar. Buat backup di luar folder kerja sebelum deployment pertama.
+4. Jalankan:
+   ```bash
+   docker compose up -d --build
+   docker compose ps
+   docker compose logs -f akuntansi-cabai
+   ```
+5. Akses aplikasi melalui `http://ALAMAT-SERVER:8501`. Untuk akses publik, pasang reverse proxy dengan HTTPS (misalnya Nginx atau Caddy) dan batasi port langsung aplikasi dari internet.
+6. Buat akun Admin / Owner pertama menggunakan kunci setup. Setelah akun pertama berhasil dibuat, hapus atau rotasi `BOOTSTRAP_SETUP_KEY` dari environment server.
+7. Jadwalkan backup SQLite secara berkala ke lokasi terpisah dari server/container. Uji proses restore pada salinan database, bukan database operasional.
+
+**Persistensi database:** `docker-compose.yml` memasang `./database` sebagai volume ke `/app/database`. Jangan menghapus volume atau folder tersebut saat memperbarui aplikasi. Simpan backup terenkripsi di luar server.
+
+### Opsi demo: Streamlit Community Cloud
+
+Streamlit Community Cloud dapat dipakai untuk demo atau uji coba, tetapi filesystem lokalnya tidak cocok dijadikan penyimpanan permanen untuk transaksi keuangan. Database SQLite lokal dapat hilang saat aplikasi diredeploy atau lingkungan dibuat ulang. Jangan gunakan opsi ini untuk data operasional kecuali aplikasi sudah dipindahkan ke layanan database eksternal yang persisten dan telah diuji.
+
+### Catatan keamanan database
+
+Repository ini membawa file SQLite yang sudah ada agar data tidak hilang sesuai kebijakan pemeliharaan proyek. File tersebut dapat berisi informasi keuangan. Batasi akses repository dan server hanya kepada pihak berwenang; jangan menaruh database, backup, atau file rahasia di repository publik. Aturan `.gitignore` mencegah file database baru terlacak, tetapi tidak otomatis menghapus file database yang sudah pernah di-commit.
+
 
 ---
 
