@@ -387,7 +387,8 @@ def _tab_item() -> None:
                     with st.form("form_edit_item"):
                         st.caption(f"Kode: **{baris['kode_item']}** (tidak bisa diubah)")
                         nama_b = st.text_input("Nama Item *", value=baris["nama_item"])
-                        sat_b = st.text_input("Satuan *", value=baris["satuan"])
+                        st.text_input("Satuan", value="kg", disabled=True)
+                        sat_b = "kg"
                         tipe_b = st.selectbox(
                             "Tipe",
                             svc.TIPE_ITEM,
