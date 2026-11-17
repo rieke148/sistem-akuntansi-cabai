@@ -14,7 +14,6 @@ KONSEP KARTU PERSEDIAAN:
 
 import streamlit as st
 import pandas as pd
-from database.connection import get_connection
 from services.inventory_service import (
     ambil_daftar_item_persediaan,
     ambil_kartu_persediaan,
