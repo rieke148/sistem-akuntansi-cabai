@@ -84,4 +84,3 @@ def tampilkan() -> None:
         st.rerun()
 
 
-tampilkan()
