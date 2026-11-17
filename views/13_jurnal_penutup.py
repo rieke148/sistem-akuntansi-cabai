@@ -312,4 +312,6 @@ def tampilkan() -> None:
                         st.error(str(e))
 
 
+from services.permission_service import wajib_punya_izin
+wajib_punya_izin("closing.manage")
 tampilkan()
