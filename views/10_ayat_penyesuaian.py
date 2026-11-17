@@ -24,7 +24,7 @@ from services.adjusting_service import (
 )
 from services.depreciation_service import hitung_semua_penyusutan
 from utils.formatting import format_rupiah, format_tanggal
-from utils.ui_components import selector_periode
+from utils.ui_components import selector_periode, render_page_header
 import services.period_service as ps
 
 
@@ -241,7 +241,7 @@ def _tab_akrual_upah(period_id: int, tanggal_penyesuaian: str, akun_ids: dict) -
 
 def tampilkan() -> None:
     """Fungsi utama halaman Ayat Penyesuaian."""
-    st.title("📝 Ayat Penyesuaian")
+    render_page_header("Ayat Penyesuaian", "Susun penyusutan aset dan akrual upah pada akhir periode.", eyebrow="laporan")
     st.caption(
         "Penyesuaian akhir periode: penyusutan aset tetap dan akrual upah. "
         "Setiap penyesuaian membuat jurnal otomatis yang bisa dilihat di Jurnal Umum."
