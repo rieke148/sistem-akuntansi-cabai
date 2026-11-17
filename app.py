@@ -267,7 +267,7 @@ halaman_role = {
     },
     "leadership": {
         "Beranda": [halaman_dashboard],
-        "Pemantauan": [halaman_jurnal_umum, halaman_jurnal_khusus, halaman_kartu_persediaan, halaman_buku_besar, halaman_bb_pembantu],
+        "Pemantauan": [halaman_jurnal_umum, halaman_jurnal_khusus, halaman_kartu_persediaan, halaman_buku_besar, halaman_bb_pembantu, halaman_penggajian],
         "Laporan": [halaman_neraca_saldo, halaman_neraca_lajur, halaman_laporan_keuangan],
     },
 }
