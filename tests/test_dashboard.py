@@ -228,9 +228,10 @@ def _isi_data_contoh(koneksi: sqlite3.Connection) -> int:
         (je_tempo_id, cust_id),
     )
 
-    # Item & inventory
+    # Item & inventory: dashboard hanya menampilkan barang dagang cabai aktif.
     koneksi.execute(
-        "INSERT INTO items (kode_item, nama_item, satuan, tipe, komoditas) VALUES ('PUP-01','Pupuk NPK','kg','bahan','cabai')"
+        """INSERT INTO items (kode_item, nama_item, satuan, tipe, komoditas, aktif)
+           VALUES ('CAB-001', 'Cabai Rawit Merah', 'kg', 'hasil_panen', 'cabai', 1)"""
     )
     item_id = koneksi.execute("SELECT last_insert_rowid()").fetchone()[0]
     koneksi.execute(
@@ -238,6 +239,19 @@ def _isi_data_contoh(koneksi: sqlite3.Connection) -> int:
            (item_id, tanggal, tipe_gerakan, qty, harga_satuan, total_nilai, saldo_qty, saldo_nilai, harga_rata2)
            VALUES (?, '2026-10-01', 'masuk', 100, 5000, 500000, 100, 500000, 5000)""",
         (item_id,),
+    )
+
+    # Arsip bahan produksi dari data lama tidak boleh muncul sebagai stok dagang.
+    koneksi.execute(
+        """INSERT INTO items (kode_item, nama_item, satuan, tipe, komoditas, aktif)
+           VALUES ('PUP-01', 'Pupuk NPK', 'kg', 'bahan', 'cabai', 0)"""
+    )
+    item_bahan_id = koneksi.execute("SELECT last_insert_rowid()").fetchone()[0]
+    koneksi.execute(
+        """INSERT INTO inventory_movements
+           (item_id, tanggal, tipe_gerakan, qty, harga_satuan, total_nilai, saldo_qty, saldo_nilai, harga_rata2)
+           VALUES (?, '2026-10-01', 'masuk', 20, 10000, 200000, 20, 200000, 10000)""",
+        (item_bahan_id,),
     )
 
     koneksi.commit()
