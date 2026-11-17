@@ -1584,7 +1584,7 @@ def tampilkan() -> None:
             _form_penjualan_tempo(period_id)
 
     elif kelompok == "Pembelian":
-        tab1, tab2 = st.tabs(["🛒 Beli Tunai", "🏷️ Beli Kredit"])
+        tab1, tab2 = st.tabs(["🛒 Barang Dagang Tunai", "🏷️ Barang Dagang Kredit"])
         with tab1:
             _form_pembelian_barang_dagang_tunai(period_id)
         with tab2:
