@@ -21,7 +21,7 @@ import pandas as pd
 import streamlit_antd_components as sac
 from database.connection import get_connection
 from services import transaction_service as ts
-from services.inventory_service import hitung_nilai_keluar
+from services.inventory_service import hitung_nilai_keluar, ambil_daftar_item_persediaan
 from utils.formatting import format_rupiah, format_tanggal
 from utils.ui_components import divider_dengan_judul, selector_periode
 from theme import WARNA_PRIMER, WARNA_SUKSES, WARNA_BAHAYA
@@ -64,18 +64,16 @@ def _ambil_suppliers():
 
 @st.cache_data(ttl=60)
 def _ambil_items():
-    """Ambil item barang dagang cabai hasil panen yang aktif."""
-    koneksi = get_connection()
-    rows = koneksi.execute(
-        """
-        SELECT id, nama_item AS nama, satuan, account_id
-        FROM items
-        WHERE tipe = 'hasil_panen' AND aktif = 1
-        ORDER BY nama_item
-        """
-    ).fetchall()
-    koneksi.close()
-    return [dict(r) for r in rows]
+    """Ambil item dari layanan persediaan agar seluruh transaksi memakai filter yang sama."""
+    return [
+        {
+            "id": item["id"],
+            "nama": item["nama_item"],
+            "satuan": item["satuan"],
+            "account_id": item["account_id"],
+        }
+        for item in ambil_daftar_item_persediaan()
+    ]
 
 @st.cache_data(ttl=60)
 def _ambil_blok_lahan():
