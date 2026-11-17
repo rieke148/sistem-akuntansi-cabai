@@ -330,7 +330,10 @@ def _tab_supplier() -> None:
 def _tab_item() -> None:
     """CRUD Item Persediaan."""
     divider_dengan_judul("Item Barang Dagang Cabai", "box-seam")
-    st.caption("Persediaan hanya digunakan untuk barang dagang cabai hasil panen yang siap dijual. Item bahan dari data lama tetap tersimpan sebagai arsip nonaktif.")
+    st.caption(
+        "Daftarkan setiap variasi cabai yang dijual sebagai item terpisah, misalnya Cabai Rawit Merah, "
+        "Cabai Ijo, atau Cabai Keriting. Item bahan produksi lama tetap tersimpan sebagai arsip nonaktif."
+    )
 
     df = svc.ambil_semua_item()
     df_tampil = df[["kode_item", "nama_item", "satuan", "tipe", "akun_persediaan", "aktif"]].copy()
@@ -340,25 +343,36 @@ def _tab_item() -> None:
 
     kol1, kol2 = st.columns(2)
     with kol1:
-        with st.expander("➕ Tambah Item"):
+        with st.expander("➕ Tambah Barang Dagang Cabai"):
+            st.info(
+                "Gunakan form ini untuk menambahkan jenis cabai baru. Contoh: "
+                "**CAB-002 — Cabai Ijo — kg**. Akun persediaan 1140 akan dipasang otomatis."
+            )
             with st.form("form_tambah_item", clear_on_submit=True):
-                kode = st.text_input("Kode Item *", placeholder="Contoh: HSL-002")
-                nama = st.text_input("Nama Item *")
-                satuan = st.text_input("Satuan *", placeholder="Contoh: kg")
-                tipe = st.selectbox(
-                    "Tipe",
-                    svc.TIPE_ITEM,
-                    format_func=lambda _: "Barang Dagang — Hasil Panen Cabai",
-                    help="Hanya hasil panen cabai yang siap dijual yang dicatat sebagai persediaan.",
+                kode = st.text_input("Kode Barang *", placeholder="Contoh: CAB-002")
+                nama = st.text_input("Nama Barang *", placeholder="Contoh: Cabai Ijo")
+                st.text_input("Satuan", value="kg", disabled=True)
+                st.caption(
+                    "Barang baru otomatis aktif dan akan tersedia pada pilihan pembelian, "
+                    "pencatatan panen, penjualan, kartu persediaan, dan dashboard."
                 )
-                st.caption("Akun otomatis: 1140 — Persediaan Barang Dagang.")
-                if st.form_submit_button("💾 Simpan", use_container_width=True):
+                st.caption(
+                    "Setelah didaftarkan, isi stok awalnya melalui Master Data → Saldo Awal → "
+                    "Saldo Awal Persediaan per Item, atau tambahkan stok lewat transaksi pembelian/panen."
+                )
+                if st.form_submit_button("💾 Simpan Barang Dagang", use_container_width=True):
                     try:
-                        svc.tambah_item(kode, nama, satuan, tipe, "cabai", None)
-                        st.success(f"Item '{nama}' berhasil ditambahkan!")
+                        item_id_baru = svc.tambah_item(
+                            kode, nama, "kg", svc.TIPE_ITEM[0], "cabai", None
+                        )
+                        st.cache_data.clear()
+                        st.success(
+                            f"Barang '{nama.strip()}' berhasil ditambahkan "
+                            f"(ID item: {item_id_baru})."
+                        )
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Gagal: {e}")
+                        st.error(f"Gagal menambahkan barang: {e}")
 
     with kol2:
         with st.expander("✏️ Edit Item"):
@@ -384,6 +398,7 @@ def _tab_item() -> None:
                         if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
                             try:
                                 svc.ubah_item(baris["id"], nama_b, sat_b, tipe_b, "cabai", None, aktif_b)
+                                st.cache_data.clear()
                                 st.success("Item berhasil diperbarui!")
                                 st.rerun()
                             except Exception as e:
@@ -430,6 +445,7 @@ def _tab_item() -> None:
             ):
                 try:
                     svc.hapus_item(item_hapus_id)
+                    st.cache_data.clear()
                     st.success(f"Item '{item_hapus['nama_item']}' berhasil dihapus.")
                     st.rerun()
                 except ValueError as e:
