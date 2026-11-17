@@ -13,6 +13,7 @@ KONSEP KARTU PERSEDIAAN:
 """
 
 import streamlit as st
+from utils.ui_components import render_page_header
 import pandas as pd
 from services.inventory_service import (
     ambil_daftar_item_persediaan,
@@ -129,7 +130,7 @@ def _tampilkan_grafik_saldo(df: pd.DataFrame, satuan: str) -> None:
 
 def tampilkan() -> None:
     """Fungsi utama halaman Kartu Persediaan."""
-    st.title("📦 Kartu Persediaan")
+    render_page_header("Kartu Persediaan", "Pantau pergerakan kuantitas, nilai, dan harga pokok rata-rata setiap item.", eyebrow="persediaan")
     st.caption(
         "Persediaan barang dagang cabai dicatat dengan sistem perpetual dan metode rata-rata bergerak. "
         "Saldo bertambah melalui pencatatan panen atau pembelian cabai dan berkurang saat penjualan."

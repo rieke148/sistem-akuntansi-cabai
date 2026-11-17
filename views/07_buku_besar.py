@@ -20,7 +20,7 @@ import pandas as pd
 from database.connection import get_connection
 from services.ledger_service import ambil_buku_besar, ambil_saldo_akun
 from utils.formatting import format_rupiah, format_tanggal
-from utils.ui_components import selector_periode
+from utils.ui_components import selector_periode, render_page_header
 
 
 @st.cache_data(ttl=30)
@@ -89,7 +89,7 @@ def _tampilkan_tabel_buku_besar(df: pd.DataFrame) -> None:
 
 def tampilkan() -> None:
     """Fungsi utama halaman Buku Besar."""
-    st.title("📖 Buku Besar")
+    render_page_header("Buku Besar", "Telusuri mutasi akun dan saldo berjalan per periode.", eyebrow="akuntansi")
     st.caption(
         "Posting transaksi dari jurnal ke buku besar per akun (saldo berjalan). "
         "Pilih akun dan periode untuk melihat detail."
