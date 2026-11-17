@@ -9,3 +9,5 @@ htmlcov
 .env
 .streamlit/secrets.toml
 *.py[cod]
+database/*.db
+database/*.db-*
