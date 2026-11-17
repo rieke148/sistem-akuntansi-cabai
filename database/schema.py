@@ -1100,7 +1100,8 @@ def buat_tabel_otorisasi() -> None:
                 is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                last_login_at TEXT
+                last_login_at TEXT,
+                session_version INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS audit_logs (
@@ -1127,6 +1128,15 @@ def buat_tabel_otorisasi() -> None:
             CREATE INDEX IF NOT EXISTS idx_users_role
                 ON users(role_id, is_active);
         """)
+        # Migrasi aman untuk instalasi yang sudah memiliki tabel users.
+        kolom_users = {
+            row["name"] for row in koneksi.execute("PRAGMA table_info(users)").fetchall()
+        }
+        if "session_version" not in kolom_users:
+            koneksi.execute(
+                "ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0"
+            )
+
         koneksi.commit()
     finally:
         koneksi.close()
