@@ -134,3 +134,19 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 - **Test Suite Pytest**: mencakup unit tests, validasi jurnal, persediaan perpetual dan HPP penjualan, period service tests, serta end-to-end accounting cycle test. Jalankan `pytest tests/ -v` untuk memeriksa seluruh tes sebelum merge.
 - **100% Python Murni**: Bebas dari tag HTML/CSS/JS mentah. Seluruh antarmuka menggunakan widget native Streamlit dan wrapper `streamlit-antd-components`.
 - **Kesiapan Streamlit Community Cloud**: Konfigurasi `.streamlit/config.toml`, dependency dipin di `requirements.txt`, penanganan database otomatis saat cold-start, dan file path berbasis `pathlib.Path` yang agnostik terhadap OS.
+
+
+---
+
+## 3. Alur Login, Session, dan Otorisasi
+
+1. Saat aplikasi dimulai, `app.py` memanggil `auth_service.inisialisasi_otorisasi()` untuk memastikan tabel pengguna, role, permission, dan audit tersedia.
+2. Jika belum ada pengguna, `views/login.py` menampilkan setup Admin pertama. Kunci setup diambil dari environment variable atau Streamlit Secrets (`BOOTSTRAP_SETUP_KEY`).
+3. Saat pengguna mengirim form login, `auth_service.autentikasi()` memeriksa username dan password. Password diverifikasi terhadap hash PBKDF2-HMAC-SHA256; password asli tidak dikembalikan ke tampilan.
+4. Percobaan gagal disimpan di `login_attempts`. Lima kegagalan mengunci username selama 15 menit. Perubahan hitungan dilakukan di transaksi SQLite agar permintaan login yang berdekatan tidak saling menimpa.
+5. Setelah kredensial benar, aplikasi menyimpan `auth_user_id`, `auth_session_version`, dan `auth_last_activity` ke `st.session_state`.
+6. Pada setiap rerun, `permission_service.pengguna_aktif()` memeriksa waktu aktivitas, status akun, dan `session_version` di database. Sesi yang tidak lengkap, kedaluwarsa, akun nonaktif, atau versi yang berbeda ditolak.
+7. `permission_service.punya_izin()` mengambil daftar permission sesuai role. `app.py` menyaring navigasi, sedangkan setiap halaman tetap memeriksa izin sebelum menampilkan tindakan.
+8. Logout dijalankan melalui `permission_service.keluar_pengguna()`. State sesi selalu dibersihkan meskipun penulisan audit log gagal.
+
+**Contoh masa sesi:** batas idle adalah 8 jam. Jika aktivitas terakhir pukul 08.00 dan pengguna tidak berinteraksi sampai pukul 16.01, sesi berakhir dan pengguna harus login kembali.
