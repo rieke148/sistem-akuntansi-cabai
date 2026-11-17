@@ -413,7 +413,7 @@ def hapus_jurnal(entry_id: int) -> None:
     koneksi = get_connection()
     try:
         row = koneksi.execute("""
-            SELECT p.status, je.no_bukti
+            SELECT p.status, je.no_bukti, je.journal_type, je.keterangan
             FROM journal_entries je
             JOIN periods p ON je.period_id = p.id
             WHERE je.id = ?
@@ -438,19 +438,26 @@ def hapus_jurnal(entry_id: int) -> None:
             koneksi.execute("DELETE FROM inventory_movements WHERE journal_entry_id = ?", (entry_id,))
 
         # Batalkan pembayaran piutang yang memang memiliki relasi eksplisit.
+        ada_relasi_pembayaran = False
         if _tabel_ada(koneksi, "receivable_payments"):
             pembayaran = koneksi.execute("""
                 SELECT receivable_id, jumlah_bayar
                 FROM receivable_payments
                 WHERE journal_entry_id = ?
             """, (entry_id,)).fetchall()
+            ada_relasi_pembayaran = bool(pembayaran)
             for bayar in pembayaran:
                 piutang = koneksi.execute(
                     "SELECT jumlah, jumlah_terbayar FROM receivables WHERE id = ?",
                     (bayar["receivable_id"],),
                 ).fetchone()
                 if piutang:
-                    terbayar = max(0, int(piutang["jumlah_terbayar"]) - int(bayar["jumlah_bayar"]))
+                    if int(piutang["jumlah_terbayar"]) < int(bayar["jumlah_bayar"]):
+                        raise ValueError(
+                            "Data pembayaran piutang tidak konsisten. "
+                            "Penghapusan jurnal dibatalkan agar saldo piutang tidak salah."
+                        )
+                    terbayar = int(piutang["jumlah_terbayar"]) - int(bayar["jumlah_bayar"])
                     status = (
                         "lunas" if terbayar >= int(piutang["jumlah"])
                         else "sebagian" if terbayar > 0
@@ -460,6 +467,20 @@ def hapus_jurnal(entry_id: int) -> None:
                         "UPDATE receivables SET jumlah_terbayar = ?, status = ? WHERE id = ?",
                         (terbayar, status, bayar["receivable_id"]),
                     )
+
+        # Jurnal penerimaan piutang dari versi lama belum memiliki relasi.
+        # Jangan menghapusnya diam-diam karena saldo faktur tidak bisa dipulihkan
+        # secara aman tanpa mengetahui faktur yang benar.
+        if (
+            row["journal_type"] == "penerimaan_kas"
+            and str(row["keterangan"] or "").startswith("Pelunasan piutang ")
+            and not ada_relasi_pembayaran
+        ):
+            raise ValueError(
+                "Jurnal penerimaan piutang ini berasal dari versi lama dan belum "
+                "memiliki relasi faktur. Penghapusan otomatis tidak aman; "
+                "periksa dan koreksi saldo piutang secara manual terlebih dahulu."
+            )
 
         if _tabel_ada(koneksi, "receivables"):
             row_rec = koneksi.execute(
