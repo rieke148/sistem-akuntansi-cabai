@@ -283,6 +283,24 @@ def buat_admin_pertama(
     finally:
         koneksi.close()
 
+def _pastikan_admin_aktif(actor_user_id: int) -> None:
+    """Validasi Admin / Owner di lapisan service, bukan hanya di tampilan."""
+    koneksi = get_connection()
+    try:
+        row = koneksi.execute(
+            """SELECT r.role_code, u.is_active
+               FROM users u JOIN roles r ON r.id = u.role_id
+               WHERE u.id = ?""",
+            (actor_user_id,),
+        ).fetchone()
+        if not row or not row["is_active"] or row["role_code"] != "admin_owner":
+            raise PermissionError(
+                "Hanya Admin / Owner aktif yang boleh mengelola akun pengguna."
+            )
+    finally:
+        koneksi.close()
+
+
 def buat_pengguna(
     username: str,
     full_name: str,
@@ -291,6 +309,7 @@ def buat_pengguna(
     actor_user_id: int,
 ) -> int:
     """Membuat akun pengguna oleh administrator yang sudah login."""
+    _pastikan_admin_aktif(actor_user_id)
     return _buat_pengguna(
         username, full_name, password, role_code,
         actor_user_id=actor_user_id, action="user_created",
@@ -486,6 +505,7 @@ def daftar_pengguna() -> list[dict]:
 
 
 def ubah_role_pengguna(user_id: int, role_code: str, actor_user_id: int) -> None:
+    _pastikan_admin_aktif(actor_user_id)
     if role_code not in ROLES:
         raise ValueError("Role pengguna tidak dikenal.")
     koneksi = get_connection()
@@ -526,6 +546,7 @@ def ubah_role_pengguna(user_id: int, role_code: str, actor_user_id: int) -> None
 def ubah_status_pengguna(
     user_id: int, is_active: bool, actor_user_id: int
 ) -> None:
+    _pastikan_admin_aktif(actor_user_id)
     if user_id == actor_user_id and not is_active:
         raise ValueError("Anda tidak dapat menonaktifkan akun yang sedang digunakan.")
     koneksi = get_connection()
@@ -564,6 +585,7 @@ def ubah_status_pengguna(
 def reset_password_pengguna(
     user_id: int, new_password: str, actor_user_id: int
 ) -> None:
+    _pastikan_admin_aktif(actor_user_id)
     validasi_password(new_password)
     password_hash = buat_hash_password(new_password)
     koneksi = get_connection()
