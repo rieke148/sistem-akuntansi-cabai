@@ -1059,3 +1059,74 @@ migrasikan_coa_cabai_baru = migrasikan_coa_baru
 if __name__ == "__main__":
     # Jalankan langsung untuk membuat tabel: python -m database.schema
     buat_semua_tabel()
+
+
+# ================================================================
+# 16. TABEL AUTENTIKASI DAN OTORISASI PENGGUNA
+# ================================================================
+def buat_tabel_otorisasi() -> None:
+    """Membuat tabel autentikasi, role, permission, dan audit log."""
+    koneksi = get_connection()
+    try:
+        koneksi.executescript("""
+            CREATE TABLE IF NOT EXISTS roles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                role_code TEXT NOT NULL UNIQUE,
+                role_name TEXT NOT NULL,
+                description TEXT,
+                is_system INTEGER NOT NULL DEFAULT 1 CHECK (is_system IN (0, 1))
+            );
+
+            CREATE TABLE IF NOT EXISTS permissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                permission_code TEXT NOT NULL UNIQUE,
+                permission_name TEXT NOT NULL,
+                module TEXT NOT NULL,
+                description TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS role_permissions (
+                role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+                permission_id INTEGER NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+                PRIMARY KEY (role_id, permission_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                full_name TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                role_id INTEGER NOT NULL REFERENCES roles(id),
+                is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_login_at TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                action TEXT NOT NULL,
+                entity_type TEXT,
+                entity_id TEXT,
+                details TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS login_attempts (
+                username_key TEXT PRIMARY KEY,
+                failed_attempts INTEGER NOT NULL DEFAULT 0,
+                locked_until TEXT,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_audit_logs_user_date
+                ON audit_logs(user_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_audit_logs_date
+                ON audit_logs(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_users_role
+                ON users(role_id, is_active);
+        """)
+        koneksi.commit()
+    finally:
+        koneksi.close()
