@@ -32,7 +32,7 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
    - Pemilih periode fleksibel terpadu di bagian atas dashboard.
 
 2. **Master Data Terpadu (10 Tab)**:
-   - Bagan Akun (Chart of Accounts 6 Digit), Pelanggan, Supplier, Item Persediaan, Pekerja, Aset Tetap, Blok Lahan, Saldo Awal, Periode Akuntansi, dan Parameter Operasional.
+   - Bagan Akun (Chart of Accounts 4 Digit, 28 akun detail sesuai CSV), Pelanggan, Supplier, Item Persediaan, Pekerja, Aset Tetap, Blok Lahan, Saldo Awal, Periode Akuntansi, dan Parameter Operasional.
 
 3. **Input Transaksi & Mesin Jurnal Otomatis**:
    - 10 Formulir transaksi spesifik (Penjualan Tunai/Tempo, Pembelian Tunai/Kredit, Pelunasan Piutang, Setoran Modal, Pemakaian Bahan, Catat Panen, Biaya Operasional, dan Beli Aset).
@@ -48,9 +48,9 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
    - Kartu persediaan tersedia terpisah pada menu Kartu Persediaan; data aset tetap tetap dikelola pada Master Data dan penyusutannya pada Ayat Penyesuaian.
 
 6. **Kartu Persediaan Perpetual — Moving Average**:
-   - Enam jenis bahan produksi memakai satu akun GL: **1301 — Persediaan Bahan Produksi**. Persediaan hasil panen memakai akun tersendiri: **1307 — Persediaan Cabai**. Kartu stok tetap terpisah per item agar satuan dan harga pokok masing-masing tidak tercampur.
+   - Seluruh item bahan produksi dan hasil panen memakai satu akun GL: **1140 — Persediaan**. Kartu stok tetap terpisah per item agar satuan, kuantitas, dan harga pokok masing-masing tidak tercampur.
    - Pembelian, pemakaian bahan, panen, dan penjualan langsung memperbarui kuantitas serta nilai persediaan.
-   - Penjualan tunai dan tempo otomatis membentuk jurnal HPP Penjualan Cabai (Dr 5108) / Persediaan Cabai (Cr akun persediaan item).
+   - Penjualan tunai dan tempo otomatis membentuk jurnal Harga Pokok Penjualan (Dr 5110) / Persediaan (Cr 1140).
    - HPP dihitung dengan rata-rata bergerak. Penjualan yang melebihi stok yang tersedia ditolak.
    - Saldo awal dimasukkan per item (kuantitas fisik × harga pokok per satuan) melalui Master Data → Saldo Awal Persediaan.
 
@@ -64,13 +64,13 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
    - Kertas kerja lengkap 10 kolom menghubungkan Neraca Saldo, Penyesuaian, NSD, Laba Rugi, dan Neraca dengan verifikasi keseimbangan otomatis.
 
 10. **Laporan Keuangan Standar**:
-    - Laporan Laba Rugi (Pendapatan - Beban Produksi & Operasional = Laba Bersih).
+    - Laporan Laba Rugi (Penjualan Cabai - HPP - Beban Operasional - Beban Lain-lain = Laba Bersih).
     - Laporan Perubahan Ekuitas (Modal Awal + Tambahan Modal + Laba Bersih = Modal Akhir).
     - Neraca Bentuk Laporan (Validasi: Total Aset == Total Liabilitas + Total Ekuitas).
     - Laporan Arus Kas Metode Langsung (Operasi, Investasi, Pendanaan).
 
 11. **Jurnal Penutup & Neraca Penutup**:
-    - Penutupan akun nominal ke Ikhtisar L/R dan Laba Ditahan, serta penguncian periode akuntansi.
+    - Penutupan akun nominal ke Ikhtisar L/R (3130) dan Laba (3120), serta penguncian periode akuntansi.
 
 12. **Ekspor Multi-Format & Cadangan Data**:
     - Ekspor paket laporan keuangan ke Excel (.xlsx) multi-sheet dan dokumen PDF (.pdf) berformat formal.

@@ -139,7 +139,7 @@ def tampilkan() -> None:
     st.title("🔒 Jurnal Penutup")
     st.caption(
         "Jurnal penutup menutup akun sementara (Pendapatan dan Beban) dan "
-        "memindahkan laba/rugi ke Laba Ditahan. Setelah periode ditutup, "
+        "memindahkan laba/rugi ke Laba. Setelah periode ditutup, "
         "data tidak bisa diubah lagi."
     )
 

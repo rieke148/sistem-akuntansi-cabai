@@ -54,7 +54,7 @@
         ▼
 [Jurnal Penutup & Tutup Periode]   (services/closing_service.py)
   • Tutup Pendapatan & Beban ke Ikhtisar L/R
-  • Tutup Ikhtisar L/R ke Laba Ditahan
+  • Tutup Ikhtisar L/R ke Laba (3120)
   • Neraca Saldo Setelah Penutup (Akun Riil Tersisa, Periode 'tutup')
         │
         ▼
@@ -75,7 +75,7 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 
 ### Fase 0 — Fondasi & Arsitektur
 - **Database SQLite**: Skema 11 tabel relasional dibuat di `database/schema.py` dengan foreign keys aktif.
-- **Bagan Akun (COA)**: Standar 6 digit berkategori Aset (1), Liabilitas (2), Ekuitas (3), Pendapatan (4), Beban Produksi (5), Beban Operasional (6).
+- **Bagan Akun (COA)**: Mengikuti `coa_cabai_baru.csv` dengan 28 akun detail berkode 4 digit dalam kelompok Aset (1xxx), Liabilitas (2xxx), Ekuitas (3xxx), Pendapatan (4xxx), HPP (5xxx), Beban Operasional (6xxx), dan Beban Lainnya (7xxx). Kode kelompok 1000–7000 hanya judul, bukan akun jurnal.
 - **Tema & UI**: Tema terpusat di `.streamlit/config.toml` (warna hijau alami `#2E7D32`) dan komponen `streamlit-antd-components` dibungkus rapi di `utils/ui_components.py`.
 
 ### Fase 1 — Master Data
@@ -101,15 +101,15 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 - **Jurnal Khusus** (`views/05_jurnal_khusus.py`): 4 tab format kolom akuntansi:
   - *Sales Journal*: Piutang Usaha (D) / Penjualan (K), serta HPP Penjualan (D) / Persediaan Cabai (K).
   - *Purchase Journal*: Persediaan (D) / Utang Usaha (K)
-  - *Cash Receipt Journal*: Kas (D), Piutang (K), Penjualan (K), Lain-lain (K), dengan kolom tambahan HPP (D) / Persediaan Cabai (K) yang tidak dihitung sebagai sumber kas.
+  - *Cash Receipt Journal*: Kas (D), Piutang (K), Penjualan (K), Lain-lain (K), dengan kolom tambahan HPP (D) / Persediaan (K) yang tidak dihitung sebagai sumber kas.
   - *Cash Payment Journal*: Kas (K), Persediaan (D), Beban Upah (D), Beban Lain (D)
 
 ### Fase 4 — Buku Besar, BB Pembantu & Kartu Persediaan
 - **Buku Besar**: Menampilkan saldo berjalan per akun dengan saldo awal dan mutasi debit/kredit.
 - **BB Pembantu**: Rincian piutang usaha per pelanggan (dilengkapi analisis umur piutang / aging) dan utang usaha per supplier/transaksi. Kartu persediaan ditampilkan terpisah pada menu Kartu Persediaan; aset tetap dikelola melalui Master Data dan Ayat Penyesuaian.
-- **Kartu Persediaan**: Sistem perpetual dengan metode rata-rata bergerak (*moving average*). Pembelian, saldo awal, pemakaian bahan, panen, dan penjualan langsung memperbarui saldo kuantitas serta nilai. Enam jenis bahan menggunakan satu akun buku besar **1301 — Persediaan Bahan Produksi**, sedangkan hasil panen menggunakan **1307 — Persediaan Cabai**. Kartu stok tetap terpisah per item.
+- **Kartu Persediaan**: Sistem perpetual dengan metode rata-rata bergerak (*moving average*). Pembelian, saldo awal, pemakaian bahan, panen, dan penjualan langsung memperbarui saldo kuantitas serta nilai. Seluruh item bahan produksi dan hasil panen menggunakan satu akun buku besar **1140 — Persediaan**. Kartu stok tetap terpisah per item.
 - **Saldo Awal Persediaan**: Kuantitas fisik dan harga pokok dimasukkan per item. Sistem mencatat mutasi `saldo_awal` dan menjumlahkan nilai item dengan akun yang sama untuk menyelaraskan saldo akun pada `opening_balances`.
-- **Penjualan Cabai**: Setiap penjualan memeriksa ketersediaan stok dan membentuk dua pasangan jurnal: Kas/Piutang terhadap Penjualan, serta HPP Penjualan terhadap Persediaan Cabai.
+- **Penjualan Cabai**: Setiap penjualan memeriksa ketersediaan stok dan membentuk dua pasangan jurnal: Kas/Piutang terhadap Penjualan, serta HPP Penjualan (5110) terhadap Persediaan (1140).
 - **Validasi**: Penjualan atau pemakaian yang melebihi stok ditolak. Mutasi per item harus dicatat kronologis agar rata-rata bergerak akurat.
 
 ### Fase 5 — Neraca Saldo, Penggajian & Penyesuaian
@@ -120,11 +120,11 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 ### Fase 6 — Neraca Lajur, Laporan Keuangan & Penutupan
 - **Neraca Lajur 10 Kolom**: 5 pasang kolom terverifikasi seimbang (Neraca Saldo, Penyesuaian, NSD, Laba Rugi, dan Neraca).
 - **Laporan Keuangan**:
-  - *Laba Rugi*: Pendapatan - (Beban Produksi + Beban Operasional) = Laba Bersih
+  - *Laba Rugi*: Penjualan Cabai - HPP (5110) - Beban Operasional (6110–6170) - Beban Lain-lain (7110) = Laba Bersih
   - *Perubahan Ekuitas*: Modal Awal + Setoran Tambahan + Laba Bersih = Modal Akhir
   - *Neraca*: Total Aset == Total Liabilitas + Total Ekuitas
   - *Arus Kas*: Metode langsung (Aktivitas Operasi, Investasi, dan Pendanaan)
-- **Jurnal Penutup**: Menutup akun nominal (4, 5, 6) ke Ikhtisar L/R, memindahkan laba ke Laba Ditahan, dan mengunci periode ke status `tutup`.
+- **Jurnal Penutup**: Menutup akun nominal 4xxx–7xxx ke Ikhtisar L/R (3130), memindahkan hasilnya ke Laba (3120), dan mengunci periode ke status `tutup`.
 
 ### Fase 7 — Dashboard, Ekspor Dokumen & Cadangan
 - **Dashboard Eksekutif**: Metrik kas, piutang jatuh tempo, grafik penjualan cabai, grafik Penjualan vs Beban, dan tabel status stok.
