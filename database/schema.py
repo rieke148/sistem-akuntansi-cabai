@@ -154,7 +154,8 @@ def buat_semua_tabel() -> None:
     # ---------------------------------------------------------------
     # 7. TABEL ITEM PERSEDIAAN
     # ---------------------------------------------------------------
-    # Item bisa berupa bahan (input produksi) atau hasil panen (output).
+    # `hasil_panen` adalah tipe persediaan aktif. Nilai `bahan` dipertahankan
+    # pada CHECK hanya untuk membaca data historis dari database versi lama.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS items (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -717,6 +718,28 @@ def migrasikan_akun_persediaan_bahan_produksi() -> None:
         raise
     finally:
         koneksi.execute("PRAGMA foreign_keys = ON")
+        koneksi.close()
+
+
+def migrasikan_persediaan_barang_dagang_saja() -> None:
+    """
+    Menonaktifkan item bahan produksi pada database versi lama.
+
+    Item dan seluruh jurnal/mutasi historis tetap disimpan untuk kebutuhan audit.
+    Sejak versi ini, persediaan aktif hanya berisi barang dagang cabai (hasil panen).
+    Fungsi aman dipanggil berulang.
+    """
+    koneksi = get_connection()
+    try:
+        koneksi.execute("BEGIN IMMEDIATE")
+        koneksi.execute(
+            "UPDATE items SET aktif = 0 WHERE tipe = 'bahan' AND aktif <> 0"
+        )
+        koneksi.commit()
+    except Exception:
+        koneksi.rollback()
+        raise
+    finally:
         koneksi.close()
 
 
