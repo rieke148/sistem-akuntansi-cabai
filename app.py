@@ -46,37 +46,6 @@ st.set_page_config(
 
 
 # ---------------------------------------------------------------
-# PENYEMPURNAAN TAMPILAN SIDEBAR
-# ---------------------------------------------------------------
-# Ikon hanya digunakan pada judul grup navigasi.
-# Halaman di dalam grup tetap menjorok ke kanan mengikuti struktur
-# navigasi bawaan Streamlit.
-st.markdown(
-    """
-    <style>
-    [data-testid="stSidebarNav"] a {
-        border-radius: 0.55rem;
-        padding-top: 0.42rem;
-        padding-bottom: 0.42rem;
-        transition: background-color 0.15s ease, color 0.15s ease;
-    }
-
-    [data-testid="stSidebarNav"] a:hover {
-        background-color: rgba(46, 125, 50, 0.08);
-    }
-
-    [data-testid="stSidebarNav"] a[aria-current="page"] {
-        background-color: rgba(46, 125, 50, 0.12);
-        color: #1B5E20;
-        font-weight: 600;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-# ---------------------------------------------------------------
 # INISIALISASI DATABASE (sekali saat startup)
 # ---------------------------------------------------------------
 @st.cache_resource  # cache_resource agar hanya jalan sekali per sesi
@@ -233,10 +202,12 @@ if not user_aktif:
     st.stop()
 
 with st.sidebar:
+    st.markdown(f"### 🌶️ {NAMA_APLIKASI}")
+    st.caption("ENTERPRISE ACCOUNTING WORKSPACE")
     st.divider()
-    st.caption("Pengguna aktif")
+    st.caption("PENGGUNA AKTIF")
     st.markdown(f"**{user_aktif['full_name']}**")
-    st.caption(user_aktif["role_name"])
+    st.caption(f"Peran · {user_aktif['role_name']}")
     if st.button("Keluar", use_container_width=True, key="auth_logout"):
         audit_berhasil = keluar_pengguna(int(user_aktif["id"]))
         if not audit_berhasil:
@@ -249,34 +220,34 @@ with st.sidebar:
 # Permission dari database menjadi sumber keputusan navigasi.
 # Setiap halaman tetap memiliki pemeriksaan izin internal sebagai lapisan kedua.
 grup_halaman = {
-    "Beranda": [
+    "BERANDA": [
         ("dashboard.view", halaman_dashboard),
     ],
-    "Setup": [
+    "MASTER DATA": [
         ("master_data.view", halaman_master_data),
     ],
-    "Input": [
+    "OPERASIONAL": [
         ("transactions.view", halaman_transaksi),
         ("payroll.manage", halaman_penggajian),
         ("payroll.summary.view", halaman_penggajian),
     ],
-    "Jurnal": [
+    "JURNAL": [
         ("journals.view", halaman_jurnal_umum),
         ("journals.view", halaman_jurnal_khusus),
     ],
-    "Buku Besar": [
+    "BUKU BESAR": [
         ("inventory.view", halaman_kartu_persediaan),
         ("ledger.view", halaman_buku_besar),
         ("ledger.view", halaman_bb_pembantu),
     ],
-    "Laporan": [
+    "LAPORAN": [
         ("reports.view", halaman_neraca_saldo),
         ("reports.manage", halaman_penyesuaian),
         ("reports.view", halaman_neraca_lajur),
         ("reports.view", halaman_laporan_keuangan),
         ("closing.manage", halaman_jurnal_penutup),
     ],
-    "Utilitas": [
+    "ADMINISTRASI": [
         ("backup.access", halaman_backup),
         ("users.manage", halaman_manajemen_pengguna),
     ],
