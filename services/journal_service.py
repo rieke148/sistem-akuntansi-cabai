@@ -314,13 +314,51 @@ def _perbarui_jurnal_nilai_keluar(
     )
 
 
+def _perbarui_saldo_awal_akun(
+    koneksi: sqlite3.Connection,
+    account_id: int | None,
+    tanggal: str,
+) -> None:
+    """Selaraskan saldo awal akun persediaan dengan snapshot seluruh item pada tanggal tersebut."""
+    if account_id is None or not _tabel_ada(koneksi, "opening_balances"):
+        return
+
+    periode = koneksi.execute("""
+        SELECT id FROM periods
+        WHERE tahun = CAST(substr(?, 1, 4) AS INTEGER)
+          AND bulan = CAST(substr(?, 6, 2) AS INTEGER)
+    """, (tanggal, tanggal)).fetchone()
+    if not periode:
+        return
+
+    total_akun = koneksi.execute("""
+        SELECT COALESCE(SUM(im.total_nilai), 0) AS total
+        FROM inventory_movements im
+        JOIN items i ON i.id = im.item_id
+        WHERE i.account_id = ?
+          AND im.tipe_gerakan = 'saldo_awal'
+          AND im.tanggal = ?
+    """, (account_id, tanggal)).fetchone()["total"]
+
+    koneksi.execute("""
+        INSERT INTO opening_balances
+            (period_id, account_id, saldo_debit, saldo_kredit, catatan)
+        VALUES (?, ?, ?, 0, 'Otomatis dari rekalkulasi snapshot kartu persediaan')
+        ON CONFLICT(period_id, account_id) DO UPDATE SET
+            saldo_debit = excluded.saldo_debit,
+            saldo_kredit = 0,
+            catatan = excluded.catatan
+    """, (periode["id"], account_id, int(total_akun)))
+
+
 def _rekalkulasi_kartu_persediaan(koneksi: sqlite3.Connection, item_id: int) -> None:
     """
     Hitung ulang saldo kartu stok secara kronologis dan perbarui jurnal biaya
     untuk setiap gerakan keluar yang nilai HPP-nya berubah.
 
-    Jika suatu transaksi menyebabkan stok negatif, proses dibatalkan agar
-    penghapusan jurnal tidak meninggalkan kartu stok maupun buku besar yang salah.
+    Snapshot saldo awal periode berikutnya tidak dijumlahkan sebagai pembelian
+    baru. Snapshot tersebut diperbarui mengikuti saldo hasil perhitungan riwayat.
+    Jika stok menjadi negatif, seluruh penghapusan dibatalkan.
     """
     if not _tabel_ada(koneksi, "inventory_movements"):
         return
@@ -342,6 +380,7 @@ def _rekalkulasi_kartu_persediaan(koneksi: sqlite3.Connection, item_id: int) -> 
     saldo_qty = 0.0
     saldo_nilai = 0
     harga_rata2 = 0
+    ada_mutasi_sebelumnya = False
 
     for r in rows:
         m_id = r["id"]
@@ -349,8 +388,31 @@ def _rekalkulasi_kartu_persediaan(koneksi: sqlite3.Connection, item_id: int) -> 
         qty = float(r["qty"])
         harga_satuan = int(r["harga_satuan"])
 
-        if tipe in ("saldo_awal", "masuk"):
-            total_nilai = int(qty * harga_satuan) if tipe == "masuk" else int(r["total_nilai"])
+        if tipe == "saldo_awal":
+            if not ada_mutasi_sebelumnya:
+                # Snapshot pertama adalah saldo pembuka sebenarnya.
+                total_nilai = int(r["total_nilai"])
+                saldo_qty += qty
+                saldo_nilai += total_nilai
+            else:
+                # Snapshot periode berikutnya hanya checkpoint, bukan mutasi masuk.
+                qty = saldo_qty
+                total_nilai = saldo_nilai
+                harga_satuan = harga_rata2
+
+            harga_rata2 = int(saldo_nilai / saldo_qty) if saldo_qty > 0 else 0
+            koneksi.execute("""
+                UPDATE inventory_movements
+                SET qty = ?, harga_satuan = ?, total_nilai = ?,
+                    saldo_qty = ?, saldo_nilai = ?, harga_rata2 = ?
+                WHERE id = ?
+            """, (qty, harga_satuan, total_nilai, saldo_qty, saldo_nilai, harga_rata2, m_id))
+            _perbarui_saldo_awal_akun(koneksi, account_id_persediaan, r["tanggal"])
+            ada_mutasi_sebelumnya = True
+            continue
+
+        if tipe == "masuk":
+            total_nilai = int(qty * harga_satuan)
             saldo_qty += qty
             saldo_nilai += total_nilai
             harga_rata2 = int(saldo_nilai / saldo_qty) if saldo_qty > 0 else 0
@@ -359,6 +421,7 @@ def _rekalkulasi_kartu_persediaan(koneksi: sqlite3.Connection, item_id: int) -> 
                 SET total_nilai = ?, saldo_qty = ?, saldo_nilai = ?, harga_rata2 = ?
                 WHERE id = ?
             """, (total_nilai, saldo_qty, saldo_nilai, harga_rata2, m_id))
+            ada_mutasi_sebelumnya = True
 
         elif tipe == "keluar":
             if qty - saldo_qty > 1e-9:
@@ -402,6 +465,7 @@ def _rekalkulasi_kartu_persediaan(koneksi: sqlite3.Connection, item_id: int) -> 
                     nilai_lama,
                     total_nilai,
                 )
+            ada_mutasi_sebelumnya = True
 
 
 def hapus_jurnal(entry_id: int) -> None:
