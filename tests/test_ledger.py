@@ -10,13 +10,11 @@ Mencakup pengujian:
 1. ambil_buku_besar() — saldo berjalan benar untuk akun Debit & Kredit
 2. ambil_saldo_akun() — total saldo akhir akun
 3. ambil_semua_saldo_akun() — dict semua akun
-4. ambil_bb_piutang() — kolom dan data piutang
-5. ambil_bb_aset_tetap() — nilai buku aset tetap
+4. ambil_bb_piutang() — rincian piutang per faktur/pelanggan
+5. ambil_bb_utang() — ringkasan utang usaha per supplier
 """
 
 import sqlite3
-import pytest
-import pandas as pd
 from unittest.mock import patch
 
 # ============================================================
@@ -26,8 +24,7 @@ from unittest.mock import patch
 def _buat_db_uji() -> sqlite3.Connection:
     """
     Membuat database SQLite in-memory dengan skema minimal untuk testing.
-    Berisi: accounts, periods, opening_balances, journal_entries, journal_lines,
-            receivables, customers, fixed_assets, inventory_movements, items.
+    Berisi tabel yang diperlukan untuk buku besar umum, piutang, dan utang.
     """
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
@@ -114,53 +111,6 @@ def _buat_db_uji() -> sqlite3.Connection:
         )
     """)
 
-    # Aset tetap
-    cur.execute("""
-        CREATE TABLE fixed_assets (
-            id INTEGER PRIMARY KEY,
-            kode_aset TEXT,
-            nama_aset TEXT,
-            kategori_aset TEXT,
-            tanggal_perolehan TEXT,
-            harga_perolehan INTEGER,
-            nilai_residu INTEGER DEFAULT 0,
-            umur_ekonomis_tahun INTEGER DEFAULT 0,
-            jumlah_unit INTEGER DEFAULT 1,
-            is_disusutkan INTEGER DEFAULT 1,
-            aktif INTEGER DEFAULT 1,
-            account_id INTEGER,
-            account_akum_id INTEGER
-        )
-    """)
-
-    # Items
-    cur.execute("""
-        CREATE TABLE items (
-            id INTEGER PRIMARY KEY,
-            kode_item TEXT,
-            nama_item TEXT,
-            satuan TEXT,
-            tipe TEXT
-        )
-    """)
-
-    # Inventory movements
-    cur.execute("""
-        CREATE TABLE inventory_movements (
-            id INTEGER PRIMARY KEY,
-            item_id INTEGER,
-            journal_entry_id INTEGER,
-            tanggal TEXT,
-            tipe_gerakan TEXT,
-            qty REAL,
-            harga_satuan INTEGER,
-            total_nilai INTEGER,
-            saldo_qty REAL,
-            saldo_nilai INTEGER,
-            harga_rata2 INTEGER,
-            keterangan TEXT
-        )
-    """)
 
     conn.commit()
     return conn
@@ -171,9 +121,9 @@ def _isi_data_dasar(conn: sqlite3.Connection) -> None:
     cur = conn.cursor()
 
     # Akun: 1 Debit (Kas), 1 Kredit (Penjualan)
-    cur.execute("INSERT INTO accounts VALUES (1, '1101', 'Kas', 'Debit', 0)")
-    cur.execute("INSERT INTO accounts VALUES (2, '4101', 'Penjualan', 'Kredit', 0)")
-    cur.execute("INSERT INTO accounts VALUES (3, '1201', 'Piutang Usaha', 'Debit', 0)")
+    cur.execute("INSERT INTO accounts VALUES (1, '1110', 'Kas', 'Debit', 0)")
+    cur.execute("INSERT INTO accounts VALUES (2, '4110', 'Penjualan', 'Kredit', 0)")
+    cur.execute("INSERT INTO accounts VALUES (3, '1120', 'Piutang Usaha', 'Debit', 0)")
 
     # Periode
     cur.execute("INSERT INTO periods VALUES (1, 2026, 10, 'Oktober', 'buka')")
@@ -425,9 +375,9 @@ class TestAmbilSemuaSaldoAkun:
         """)
 
         # Isi data dasar
-        cur.execute("INSERT INTO accounts VALUES (1, '1101', 'Kas', 'Debit', 0)")
-        cur.execute("INSERT INTO accounts VALUES (2, '4101', 'Penjualan', 'Kredit', 0)")
-        cur.execute("INSERT INTO accounts VALUES (3, '1201', 'Piutang Usaha', 'Debit', 0)")
+        cur.execute("INSERT INTO accounts VALUES (1, '1110', 'Kas', 'Debit', 0)")
+        cur.execute("INSERT INTO accounts VALUES (2, '4110', 'Penjualan', 'Kredit', 0)")
+        cur.execute("INSERT INTO accounts VALUES (3, '1120', 'Piutang Usaha', 'Debit', 0)")
         cur.execute("INSERT INTO periods VALUES (1, 2026, 10, 'Oktober', 'buka')")
         cur.execute("INSERT INTO opening_balances VALUES (1, 1, 1, 500000000, 0, 'Saldo awal kas')")
         cur.execute("INSERT INTO opening_balances VALUES (2, 1, 2, 0, 0, '')")
@@ -590,191 +540,68 @@ class TestAmbilBbPiutang:
 
 
 # ============================================================
-# TEST: subsidiary_service.ambil_bb_aset_tetap()
+# TEST: subsidiary_service.ambil_bb_utang()
 # ============================================================
 
-class TestAmbilBbAsetTetap:
-    """Test untuk fungsi ambil_bb_aset_tetap()."""
+class TestAmbilBbUtang:
+    """Test untuk fungsi ambil_bb_utang()."""
 
-    def _buat_data_aset(self, conn: sqlite3.Connection) -> None:
-        """Tambah data aset tetap untuk testing."""
+    def test_ringkasan_utang_dikelompokkan_per_supplier(self):
+        """Kredit ke akun 2101 dijumlahkan untuk setiap supplier."""
+        from services.subsidiary_service import ambil_bb_utang
+
+        conn = _buat_db_uji()
         cur = conn.cursor()
-        # Tanah (tidak disusutkan)
+        cur.execute(
+            "INSERT INTO accounts VALUES (4, '2110', 'Utang Usaha', 'Kredit', 0)"
+        )
         cur.execute("""
-            INSERT INTO fixed_assets VALUES
-            (1, 'AT-001', 'Tanah', 'Tanah', '2020-01-01',
-             2500000000, 0, 0, 1, 0, 1, NULL, NULL)
+            INSERT INTO journal_entries VALUES
+            (3, 1, '2026-10-15', 'PB-001', 'Pembelian kredit', 'pembelian', 'PT. Pupuk Sejahtera')
         """)
-        # Bangunan (disusutkan)
-        # Rp120jt, residu Rp12jt, umur 20 tahun
-        # Penyusutan per bulan = (120jt - 12jt) / (20 x 12) = 108jt/240 = 450.000
         cur.execute("""
-            INSERT INTO fixed_assets VALUES
-            (2, 'AT-002', 'Bangunan Kantor', 'Bangunan', '2020-01-01',
-             120000000, 12000000, 20, 1, 1, 1, NULL, NULL)
+            INSERT INTO journal_entries VALUES
+            (4, 1, '2026-10-20', 'PB-002', 'Pembelian kredit', 'pembelian', 'PT. Pupuk Sejahtera')
         """)
+        cur.execute("""
+            INSERT INTO journal_entries VALUES
+            (5, 1, '2026-10-22', 'PB-003', 'Pembelian kredit', 'pembelian', 'UD. Tani Makmur')
+        """)
+        cur.executemany(
+            """
+            INSERT INTO journal_lines
+                (id, journal_entry_id, account_id, debit, kredit)
+            VALUES (?, ?, 4, 0, ?)
+            """,
+            [
+                (5, 3, 1_500_000),
+                (6, 4, 500_000),
+                (7, 5, 750_000),
+            ],
+        )
         conn.commit()
 
-    def test_kolom_df_lengkap(self):
-        """DataFrame harus memiliki kolom yang diharapkan."""
-        from services.subsidiary_service import ambil_bb_aset_tetap
-        conn = _buat_db_uji()
-        self._buat_data_aset(conn)
-
         with patch("services.subsidiary_service.get_connection", return_value=conn):
-            with patch("services.subsidiary_service.hitung_penyusutan_bulanan") as mock_penyusutan:
-                mock_penyusutan.return_value = {
-                    "penyusutan_per_bulan": 450_000,
-                    "is_disusutkan": True,
-                }
-                df = ambil_bb_aset_tetap()
+            df = ambil_bb_utang()
 
-        kolom_wajib = {"kode_aset", "nama_aset", "harga_perolehan",
-                       "akumulasi_penyusutan", "nilai_buku"}
-        assert kolom_wajib.issubset(set(df.columns))
+        utang = {
+            row["supplier"]: (
+                int(row["total_utang"]),
+                int(row["jumlah_transaksi"]),
+            )
+            for _, row in df.iterrows()
+        }
+        assert utang["PT. Pupuk Sejahtera"] == (2_000_000, 2)
+        assert utang["UD. Tani Makmur"] == (750_000, 1)
         conn.close()
 
-    def test_tanah_tidak_disusutkan(self):
-        """Tanah (is_disusutkan=0) harus memiliki akumulasi_penyusutan = 0."""
-        from services.subsidiary_service import ambil_bb_aset_tetap
+    def test_tanpa_akun_utang_mengembalikan_df_kosong(self):
+        """Jika akun 2101 belum tersedia, hasil tetap DataFrame kosong."""
+        from services.subsidiary_service import ambil_bb_utang
+
         conn = _buat_db_uji()
-        self._buat_data_aset(conn)
-
         with patch("services.subsidiary_service.get_connection", return_value=conn):
-            with patch("services.subsidiary_service.hitung_penyusutan_bulanan") as mock_penyusutan:
-                mock_penyusutan.return_value = {
-                    "penyusutan_per_bulan": 450_000,
-                    "is_disusutkan": True,
-                }
-                df = ambil_bb_aset_tetap()
-
-        tanah = df[df["kode_aset"] == "AT-001"].iloc[0]
-        assert int(tanah["akumulasi_penyusutan"]) == 0
-        # Nilai buku tanah = harga perolehan
-        assert int(tanah["nilai_buku"]) == 2_500_000_000
-        conn.close()
-
-    def test_nilai_buku_bangunan_lebih_kecil_dari_harga(self):
-        """
-        Bangunan yang sudah beberapa tahun: nilai_buku < harga_perolehan.
-        """
-        from services.subsidiary_service import ambil_bb_aset_tetap
-        conn = _buat_db_uji()
-        self._buat_data_aset(conn)
-
-        with patch("services.subsidiary_service.get_connection", return_value=conn):
-            # Penyusutan: Rp450.000/bulan, bangunan sejak 2020-01-01
-            # Sudah > 60 bulan → akumulasi penyusutan > 0
-            with patch("services.subsidiary_service.hitung_penyusutan_bulanan") as mock_p:
-                mock_p.return_value = {
-                    "penyusutan_per_bulan": 450_000,
-                    "is_disusutkan": True,
-                }
-                df = ambil_bb_aset_tetap()
-
-        bangunan = df[df["kode_aset"] == "AT-002"].iloc[0]
-        # Nilai buku harus lebih kecil dari harga perolehan
-        assert int(bangunan["nilai_buku"]) < 120_000_000
-        # Nilai buku tidak boleh negatif
-        assert int(bangunan["nilai_buku"]) >= 0
-        conn.close()
-
-    def test_tanpa_data_kembalikan_df_kosong(self):
-        """Tanpa aset tetap, harus mengembalikan DataFrame kosong."""
-        from services.subsidiary_service import ambil_bb_aset_tetap
-        conn = _buat_db_uji()
-
-        with patch("services.subsidiary_service.get_connection", return_value=conn):
-            df = ambil_bb_aset_tetap()
+            df = ambil_bb_utang()
 
         assert df.empty
         conn.close()
-
-
-# ============================================================
-# TEST: subsidiary_service.ambil_bb_persediaan()
-# ============================================================
-
-class TestAmbilBbPersediaan:
-    """Test untuk fungsi ambil_bb_persediaan()."""
-
-    def test_tanpa_item_id_kembalikan_kosong(self):
-        """ambil_bb_persediaan(None) harus mengembalikan DataFrame kosong."""
-        from services.subsidiary_service import ambil_bb_persediaan
-
-        df = ambil_bb_persediaan(item_id=None)
-        assert df.empty
-
-    def test_kolom_bb_persediaan_lengkap(self):
-        """DataFrame hasil harus memiliki kolom masuk/keluar/saldo."""
-        from services.subsidiary_service import ambil_bb_persediaan
-
-        # Mock kartu persediaan: 1 baris masuk
-        df_mock = pd.DataFrame([{
-            "tanggal": "2026-10-01",
-            "tipe_gerakan": "masuk",
-            "qty": 10.0,
-            "harga_satuan": 50000,
-            "total_nilai": 500000,
-            "saldo_qty": 10.0,
-            "saldo_nilai": 500000,
-            "harga_rata2": 50000,
-            "keterangan": "Pembelian bibit",
-        }])
-
-        with patch("services.subsidiary_service.ambil_kartu_persediaan", return_value=df_mock):
-            df = ambil_bb_persediaan(item_id=1)
-
-        kolom_wajib = {"tanggal", "keterangan", "masuk_qty", "masuk_nilai",
-                       "keluar_qty", "keluar_nilai", "saldo_qty", "saldo_nilai", "harga_rata2"}
-        assert kolom_wajib.issubset(set(df.columns))
-
-    def test_tipe_masuk_mengisi_kolom_masuk(self):
-        """Gerakan masuk harus mengisi kolom masuk_qty & masuk_nilai, keluar = 0."""
-        from services.subsidiary_service import ambil_bb_persediaan
-
-        df_mock = pd.DataFrame([{
-            "tanggal": "2026-10-01",
-            "tipe_gerakan": "masuk",
-            "qty": 10.0,
-            "harga_satuan": 50000,
-            "total_nilai": 500000,
-            "saldo_qty": 10.0,
-            "saldo_nilai": 500000,
-            "harga_rata2": 50000,
-            "keterangan": "Pembelian",
-        }])
-
-        with patch("services.subsidiary_service.ambil_kartu_persediaan", return_value=df_mock):
-            df = ambil_bb_persediaan(item_id=1)
-
-        baris = df.iloc[0]
-        assert float(baris["masuk_qty"]) == 10.0
-        assert int(baris["masuk_nilai"]) == 500000
-        assert float(baris["keluar_qty"]) == 0.0
-        assert int(baris["keluar_nilai"]) == 0
-
-    def test_tipe_keluar_mengisi_kolom_keluar(self):
-        """Gerakan keluar harus mengisi kolom keluar_qty & keluar_nilai, masuk = 0."""
-        from services.subsidiary_service import ambil_bb_persediaan
-
-        df_mock = pd.DataFrame([{
-            "tanggal": "2026-10-05",
-            "tipe_gerakan": "keluar",
-            "qty": 3.0,
-            "harga_satuan": 50000,
-            "total_nilai": 150000,
-            "saldo_qty": 7.0,
-            "saldo_nilai": 350000,
-            "harga_rata2": 50000,
-            "keterangan": "Pemakaian produksi",
-        }])
-
-        with patch("services.subsidiary_service.ambil_kartu_persediaan", return_value=df_mock):
-            df = ambil_bb_persediaan(item_id=1)
-
-        baris = df.iloc[0]
-        assert float(baris["keluar_qty"]) == 3.0
-        assert int(baris["keluar_nilai"]) == 150000
-        assert float(baris["masuk_qty"]) == 0.0
-        assert int(baris["masuk_nilai"]) == 0

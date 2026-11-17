@@ -3,8 +3,8 @@ views/04_jurnal_umum.py
 ------------------------
 Tujuan  : Menampilkan Jurnal Umum dalam format tabel standar akuntansi.
           Format: tanggal | no_bukti | keterangan | kode_akun | nama_akun | debit | kredit
-          Filter berdasarkan periode, jenis jurnal, dan komoditas.
-Input   : Pilihan filter dari user (periode, jenis, komoditas).
+          Filter berdasarkan periode dan jenis jurnal. Seluruh transaksi cabai serta jurnal umum akuntansi tetap ditampilkan.
+Input   : Pilihan filter dari user (periode dan jenis jurnal).
 Output  : Tabel jurnal, total debit/kredit, dan opsi hapus jurnal.
 Dipanggil oleh : app.py (st.navigation)
 """
@@ -34,6 +34,47 @@ def _ambil_periode():
     return [dict(r) for r in rows]
 
 
+def _hitung_penjualan_tanpa_hpp(
+    period_id: int | None = None,
+) -> int:
+    """Hitung entri penjualan yang belum memiliki debit akun HPP 5110."""
+    kondisi = []
+    params = []
+    if period_id is not None:
+        kondisi.append("je.period_id = ?")
+        params.append(period_id)
+    tambahan = (" AND " + " AND ".join(kondisi)) if kondisi else ""
+    sql = f"""
+        SELECT COUNT(*) AS jumlah
+        FROM journal_entries je
+        WHERE je.journal_type IN ('penjualan', 'penerimaan_kas')
+        AND EXISTS (
+            SELECT 1
+            FROM journal_lines jl
+            JOIN accounts a ON jl.account_id = a.id
+            WHERE jl.journal_entry_id = je.id
+              AND a.kode_akun = '4110'
+              AND jl.kredit > 0
+        )
+        AND lower(je.keterangan) LIKE 'penjualan cabai%'
+        AND NOT EXISTS (
+            SELECT 1
+            FROM journal_lines jl
+            JOIN accounts a ON jl.account_id = a.id
+            WHERE jl.journal_entry_id = je.id
+              AND a.kode_akun = '5110'
+              AND jl.debit > 0
+        )
+        {tambahan}
+    """
+    koneksi = get_connection()
+    try:
+        row = koneksi.execute(sql, params).fetchone()
+        return int(row["jumlah"] or 0)
+    finally:
+        koneksi.close()
+
+
 # ================================================================
 # HALAMAN UTAMA
 # ================================================================
@@ -41,11 +82,15 @@ def _ambil_periode():
 def tampilkan() -> None:
     """Fungsi utama halaman Jurnal Umum."""
     st.title("📔 Jurnal Umum")
-    st.caption("Semua transaksi dalam format jurnal akuntansi standar (Debit - Kredit).")
+    st.caption(
+        "Seluruh transaksi cabai dan jurnal umum akuntansi ditampilkan dalam format "
+        "Debit - Kredit. Jurnal bertanda umum merupakan transaksi akuntansi yang "
+        "tidak perlu diklasifikasikan sebagai komoditas berbeda."
+    )
 
     # ---- Panel filter ----
     with st.expander("🔍 Filter Jurnal", expanded=True):
-        kol1, kol2, kol3 = st.columns(3)
+        kol1, kol2 = st.columns(2)
 
         with kol1:
             period_id_filter = selector_periode(
@@ -65,28 +110,40 @@ def tampilkan() -> None:
                 "Pembelian (PB)": "pembelian",
                 "Jurnal Umum (JU)": "umum",
             }
-            jenis_pilih = st.selectbox("Jenis Jurnal", list(JENIS_JURNAL.keys()))
-            journal_type_filter = JENIS_JURNAL[jenis_pilih]
-
-        with kol3:
-            komoditas_pilih = sac.segmented(
-                items=[
-                    sac.SegmentedItem(label="Semua"),
-                    sac.SegmentedItem(label="Cabai"),
-                ],
-                label="Komoditas",
-                color=WARNA_PRIMER,
-                return_index=False,
-                key="filter_komoditas_jurnal",
+            jenis_pilih = st.selectbox(
+                "Jenis Jurnal",
+                list(JENIS_JURNAL.keys()),
+                help=(
+                    "HPP penjualan tunai berada pada Penerimaan Kas, sedangkan HPP penjualan tempo "
+                    "berada pada Penjualan. Pilih Semua Jenis untuk melihat keduanya."
+                ),
             )
-            komoditas_filter = None if komoditas_pilih == "Semua" else komoditas_pilih.lower()
+            journal_type_filter = JENIS_JURNAL[jenis_pilih]
 
     # ---- Ambil data jurnal ----
     df = ambil_semua_jurnal(
         period_id=period_id_filter,
         journal_type=journal_type_filter,
-        komoditas=komoditas_filter,
     )
+
+    if journal_type_filter == "umum":
+        st.info(
+            "HPP penjualan tidak dicatat sebagai jenis Jurnal Umum (JU). "
+            "HPP melekat pada transaksi penjualan tunai (Penerimaan Kas) atau "
+            "penjualan tempo (Penjualan). Pilih **Semua Jenis** untuk melihat seluruhnya."
+        )
+
+    jumlah_penjualan_tanpa_hpp = _hitung_penjualan_tanpa_hpp(
+        period_id=period_id_filter,
+    )
+    if jumlah_penjualan_tanpa_hpp:
+        st.warning(
+            f"Ditemukan **{jumlah_penjualan_tanpa_hpp} transaksi penjualan** yang belum memiliki "
+            "baris debit akun **5110 - Harga Pokok Penjualan**. Transaksi lama sebelum metode "
+            "perpetual diaktifkan tidak dihitung HPP-nya secara otomatis karena biaya perolehan "
+            "historis harus dapat diverifikasi. Pastikan saldo awal dan biaya persediaan benar "
+            "untuk transaksi baru."
+        )
 
     if df.empty:
         st.info("Tidak ada data jurnal dengan filter yang dipilih.")

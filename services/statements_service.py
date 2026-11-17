@@ -14,7 +14,7 @@ URUTAN PENYUSUNAN (penting — saling bergantung):
 
 SUMBER DATA:
   - Semua angka diambil dari hitung_neraca_saldo(termasuk_penyesuaian=True)
-  - Modal Awal = saldo akun 'Modal Disetor' (3101) + 'Laba Ditahan' (3201)
+  - Modal Awal = saldo akun 'Modal Pribadi' (3110) + 'Laba' (3120)
     dari opening_balances
 """
 
@@ -60,6 +60,7 @@ def susun_laporan_laba_rugi(period_id: int) -> dict:
 
     for _, baris in df_ns.iterrows():
         kategori = baris["kategori"]
+        kode = str(baris["kode_akun"])
         nama = baris["nama_akun"]
         # Pendapatan: saldo normal Kredit → kredit - debit
         # Beban: saldo normal Debit → debit - kredit (memperhitungkan retur/kredit panen)
@@ -72,16 +73,25 @@ def susun_laporan_laba_rugi(period_id: int) -> dict:
             hasil["pendapatan"].append({"nama_akun": nama, "jumlah": jumlah})
             hasil["total_pendapatan"] += jumlah
 
-        elif kategori == "Beban Produksi":
+        elif kode == "5110" or kategori == "HPP":
+            # HPP Penjualan (5110) — kategori bisa 'HPP' atau 'Beban Operasional' (legacy)
+            hasil["hpp_penjualan"].append({"nama_akun": nama, "jumlah": jumlah})
+            hasil["total_hpp_penjualan"] += jumlah
             hasil["beban_produksi"].append({"nama_akun": nama, "jumlah": jumlah})
             hasil["total_beban_produksi"] += jumlah
 
-        elif kategori == "Beban Operasional":
+        elif kategori in ("Beban Produksi", "Beban Operasional", "Beban Lainnya"):
+            # Beban operasional lain (6110-6170, 7110) dan beban produksi non-HPP
             hasil["beban_operasional"].append({"nama_akun": nama, "jumlah": jumlah})
             hasil["total_beban_operasional"] += jumlah
+            if kategori == "Beban Produksi":
+                # backward compat — masukkan ke beban_produksi_lain juga
+                hasil["beban_produksi_lain"].append({"nama_akun": nama, "jumlah": jumlah})
+                hasil["total_beban_produksi_lain"] += jumlah
 
+    # HPP dipisahkan agar laba kotor dapat dibaca: Penjualan - HPP Penjualan.
+    hasil["laba_kotor"] = hasil["total_pendapatan"] - hasil["total_hpp_penjualan"]
     hasil["total_beban"] = hasil["total_beban_produksi"] + hasil["total_beban_operasional"]
-    # Laba Bersih = Pendapatan - Total Beban
     hasil["laba_bersih"] = hasil["total_pendapatan"] - hasil["total_beban"]
 
     return hasil
@@ -113,7 +123,7 @@ def susun_laporan_perubahan_ekuitas(
           'detail'             : list of dict (baris demi baris laporan)
         }
     """
-    # Ambil saldo awal Modal Disetor (3101) dan Laba Ditahan (3201)
+    # Ambil saldo awal Modal Pribadi (3110) dan Laba (3120)
     modal_disetor_awal, laba_ditahan_awal = _ambil_saldo_awal_ekuitas(period_id)
 
     # Tambahan setoran modal selama periode (jurnal kredit ke akun Modal Disetor)
@@ -202,10 +212,51 @@ def susun_neraca(period_id: int, modal_akhir: int) -> dict:
             jumlah = int(baris["kredit"]) - int(baris["debit"])
 
         if kategori == "Aset":
-            # Aset lancar: Kas & Bank (11xx), Piutang (12xx), Persediaan (13xx), Perlengkapan (14xx)
-            # Aset tetap: 15xx dan aset lain-lain (16xx)
-            is_kontra = kode.endswith("K")  # konvensi kode kontra pakai suffix K
-            if kode.startswith(("11", "12", "13", "14")):
+            # COA Baru:
+            #   Aset Lancar : 11xx (Kas, Piutang, Perlengkapan, Persediaan)
+            #   Aset Tetap  : 12xx ke atas (Tanah, Bangunan, Kendaraan, Komputer, Peralatan, dll.)
+            # COA Lama (fallback):
+            #   Aset Lancar : 11xx, 12xx, 13xx, 14xx
+            #   Aset Tetap  : 15xx, 16xx ke atas
+            is_kontra = kode.endswith("K") or saldo_normal == "Kredit"
+            kode_num = kode.rstrip("K")
+            # Aset lancar: hanya 11xx (COA baru) atau 11xx/12xx/13xx/14xx (COA lama)
+            # Gunakan pendekatan: jika kode 11xx → lancar; 12xx → cek apakah nilainya
+            # menunjukkan aset tetap (kode 1200-1299 = aset tetap di COA baru)
+            # Untuk COA baru: 1110,1120,1130,1140 = lancar; 1210+ = tetap
+            # Untuk COA lama: 1101,1102,1201,1301,1401 = lancar; 1501+ = tetap
+            # Deteksi COA baru: kode 4-digit, 11xx pasti lancar, 12xx cek range
+            try:
+                kode_int = int(kode_num)
+                # COA baru: 1100-1199 = lancar; 1200+ = tetap
+                # COA lama: 1100-1499 = lancar; 1500+ = tetap
+                # Pembeda: jika ada akun 15xx atau 16xx di DB → pakai logika lama
+                # Cara aman: 1110,1120,1130,1140 adalah lancar; semua 12xx adalah tetap (COA baru)
+                # 1101,1102,1201,1301,1401 adalah lancar (COA lama)
+                # Kunci: kode 1200-1299 di COA baru = aset tetap; di COA lama = piutang (lancar)
+                # Bisa dibedakan: COA baru pakai 1210,1220,... (kelipatan 10), COA lama pakai 1201
+                # Simpel: gunakan range numerik
+                # 1100-1199 → selalu lancar
+                # 1200-1299 → tetap JIKA kode berakhir 0 (COA baru: 1210,1220,1230,1240,1250,1251)
+                #           → lancar JIKA kode berakhir 1 (COA lama: 1201)
+                # 1300-1499 → lancar (COA lama), tidak ada di COA baru
+                # 1500+     → tetap (COA lama)
+                if 1100 <= kode_int <= 1199:
+                    is_lancar = True
+                elif 1200 <= kode_int <= 1299:
+                    # COA baru: 1210,1220,1221,1230,1231,1240,1241,1250,1251 = aset tetap
+                    # COA lama: 1201 = piutang usaha (lancar)
+                    # Jika kode_int % 10 == 1 dan ratusan == 2 → COA lama piutang
+                    is_lancar = (kode_int == 1201)
+                elif 1300 <= kode_int <= 1499:
+                    is_lancar = True   # COA lama: persediaan & perlengkapan
+                else:
+                    is_lancar = False  # 1500+ → aset tetap (COA lama)
+            except ValueError:
+                # kode bukan integer murni (misal ada suffix aneh)
+                is_lancar = True
+
+            if is_lancar:
                 hasil["aset_lancar"].append({
                     "nama_akun": nama,
                     "jumlah": jumlah,
@@ -255,6 +306,7 @@ def susun_neraca(period_id: int, modal_akhir: int) -> dict:
 
     # Validasi: Aset = Liabilitas + Ekuitas
     hasil["seimbang"] = hasil["total_aset"] == hasil["total_liabilitas_ekuitas"]
+    hasil["selisih"] = abs(hasil["total_aset"] - hasil["total_liabilitas_ekuitas"])
 
     return hasil
 
@@ -264,7 +316,8 @@ def susun_arus_kas(period_id: int) -> dict:
     Menyusun Laporan Arus Kas metode langsung.
 
     Metode langsung: membaca langsung penerimaan dan pengeluaran kas
-    dari journal_lines untuk akun Kas (kode 1101) dan Bank (kode 1102).
+    dari journal_lines untuk akun Kas (kode 1110).
+    COA baru tidak memiliki akun Bank terpisah.
 
     Args:
         period_id : ID periode.
@@ -305,7 +358,7 @@ def susun_arus_kas(period_id: int) -> dict:
             FROM opening_balances ob
             JOIN accounts a ON ob.account_id = a.id
             WHERE ob.period_id = ?
-              AND a.kode_akun IN ('1101', '1102')
+              AND a.kode_akun IN ('1110')
             """,
             (period_id,)
         ).fetchall()
@@ -341,8 +394,8 @@ def susun_arus_kas(period_id: int) -> dict:
         debit = int(r["debit"])
         kredit = int(r["kredit"])
 
-        # Hanya proses baris yang melibatkan akun kas atau bank
-        if kode not in ("1101", "1102"):
+        # Hanya proses baris yang melibatkan akun kas (COA baru: 1110)
+        if kode not in ("1110",):
             continue
 
         if debit > 0:
@@ -409,10 +462,15 @@ def _laba_rugi_kosong() -> dict:
     """Mengembalikan struktur dict kosong untuk Laba Rugi."""
     return {
         "pendapatan": [],
+        "hpp_penjualan": [],
         "beban_produksi": [],
+        "beban_produksi_lain": [],
         "beban_operasional": [],
         "total_pendapatan": 0,
+        "total_hpp_penjualan": 0,
+        "laba_kotor": 0,
         "total_beban_produksi": 0,
+        "total_beban_produksi_lain": 0,
         "total_beban_operasional": 0,
         "total_beban": 0,
         "laba_bersih": 0,
@@ -421,7 +479,7 @@ def _laba_rugi_kosong() -> dict:
 
 def _ambil_saldo_awal_ekuitas(period_id: int) -> tuple[int, int]:
     """
-    Mengambil saldo awal Modal Disetor (3101) dan Laba Ditahan (3201)
+    Mengambil saldo awal Modal Pribadi (3110) dan Laba (3120)
     dari tabel opening_balances.
 
     Returns:
@@ -437,7 +495,7 @@ def _ambil_saldo_awal_ekuitas(period_id: int) -> tuple[int, int]:
             FROM opening_balances ob
             JOIN accounts a ON ob.account_id = a.id
             WHERE ob.period_id = ?
-              AND a.kode_akun IN ('3101', '3201')
+              AND a.kode_akun IN ('3110')
             """,
             (period_id,)
         ).fetchall()
@@ -449,9 +507,9 @@ def _ambil_saldo_awal_ekuitas(period_id: int) -> tuple[int, int]:
     for r in rows:
         # Akun ekuitas: saldo normal Kredit → pakai saldo_kredit - saldo_debit
         saldo = int(r["saldo_kredit"]) - int(r["saldo_debit"])
-        if r["kode_akun"] == "3101":
+        if r["kode_akun"] == "3110":
             modal_disetor = saldo
-        elif r["kode_akun"] == "3201":
+        elif r["kode_akun"] == "3120":
             laba_ditahan = saldo
 
     return modal_disetor, laba_ditahan
@@ -460,7 +518,7 @@ def _ambil_saldo_awal_ekuitas(period_id: int) -> tuple[int, int]:
 def _ambil_tambahan_setoran_modal(period_id: int) -> int:
     """
     Mengambil total setoran modal tambahan selama periode ini.
-    Setoran modal = jurnal kredit ke akun Modal Disetor (3101) di periode ini.
+    Setoran modal = jurnal kredit ke akun Modal Pribadi (3110) di periode ini.
 
     Returns:
         int: total tambahan setoran modal dalam Rupiah.
@@ -474,7 +532,7 @@ def _ambil_tambahan_setoran_modal(period_id: int) -> int:
             JOIN journal_entries je ON jl.journal_entry_id = je.id
             JOIN accounts a ON jl.account_id = a.id
             WHERE je.period_id = ?
-              AND a.kode_akun = '3101'
+              AND a.kode_akun = '3110'
               AND je.no_bukti NOT LIKE 'JP-%'
             """,
             (period_id,)

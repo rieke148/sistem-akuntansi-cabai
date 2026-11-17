@@ -12,7 +12,7 @@
 [Master Data & Saldo Awal]  (views/01_master_data.py)
         │
         ▼
-[Input Transaksi]          (views/02_input_transaksi.py - 10 Form Transaksi)
+[Input Transaksi]          (views/02_input_transaksi.py - 9 Form Transaksi)
         │
         ▼
 [Mesin Jurnal & Validasi]  (services/transaction_service.py + journal_service.py)
@@ -21,15 +21,15 @@
         ▼                                                             ▼
 [5 Jenis Jurnal]                                            [Kartu Persediaan]
   • Jurnal Penjualan (tempo)                                 (services/inventory_service.py)
-  • Jurnal Penerimaan Kas (tunai, piutang, modal)            Metode Rata-rata Bergerak
-  • Jurnal Pengeluaran Kas (beli bahan, upah, beban)         Stok Bahan & Panen Cabai
-  • Jurnal Pembelian (kredit)
-  • Jurnal Umum (pemakaian bahan, memorial)
+  • Jurnal Penerimaan Kas (tunai, piutang, modal)            Sistem Perpetual
+  • Jurnal Pengeluaran Kas (pembelian barang dagang tunai, upah, beban)         Metode Rata-rata Bergerak
+  • Jurnal Pembelian (kredit)                                Stok Barang Dagang Cabai Hasil Panen
+  • Jurnal Umum (pencatatan panen, memorial)                  HPP dan stok berkurang saat penjualan
         │
         ▼
 [Posting Buku Besar & BB Pembantu]
   • Buku Besar Utama (services/ledger_service.py)
-  • BB Pembantu Piutang, Persediaan, Aset Tetap (services/subsidiary_service.py)
+  • BB Pembantu Piutang Usaha dan Utang Usaha (services/subsidiary_service.py)
         │
         ▼
 [Neraca Saldo Sebelum Penyesuaian] (services/trial_balance_service.py)
@@ -37,7 +37,6 @@
         ▼
 [Ayat Jurnal Penyesuaian]          (services/adjusting_service.py + depreciation_service.py)
   • Penyusutan Aset Tetap (Garis Lurus)
-  • Amortisasi Plastik Mulsa (1,5 tahun)
   • Akrual Upah Tenaga Kerja
         │
         ▼
@@ -54,12 +53,12 @@
         ▼
 [Jurnal Penutup & Tutup Periode]   (services/closing_service.py)
   • Tutup Pendapatan & Beban ke Ikhtisar L/R
-  • Tutup Ikhtisar L/R ke Laba Ditahan
+  • Tutup Ikhtisar L/R ke Laba (3120)
   • Neraca Saldo Setelah Penutup (Akun Riil Tersisa, Periode 'tutup')
         │
         ▼
 [Dashboard, Backup & Export]       (views/00_dashboard.py, views/14_backup_export.py)
-  • Dashboard Visual: Saldo Kas, Piutang Jatuh Tempo, Stok, Grafik Per Komoditas & Beban
+  • Dashboard Visual: Saldo Kas, Piutang Jatuh Tempo, Stok, Grafik Tren Penjualan Cabai & Penjualan vs Beban
   • Backup Database (.db) & Export Multi-Sheet Excel (.xlsx) / PDF (.pdf)
 ```
 
@@ -75,7 +74,7 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 
 ### Fase 0 — Fondasi & Arsitektur
 - **Database SQLite**: Skema 11 tabel relasional dibuat di `database/schema.py` dengan foreign keys aktif.
-- **Bagan Akun (COA)**: Standar 6 digit berkategori Aset (1), Liabilitas (2), Ekuitas (3), Pendapatan (4), Beban Produksi (5), Beban Operasional (6).
+- **Bagan Akun (COA)**: Mengikuti `coa_cabai_baru.csv` dengan 28 akun detail berkode 4 digit dalam kelompok Aset (1xxx), Liabilitas (2xxx), Ekuitas (3xxx), Pendapatan (4xxx), HPP (5xxx), Beban Operasional (6xxx), dan Beban Lainnya (7xxx). Kode kelompok 1000–7000 hanya judul, bukan akun jurnal.
 - **Tema & UI**: Tema terpusat di `.streamlit/config.toml` (warna hijau alami `#2E7D32`) dan komponen `streamlit-antd-components` dibungkus rapi di `utils/ui_components.py`.
 
 ### Fase 1 — Master Data
@@ -83,53 +82,55 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 - Validasi input di `services/master_data_service.py` tanpa mencampur kode Streamlit.
 
 ### Fase 2 — Input Transaksi & Mesin Jurnal
-- 10 Form transaksi terpisah di `views/02_input_transaksi.py`:
+- 9 Form transaksi terpisah di `views/02_input_transaksi.py`:
   1. Penjualan Tunai
   2. Penjualan Tempo (Faktur & Jatuh Tempo 7 Hari)
   3. Terima Pelunasan Piutang
   4. Setoran Modal
-  5. Pembelian Bahan Tunai (Toko Sido Panen)
+  5. Pembelian Barang Dagang Cabai Tunai
   6. Pembelian Kredit
-  7. Pemakaian Bahan ke Blok Lahan
-  8. Pencatatan Hasil Panen Cabai
-  9. Biaya Operasional (BBM, Listrik, Sewa Traktor)
-  10. Pembelian Aset Tetap Tunai
-- Fitur **Pratinjau Jurnal Interaktif**: Mengharuskan Total Debit == Total Kredit sebelum disimpan.
+  7. Pencatatan Hasil Panen Cabai
+  8. Biaya Operasional (BBM, Listrik, Sewa Traktor)
+  9. Pembelian Aset Tetap Tunai
+- Fitur **Pratinjau Jurnal Interaktif**: Mengharuskan Total Debit == Total Kredit sebelum disimpan. Pratinjau penjualan juga menampilkan HPP dan pengurangan persediaan berdasarkan rata-rata bergerak; stok tidak mencukupi akan ditolak.
 
 ### Fase 3 — Jurnal Umum & 4 Jurnal Khusus
 - **Jurnal Umum** (`views/04_jurnal_umum.py`): Format kronologis dengan kolom Tanggal, No Bukti, Keterangan, Ref Akun, Debit, dan Kredit.
 - **Jurnal Khusus** (`views/05_jurnal_khusus.py`): 4 tab format kolom akuntansi:
-  - *Sales Journal*: Piutang Usaha (D) / Penjualan (K)
+  - *Sales Journal*: Piutang Usaha (D) / Penjualan (K), serta HPP Penjualan (D) / Persediaan Cabai (K).
   - *Purchase Journal*: Persediaan (D) / Utang Usaha (K)
-  - *Cash Receipt Journal*: Kas (D), Piutang (K), Penjualan (K), Lain-lain (K)
+  - *Cash Receipt Journal*: Kas (D), Piutang (K), Penjualan (K), Lain-lain (K), dengan kolom tambahan HPP (D) / Persediaan (K) yang tidak dihitung sebagai sumber kas.
   - *Cash Payment Journal*: Kas (K), Persediaan (D), Beban Upah (D), Beban Lain (D)
 
 ### Fase 4 — Buku Besar, BB Pembantu & Kartu Persediaan
 - **Buku Besar**: Menampilkan saldo berjalan per akun dengan saldo awal dan mutasi debit/kredit.
-- **BB Pembantu**: Rincian piutang per pelanggan (dilengkapi analisa umur piutang / aging), stok persediaan, dan buku pembantu aset tetap.
-- **Kartu Persediaan**: Metode Rata-rata Bergerak (*moving average*) mencatat pergerakan masuk, keluar, dan sisa saldo kuantitas serta saldo nilai.
+- **BB Pembantu**: Rincian piutang usaha per pelanggan (dilengkapi analisis umur piutang / aging) dan utang usaha per supplier/transaksi. Kartu persediaan ditampilkan terpisah pada menu Kartu Persediaan; aset tetap dikelola melalui Master Data dan Ayat Penyesuaian.
+- **Kartu Persediaan**: Sistem perpetual dengan metode rata-rata bergerak (*moving average*). Pembelian barang dagang, saldo awal, panen, dan penjualan langsung memperbarui saldo kuantitas serta nilai. Persediaan aktif hanya berisi barang dagang cabai hasil panen pada akun buku besar **1140 — Persediaan**. Kartu stok tetap terpisah per item.
+- **Saldo Awal Persediaan**: Kuantitas fisik dan harga pokok dimasukkan per item. Sistem mencatat mutasi `saldo_awal` dan menjumlahkan nilai item dengan akun yang sama untuk menyelaraskan saldo akun pada `opening_balances`.
+- **Penjualan Cabai**: Setiap penjualan memeriksa ketersediaan stok dan membentuk dua pasangan jurnal: Kas/Piutang terhadap Penjualan, serta HPP Penjualan (5110) terhadap Persediaan (1140).
+- **Validasi**: Penjualan yang melebihi stok ditolak. Mutasi per item harus dicatat kronologis agar rata-rata bergerak akurat.
 
 ### Fase 5 — Neraca Saldo, Penggajian & Penyesuaian
 - **Neraca Saldo**: Menghitung saldo seluruh akun dan memvalidasi keseimbangan Debit == Kredit.
 - **Penggajian**: Menghitung upah pekerja harian tetap (Rp90.000/hari) dan pekerja tambahan (Rp120.000/hari) per periode 2 mingguan, serta mencatat akrual utang gaji.
-- **Ayat Penyesuaian**: Penyusutan aset tetap garis lurus bulanan, amortisasi plastik mulsa (1,5 tahun), akrual upah, dan pemakaian bahan.
+- **Ayat Penyesuaian**: Penyusutan aset tetap garis lurus bulanan dan akrual upah.
 
 ### Fase 6 — Neraca Lajur, Laporan Keuangan & Penutupan
 - **Neraca Lajur 10 Kolom**: 5 pasang kolom terverifikasi seimbang (Neraca Saldo, Penyesuaian, NSD, Laba Rugi, dan Neraca).
 - **Laporan Keuangan**:
-  - *Laba Rugi*: Pendapatan - (Beban Produksi + Beban Operasional) = Laba Bersih
+  - *Laba Rugi*: Penjualan Cabai - HPP (5110) - Beban Operasional (6110–6170) - Beban Lain-lain (7110) = Laba Bersih
   - *Perubahan Ekuitas*: Modal Awal + Setoran Tambahan + Laba Bersih = Modal Akhir
   - *Neraca*: Total Aset == Total Liabilitas + Total Ekuitas
   - *Arus Kas*: Metode langsung (Aktivitas Operasi, Investasi, dan Pendanaan)
-- **Jurnal Penutup**: Menutup akun nominal (4, 5, 6) ke Ikhtisar L/R, memindahkan laba ke Laba Ditahan, dan mengunci periode ke status `tutup`.
+- **Jurnal Penutup**: Menutup akun nominal 4xxx–7xxx ke Ikhtisar L/R (3130), memindahkan hasilnya ke Laba (3120), dan mengunci periode ke status `tutup`.
 
 ### Fase 7 — Dashboard, Ekspor Dokumen & Cadangan
-- **Dashboard Eksekutif**: Metrik kas, piutang jatuh tempo, grafik komoditas (Cabai, Selada, Melon), grafik Penjualan vs Beban, dan tabel status stok.
+- **Dashboard Eksekutif**: Metrik kas, piutang jatuh tempo, grafik penjualan cabai, grafik Penjualan vs Beban, dan tabel status stok.
 - **Ekspor Dokumen**: Ekspor laporan keuangan ke Excel (.xlsx) multi-sheet dan PDF (.pdf) bebas error unicode.
 - **Backup & Restore**: Cadangkan database SQLite (`.db`) atau seluruh tabel ke Excel, serta restore data secara aman.
 
 ### Fase 8 — Pengujian Menyeluruh, Kerapian Kode, Manajemen Periode & Kesiapan Deploy
 - **Pemilih Periode Fleksibel & Kalender**: Komponen terpadu `selector_periode` dipasang di seluruh menu dengan dukungan multi-periode (2025-2027), preset cepat (Bulan Ini, Bulan Lalu, Tahun Ini, Tahun Lalu, Observasi Okt 2026), dan pemilih kalender manual yang otomatis membuat periode jika belum terdaftar.
-- **Test Suite 100% Passed**: 204 tes otomatis mencakup unit tests, period service tests, dan end-to-end accounting cycle test.
+- **Test Suite Pytest**: mencakup unit tests, validasi jurnal, persediaan perpetual dan HPP penjualan, period service tests, serta end-to-end accounting cycle test. Jalankan `pytest tests/ -v` untuk memeriksa seluruh tes sebelum merge.
 - **100% Python Murni**: Bebas dari tag HTML/CSS/JS mentah. Seluruh antarmuka menggunakan widget native Streamlit dan wrapper `streamlit-antd-components`.
 - **Kesiapan Streamlit Community Cloud**: Konfigurasi `.streamlit/config.toml`, dependency dipin di `requirements.txt`, penanganan database otomatis saat cold-start, dan file path berbasis `pathlib.Path` yang agnostik terhadap OS.

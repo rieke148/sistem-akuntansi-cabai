@@ -2,15 +2,14 @@
 views/10_ayat_penyesuaian.py
 -----------------------------
 Tujuan  : Membuat dan menampilkan ayat jurnal penyesuaian akhir periode.
-          Jenis: penyusutan aset tetap, amortisasi plastik mulsa, akrual upah.
+          Jenis: penyusutan aset tetap dan akrual upah.
 Input   : Pilihan periode, parameter penyesuaian.
 Output  : Jurnal penyesuaian dibuat dan disimpan; daftar semua penyesuaian ditampilkan.
 Dipanggil oleh : app.py (st.navigation)
 
 JENIS PENYESUAIAN YANG DIDUKUNG:
   1. Penyusutan Aset Tetap: garis lurus, dihitung per bulan per aset.
-  2. Amortisasi Plastik Mulsa: 1,5 tahun (18 bulan).
-  3. Akrual Upah: upah yang belum dibayar di akhir periode.
+  2. Akrual Upah: upah yang belum dibayar di akhir periode.
 """
 
 import streamlit as st
@@ -18,13 +17,12 @@ import pandas as pd
 from database.connection import get_connection
 from services.adjusting_service import (
     buat_penyesuaian_penyusutan,
-    buat_penyesuaian_amortisasi_mulsa,
     buat_penyesuaian_akrual_upah,
     ambil_ringkasan_penyesuaian,
     hapus_penyesuaian,
     cek_penyesuaian_sudah_ada,
 )
-from services.depreciation_service import hitung_semua_penyusutan, hitung_amortisasi_mulsa_bulanan
+from services.depreciation_service import hitung_semua_penyusutan
 from utils.formatting import format_rupiah, format_tanggal
 from utils.ui_components import selector_periode
 import services.period_service as ps
@@ -53,10 +51,8 @@ def _ambil_akun_penyesuaian() -> dict:
         return dict(row) if row else {"id": None, "nama_akun": f"[{kode} tidak ditemukan]"}
 
     hasil = {
-        "beban_amortisasi_mulsa": cari("5107"),   # Beban Amortisasi Plastik Mulsa
-        "akum_amortisasi_mulsa": cari("1601K"),   # Akumulasi Amortisasi Plastik Mulsa
-        "beban_upah": cari("5105"),               # Beban Upah Langsung
-        "utang_gaji": cari("2201"),               # Utang Gaji
+        "beban_upah": cari("6110"),               # Beban Gaji (COA baru)
+        "utang_gaji": cari("2210"),               # Utang Gaji (COA baru)
     }
     koneksi.close()
     return hasil
@@ -178,97 +174,6 @@ def _tab_penyusutan(period_id: int, tanggal_penyesuaian: str) -> None:
             st.error(f"❌ Terjadi kesalahan: {e}")
 
 
-def _tab_amortisasi(period_id: int, tanggal_penyesuaian: str, akun_ids: dict) -> None:
-    """Tab penyesuaian: amortisasi plastik mulsa."""
-    st.subheader("🌿 Amortisasi Plastik Mulsa")
-    st.caption(
-        "Plastik mulsa digunakan selama 1,5 tahun (18 bulan). "
-        "Amortisasi = Total Harga ÷ 18 bulan."
-    )
-
-    # Parameter amortisasi (bisa diubah user)
-    kol_a, kol_b, kol_c = st.columns(3)
-    with kol_a:
-        harga_per_blok = st.number_input(
-            "Harga per Blok (Rp)",
-            min_value=100_000,
-            max_value=5_000_000,
-            value=400_000,
-            step=50_000,
-            help="Harga plastik mulsa per blok lahan",
-        )
-    with kol_b:
-        jumlah_blok = st.number_input(
-            "Jumlah Blok",
-            min_value=1,
-            max_value=20,
-            value=5,
-            help="Jumlah blok lahan yang memakai plastik mulsa",
-        )
-    with kol_c:
-        umur_tahun = st.number_input(
-            "Umur Pakai (tahun)",
-            min_value=0.5,
-            max_value=5.0,
-            value=1.5,
-            step=0.5,
-            format="%.1f",
-            help="Masa pakai plastik mulsa dalam tahun",
-        )
-
-    # Hitung dan tampilkan preview
-    total_harga = harga_per_blok * jumlah_blok
-    umur_bulan = int(umur_tahun * 12)
-    amortisasi = hitung_amortisasi_mulsa_bulanan(harga_per_blok, jumlah_blok, umur_tahun)
-
-    kol_m1, kol_m2, kol_m3 = st.columns(3)
-    with kol_m1:
-        st.metric("Total Harga Mulsa", format_rupiah(total_harga))
-    with kol_m2:
-        st.metric("Umur Pakai", f"{umur_bulan} bulan")
-    with kol_m3:
-        st.metric("Amortisasi/Bulan", format_rupiah(amortisasi))
-
-    st.caption(
-        f"Rumus: {format_rupiah(total_harga)} ÷ {umur_bulan} bulan = **{format_rupiah(amortisasi)}/bulan**"
-    )
-
-    # Validasi akun
-    akun_beban = akun_ids["beban_amortisasi_mulsa"]
-    akun_akum = akun_ids["akum_amortisasi_mulsa"]
-
-    if not akun_beban["id"] or not akun_akum["id"]:
-        st.error("❌ Akun amortisasi mulsa tidak ditemukan (5107 atau 1601K). Periksa Bagan Akun.")
-        return
-
-    # Cek sudah ada?
-    sudah_ada = cek_penyesuaian_sudah_ada(period_id, "mulsa")
-    if sudah_ada:
-        st.success("✅ Jurnal penyesuaian amortisasi mulsa sudah dibuat untuk periode ini.")
-        return
-
-    if st.button("💾 Buat Jurnal Amortisasi Mulsa", type="primary", key="btn_mulsa"):
-        try:
-            journal_id = buat_penyesuaian_amortisasi_mulsa(
-                period_id=period_id,
-                tanggal=tanggal_penyesuaian,
-                akun_beban_id=akun_beban["id"],
-                akun_akumulasi_id=akun_akum["id"],
-                harga_per_blok=int(harga_per_blok),
-                jumlah_blok=int(jumlah_blok),
-                umur_tahun=float(umur_tahun),
-            )
-            if journal_id:
-                st.success(
-                    f"✅ Jurnal amortisasi mulsa berhasil dibuat! "
-                    f"Amortisasi: {format_rupiah(amortisasi)}/bulan."
-                )
-                st.cache_data.clear()
-                st.rerun()
-        except Exception as e:
-            st.error(f"❌ {e}")
-
-
 def _tab_akrual_upah(period_id: int, tanggal_penyesuaian: str, akun_ids: dict) -> None:
     """Tab penyesuaian: akrual upah yang belum dibayar."""
     st.subheader("👷 Akrual Upah Belum Dibayar")
@@ -304,7 +209,7 @@ def _tab_akrual_upah(period_id: int, tanggal_penyesuaian: str, akun_ids: dict) -
     akun_utang = akun_ids["utang_gaji"]
 
     if not akun_upah["id"] or not akun_utang["id"]:
-        st.error("❌ Akun Beban Upah (5105) atau Utang Gaji (2201) tidak ditemukan.")
+        st.error("❌ Akun Beban Gaji (6110) atau Utang Gaji (2210) tidak ditemukan.")
         return
 
     # Cek sudah ada?
@@ -338,7 +243,7 @@ def tampilkan() -> None:
     """Fungsi utama halaman Ayat Penyesuaian."""
     st.title("📝 Ayat Penyesuaian")
     st.caption(
-        "Penyesuaian akhir periode: penyusutan aset, amortisasi mulsa, dan akrual upah. "
+        "Penyesuaian akhir periode: penyusutan aset tetap dan akrual upah. "
         "Setiap penyesuaian membuat jurnal otomatis yang bisa dilihat di Jurnal Umum."
     )
 
@@ -391,18 +296,14 @@ def tampilkan() -> None:
     if periode_obj["status"] == "buka":
         st.subheader("➕ Buat Penyesuaian Baru")
 
-        # 3 Tabs penyesuaian
-        tab_penyusutan, tab_mulsa, tab_upah = st.tabs([
+        # 2 Tabs penyesuaian
+        tab_penyusutan, tab_upah = st.tabs([
             "🏭 Penyusutan Aset Tetap",
-            "🌿 Amortisasi Plastik Mulsa",
             "👷 Akrual Upah",
         ])
 
         with tab_penyusutan:
             _tab_penyusutan(period_id, tanggal_str)
-
-        with tab_mulsa:
-            _tab_amortisasi(period_id, tanggal_str, akun_ids)
 
         with tab_upah:
             _tab_akrual_upah(period_id, tanggal_str, akun_ids)

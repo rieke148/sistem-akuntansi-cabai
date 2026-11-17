@@ -25,6 +25,7 @@ from datetime import date
 import streamlit_antd_components as sac
 
 from services import master_data_service as svc
+from services import inventory_service as inv_svc
 from utils.formatting import format_rupiah, format_tanggal, nama_bulan_tahun
 from utils.ui_components import divider_dengan_judul, selector_periode
 from theme import WARNA_PRIMER
@@ -109,13 +110,65 @@ def _tab_bagan_akun() -> None:
         with st.expander("✏️ Edit Akun"):
             _form_edit_akun(df)
 
+    # --- Hapus permanen ---
+    with st.expander("🗑️ Hapus Akun"):
+        st.warning(
+            "Akun hanya dapat dihapus permanen jika belum digunakan pada jurnal, "
+            "saldo awal, item persediaan, atau aset tetap. Akun yang sudah "
+            "digunakan harus dinonaktifkan melalui form Edit Akun agar histori "
+            "pencatatan tetap terjaga."
+        )
+
+        if df.empty:
+            st.info("Tidak ada akun pada filter yang dipilih.")
+        else:
+            pilihan_hapus = {
+                f"{r['kode_akun']} - {r['nama_akun']} ({'Aktif' if r['aktif'] else 'Nonaktif'})": int(r["id"])
+                for _, r in df.iterrows()
+            }
+            akun_hapus_label = st.selectbox(
+                "Pilih Akun yang Akan Dihapus",
+                list(pilihan_hapus.keys()),
+                key="hapus_akun_sel",
+            )
+            akun_hapus_id = pilihan_hapus[akun_hapus_label]
+            akun_hapus = df[df["id"] == akun_hapus_id].iloc[0]
+
+            st.caption(
+                f"Akun terpilih: **{akun_hapus['kode_akun']} — {akun_hapus['nama_akun']}**. "
+                "Penghapusan permanen tidak dapat dibatalkan."
+            )
+            konfirmasi_hapus = st.checkbox(
+                "Saya yakin ingin menghapus akun ini secara permanen.",
+                key=f"konfirmasi_hapus_akun_{akun_hapus_id}",
+            )
+
+            if st.button(
+                "🗑️ Hapus Akun Permanen",
+                type="secondary",
+                use_container_width=True,
+                disabled=not konfirmasi_hapus,
+                key="btn_hapus_akun",
+            ):
+                try:
+                    svc.hapus_akun(akun_hapus_id)
+                    st.success(
+                        f"Akun '{akun_hapus['kode_akun']} - {akun_hapus['nama_akun']}' "
+                        "berhasil dihapus."
+                    )
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
+                except Exception as e:
+                    st.error(f"Gagal menghapus akun: {e}")
+
 
 def _form_tambah_akun() -> None:
     """Form tambah akun baru ke COA."""
     with st.form("form_tambah_akun", clear_on_submit=True):
         kode = st.text_input(
             "Kode Akun *",
-            placeholder="Contoh: 1101",
+            placeholder="Contoh: 1110",
             help="Kode unik: 1xxx=Aset, 2xxx=Liabilitas, 3xxx=Ekuitas, 4xxx=Pendapatan, 5xxx=Beban Produksi, 6xxx=Beban Operasional"
         )
         nama = st.text_input("Nama Akun *", placeholder="Contoh: Kas")
@@ -276,71 +329,130 @@ def _tab_supplier() -> None:
 # ================================================================
 def _tab_item() -> None:
     """CRUD Item Persediaan."""
-    divider_dengan_judul("Item Persediaan & Hasil Panen", "box-seam")
-    st.caption("Item bisa berupa bahan produksi (pupuk, bibit, dll) atau hasil panen (cabai kg).")
+    divider_dengan_judul("Item Barang Dagang Cabai", "box-seam")
+    st.caption(
+        "Daftarkan setiap variasi cabai yang dijual sebagai item terpisah, misalnya Cabai Rawit Merah, "
+        "Cabai Ijo, atau Cabai Keriting. Item bahan produksi lama tetap tersimpan sebagai arsip nonaktif."
+    )
 
     df = svc.ambil_semua_item()
-    df_tampil = df[["kode_item", "nama_item", "satuan", "tipe", "komoditas", "akun_persediaan", "aktif"]].copy()
+    df_tampil = df[["kode_item", "nama_item", "satuan", "tipe", "akun_persediaan", "aktif"]].copy()
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
-    df_tampil.columns = ["Kode", "Nama Item", "Satuan", "Tipe", "Komoditas", "Akun Persediaan", "Status"]
+    df_tampil.columns = ["Kode", "Nama Item", "Satuan", "Tipe", "Akun Persediaan", "Status"]
     st.dataframe(df_tampil, use_container_width=True, hide_index=True)
-
-    # Ambil daftar akun persediaan untuk dropdown
-    from database.connection import get_connection
-    koneksi = get_connection()
-    akun_persediaan_rows = koneksi.execute(
-        "SELECT id, kode_akun, nama_akun FROM accounts WHERE kategori='Aset' AND aktif=1 ORDER BY kode_akun"
-    ).fetchall()
-    koneksi.close()
-    opsi_akun = {"(Tidak ada)": None}
-    opsi_akun.update({f"{r['kode_akun']} - {r['nama_akun']}": r["id"] for r in akun_persediaan_rows})
 
     kol1, kol2 = st.columns(2)
     with kol1:
-        with st.expander("➕ Tambah Item"):
+        with st.expander("➕ Tambah Barang Dagang Cabai"):
+            st.info(
+                "Gunakan form ini untuk menambahkan jenis cabai baru. Contoh: "
+                "**CAB-002 — Cabai Ijo — kg**. Akun persediaan 1140 akan dipasang otomatis."
+            )
             with st.form("form_tambah_item", clear_on_submit=True):
-                kode = st.text_input("Kode Item *", placeholder="Contoh: BHN-007")
-                nama = st.text_input("Nama Item *")
-                satuan = st.text_input("Satuan *", placeholder="Contoh: kg, karung, batang")
-                tipe = st.selectbox("Tipe", svc.TIPE_ITEM,
-                                    help="bahan=input produksi, hasil_panen=output")
-                komoditas = st.selectbox("Komoditas", svc.KOMODITAS_ITEM)
-                akun_dipilih = st.selectbox("Akun Persediaan", list(opsi_akun.keys()))
-                akun_id = opsi_akun[akun_dipilih]
-                if st.form_submit_button("💾 Simpan", use_container_width=True):
+                kode = st.text_input("Kode Barang *", placeholder="Contoh: CAB-002")
+                nama = st.text_input("Nama Barang *", placeholder="Contoh: Cabai Ijo")
+                st.text_input("Satuan", value="kg", disabled=True)
+                st.caption(
+                    "Barang baru otomatis aktif dan akan tersedia pada pilihan pembelian, "
+                    "pencatatan panen, penjualan, kartu persediaan, dan dashboard."
+                )
+                st.caption(
+                    "Setelah didaftarkan, isi stok awalnya melalui Master Data → Saldo Awal → "
+                    "Saldo Awal Persediaan per Item, atau tambahkan stok lewat transaksi pembelian/panen."
+                )
+                if st.form_submit_button("💾 Simpan Barang Dagang", use_container_width=True):
                     try:
-                        svc.tambah_item(kode, nama, satuan, tipe, komoditas, akun_id)
-                        st.success(f"Item '{nama}' berhasil ditambahkan!")
+                        item_id_baru = svc.tambah_item(
+                            kode, nama, "kg", svc.TIPE_ITEM[0], "cabai", None
+                        )
+                        st.cache_data.clear()
+                        st.success(
+                            f"Barang '{nama.strip()}' berhasil ditambahkan "
+                            f"(ID item: {item_id_baru})."
+                        )
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Gagal: {e}")
+                        st.error(f"Gagal menambahkan barang: {e}")
 
     with kol2:
         with st.expander("✏️ Edit Item"):
-            pilihan = {f"{r['kode_item']} - {r['nama_item']}": r["id"] for _, r in df.iterrows()}
-            dipilih = st.selectbox("Pilih Item", list(pilihan.keys()), key="edit_item_sel")
-            if dipilih:
-                baris = df[df["id"] == pilihan[dipilih]].iloc[0]
-                with st.form("form_edit_item"):
-                    st.caption(f"Kode: **{baris['kode_item']}** (tidak bisa diubah)")
-                    nama_b = st.text_input("Nama Item *", value=baris["nama_item"])
-                    sat_b = st.text_input("Satuan *", value=baris["satuan"])
-                    tipe_b = st.selectbox("Tipe", svc.TIPE_ITEM,
-                                          index=svc.TIPE_ITEM.index(baris["tipe"]))
-                    kom_b = st.selectbox("Komoditas", svc.KOMODITAS_ITEM,
-                                         index=svc.KOMODITAS_ITEM.index(baris["komoditas"]))
-                    akun_key = next((k for k, v in opsi_akun.items()
-                                     if v == baris.get("account_id")), "(Tidak ada)")
-                    akun_b = st.selectbox("Akun Persediaan", list(opsi_akun.keys()),
-                                          index=list(opsi_akun.keys()).index(akun_key))
-                    aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
-                    if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
-                        try:
-                            svc.ubah_item(baris["id"], nama_b, sat_b, tipe_b, kom_b, opsi_akun[akun_b], aktif_b)
-                            st.success("Item berhasil diperbarui!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Gagal: {e}")
+            df_edit = df[df["tipe"] == "hasil_panen"]
+            if df_edit.empty:
+                st.info("Belum ada item barang dagang cabai yang dapat diedit.")
+            else:
+                pilihan = {f"{r['kode_item']} - {r['nama_item']}": r["id"] for _, r in df_edit.iterrows()}
+                dipilih = st.selectbox("Pilih Item", list(pilihan.keys()), key="edit_item_sel")
+                if dipilih:
+                    baris = df_edit[df_edit["id"] == pilihan[dipilih]].iloc[0]
+                    with st.form("form_edit_item"):
+                        st.caption(f"Kode: **{baris['kode_item']}** (tidak bisa diubah)")
+                        nama_b = st.text_input("Nama Item *", value=baris["nama_item"])
+                        st.text_input("Satuan", value="kg", disabled=True)
+                        sat_b = "kg"
+                        tipe_b = st.selectbox(
+                            "Tipe",
+                            svc.TIPE_ITEM,
+                            format_func=lambda _: "Barang Dagang — Hasil Panen Cabai",
+                        )
+                        st.caption("Akun otomatis: 1140 — Persediaan Barang Dagang.")
+                        aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
+                        if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
+                            try:
+                                svc.ubah_item(baris["id"], nama_b, sat_b, tipe_b, "cabai", None, aktif_b)
+                                st.cache_data.clear()
+                                st.success("Item berhasil diperbarui!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Gagal: {e}")
+
+    # --- Hapus permanen ---
+    with st.expander("🗑️ Hapus Item"):
+        st.warning(
+            "Penghapusan permanen hanya tersedia untuk item yang belum pernah "
+            "memiliki pergerakan stok. Item yang sudah memiliki histori harus "
+            "dinonaktifkan melalui menu Edit Item agar kartu persediaan tetap utuh."
+        )
+
+        if df.empty:
+            st.info("Belum ada item yang dapat dipilih.")
+        else:
+            pilihan_hapus = {
+                f"{r['kode_item']} - {r['nama_item']} ({'Aktif' if r['aktif'] else 'Nonaktif'})": int(r["id"])
+                for _, r in df.iterrows()
+            }
+            item_hapus_label = st.selectbox(
+                "Pilih Item yang Akan Dihapus",
+                list(pilihan_hapus.keys()),
+                key="hapus_item_sel",
+            )
+            item_hapus_id = pilihan_hapus[item_hapus_label]
+            item_hapus = df[df["id"] == item_hapus_id].iloc[0]
+
+            st.caption(
+                f"Item terpilih: **{item_hapus['kode_item']} — {item_hapus['nama_item']}**. "
+                "Tindakan ini tidak dapat dibatalkan."
+            )
+            konfirmasi_hapus = st.checkbox(
+                "Saya yakin ingin menghapus item ini secara permanen.",
+                key=f"konfirmasi_hapus_item_{item_hapus_id}",
+            )
+
+            if st.button(
+                "🗑️ Hapus Item Permanen",
+                type="secondary",
+                use_container_width=True,
+                disabled=not konfirmasi_hapus,
+                key="btn_hapus_item",
+            ):
+                try:
+                    svc.hapus_item(item_hapus_id)
+                    st.cache_data.clear()
+                    st.success(f"Item '{item_hapus['nama_item']}' berhasil dihapus.")
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
+                except Exception as e:
+                    st.error(f"Gagal menghapus item: {e}")
 
 
 # ================================================================
@@ -351,10 +463,10 @@ def _tab_pekerja() -> None:
     divider_dengan_judul("Data Pekerja", "person-badge")
 
     df = svc.ambil_semua_pekerja()
-    df_tampil = df[["nama", "tipe_pekerja", "upah_harian", "komoditas", "aktif"]].copy()
+    df_tampil = df[["nama", "tipe_pekerja", "upah_harian", "aktif"]].copy()
     df_tampil["upah_harian"] = df_tampil["upah_harian"].apply(format_rupiah)
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
-    df_tampil.columns = ["Nama", "Tipe", "Upah Harian", "Komoditas", "Status"]
+    df_tampil.columns = ["Nama", "Tipe", "Upah Harian", "Status"]
     st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     # Info upah dari parameter
@@ -377,10 +489,9 @@ def _tab_pekerja() -> None:
                 upah_default = upah_tetap if tipe == "tetap" else upah_tambahan
                 upah = st.number_input("Upah Harian (Rp) *", min_value=1,
                                        value=upah_default, step=5000)
-                komoditas = st.selectbox("Komoditas", svc.KOMODITAS_ITEM)
                 if st.form_submit_button("💾 Simpan", use_container_width=True):
                     try:
-                        svc.tambah_pekerja(nama, tipe, upah, komoditas)
+                        svc.tambah_pekerja(nama, tipe, upah, "cabai")
                         st.success(f"Pekerja '{nama}' berhasil ditambahkan!")
                         st.rerun()
                     except Exception as e:
@@ -398,12 +509,10 @@ def _tab_pekerja() -> None:
                                           index=svc.TIPE_PEKERJA.index(baris["tipe_pekerja"]))
                     upah_b = st.number_input("Upah Harian (Rp) *",
                                              min_value=1, value=int(baris["upah_harian"]), step=5000)
-                    kom_b = st.selectbox("Komoditas", svc.KOMODITAS_ITEM,
-                                         index=svc.KOMODITAS_ITEM.index(baris["komoditas"]))
                     aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
                     if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
                         try:
-                            svc.ubah_pekerja(baris["id"], nama_b, tipe_b, upah_b, kom_b, aktif_b)
+                            svc.ubah_pekerja(baris["id"], nama_b, tipe_b, upah_b, "cabai", aktif_b)
                             st.success("Data pekerja berhasil diperbarui!")
                             st.rerun()
                         except Exception as e:
@@ -629,9 +738,9 @@ def _tab_blok_lahan() -> None:
 
     df = svc.ambil_semua_blok()
     df_tampil = df[["kode_blok", "jumlah_pohon", "tanggal_tanam",
-                     "komoditas", "luas_m2", "jarak_tanam_cm", "keterangan", "aktif"]].copy()
+                     "luas_m2", "jarak_tanam_cm", "keterangan", "aktif"]].copy()
     df_tampil["aktif"] = df_tampil["aktif"].map({1: "Aktif", 0: "Nonaktif"})
-    df_tampil.columns = ["Blok", "Jml Pohon", "Tgl Tanam", "Komoditas",
+    df_tampil.columns = ["Blok", "Jml Pohon", "Tgl Tanam",
                           "Luas (m²)", "Jarak Tanam (cm)", "Keterangan", "Status"]
     st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
@@ -643,13 +752,12 @@ def _tab_blok_lahan() -> None:
                                      help="Satu huruf kapital. Blok A-E sudah ada.")
                 pohon = st.number_input("Jumlah Pohon *", min_value=1, value=1000)
                 tgl = st.date_input("Tanggal Tanam *", value=date.today())
-                komoditas = st.selectbox("Komoditas", svc.KOMODITAS_ITEM)
                 luas = st.number_input("Luas (m²)", min_value=0.0, value=494.0, step=10.0)
                 jarak = st.number_input("Jarak Tanam (cm)", min_value=10.0, value=100.0, step=5.0)
                 ket = st.text_input("Keterangan", placeholder="Opsional")
                 if st.form_submit_button("💾 Simpan", use_container_width=True):
                     try:
-                        svc.tambah_blok(kode, pohon, str(tgl), komoditas, luas, jarak, ket)
+                        svc.tambah_blok(kode, pohon, str(tgl), "cabai", luas, jarak, ket)
                         st.success(f"Blok '{kode.upper()}' berhasil ditambahkan!")
                         st.rerun()
                     except Exception as e:
@@ -736,7 +844,11 @@ def _tab_saldo_awal() -> None:
         "⚠️ Semua angka saldo awal bertanda 'CONTOH' harus diganti dengan data asli!"
     )
 
-    # Form input/ubah saldo awal
+    # Saldo awal persediaan harus dicatat per item agar kuantitas dan nilainya sinkron.
+    with st.expander("📦 Saldo Awal Persediaan per Item"):
+        _form_saldo_awal_persediaan(period_id)
+
+    # Saldo awal akun selain persediaan tetap dikelola di form ini.
     with st.expander("➕ Tambah / Ubah Saldo Awal Akun"):
         _form_input_saldo_awal(period_id)
 
@@ -756,14 +868,73 @@ def _tab_saldo_awal() -> None:
                     st.error(f"Gagal: {e}")
 
 
+def _form_saldo_awal_persediaan(period_id: int) -> None:
+    """Form input stok awal per item dan sinkronisasi otomatis ke akun persediaan."""
+    items = [
+        item for item in inv_svc.ambil_daftar_item_persediaan()
+        if item["account_id"] is not None
+    ]
+    if not items:
+        st.info("Tambahkan item persediaan dan hubungkan dengan akun persediaan terlebih dahulu.")
+        return
+
+    st.caption(
+        "Masukkan kuantitas fisik dan harga pokok per satuan pada awal periode. "
+        "Sistem otomatis membuat mutasi saldo_awal di kartu persediaan serta "
+        "menyelaraskan saldo debit akun persediaannya. Jangan masukkan nilai yang sama "
+        "lagi pada form saldo awal akun."
+    )
+
+    with st.form("form_saldo_awal_persediaan", clear_on_submit=True):
+        item_idx = st.selectbox(
+            "Item Persediaan *",
+            range(len(items)),
+            format_func=lambda i: (
+                f"{items[i]['kode_item']} - {items[i]['nama_item']} "
+                f"({items[i]['satuan']})"
+            ),
+        )
+        kol1, kol2 = st.columns(2)
+        with kol1:
+            qty = st.number_input(
+                "Kuantitas Stok Awal", min_value=0.0, step=0.1, value=0.0
+            )
+        with kol2:
+            harga = st.number_input(
+                "Harga Pokok per Satuan (Rp)", min_value=0, step=1000, value=0
+            )
+        st.caption("Nilai awal persediaan dihitung dari kuantitas × harga pokok per satuan.")
+        simpan = st.form_submit_button("💾 Simpan Saldo Awal Persediaan", use_container_width=True)
+
+    if simpan:
+        item = items[item_idx]
+        try:
+            nilai = inv_svc.catat_saldo_awal_persediaan(
+                period_id=period_id,
+                item_id=int(item["id"]),
+                qty=float(qty),
+                harga_satuan=int(harga),
+            )
+            st.success(
+                f"Saldo awal {item['nama_item']} berhasil disimpan. "
+                f"Nilai persediaan: {format_rupiah(nilai)}."
+            )
+            st.rerun()
+        except Exception as e:
+            st.error(f"Gagal menyimpan saldo awal persediaan: {e}")
+
+
 def _form_input_saldo_awal(period_id: int) -> None:
-    """Form input/update saldo awal satu akun."""
+    """Form input/update saldo awal satu akun selain akun persediaan per item."""
     # Ambil semua akun aktif
     from database.connection import get_connection
     koneksi = get_connection()
     akun_rows = koneksi.execute(
         "SELECT id, kode_akun, nama_akun, saldo_normal, kategori "
-        "FROM accounts WHERE aktif=1 ORDER BY kode_akun"
+        "FROM accounts "
+        "WHERE aktif=1 AND id NOT IN "
+        "(SELECT DISTINCT account_id FROM items WHERE account_id IS NOT NULL) "
+        "ORDER BY kode_akun"
     ).fetchall()
     koneksi.close()
 

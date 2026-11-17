@@ -1,10 +1,9 @@
 """
 services/depreciation_service.py
 ----------------------------------
-Tujuan  : Menghitung penyusutan aset tetap (metode garis lurus) dan
-          amortisasi perlengkapan (plastik mulsa, umur 1,5 tahun).
-Input   : fixed_asset_id atau semua aset aktif, periode.
-Output  : Nominal penyusutan per bulan, jurnal penyesuaian otomatis.
+Tujuan  : Menghitung penyusutan aset tetap (metode garis lurus).
+Input   : fixed_asset_id atau semua aset aktif.
+Output  : Nominal penyusutan per bulan.
 Dipanggil oleh : services/adjusting_service.py, views/10_ayat_penyesuaian.py
 
 RUMUS PENYUSUTAN GARIS LURUS:
@@ -127,30 +126,3 @@ def hitung_semua_penyusutan() -> pd.DataFrame:
         })
 
     return pd.DataFrame(hasil)
-
-
-def hitung_amortisasi_mulsa_bulanan(
-    harga_per_blok: int = 400_000,
-    jumlah_blok: int = 5,
-    umur_tahun: float = 1.5,
-) -> int:
-    """
-    Menghitung amortisasi plastik mulsa per bulan.
-
-    Args:
-        harga_per_blok : Harga plastik mulsa per blok (Rp400.000 dari observasi).
-        jumlah_blok    : Jumlah blok yang memakai mulsa.
-        umur_tahun     : Masa pakai mulsa (1,5 tahun = 18 bulan).
-
-    Returns:
-        Amortisasi per bulan dalam Rupiah (integer).
-
-    Rumus:
-        Total harga = Rp400.000 x 5 blok = Rp2.000.000
-        Amortisasi/bulan = Rp2.000.000 / 18 = Rp111.111/bulan
-    """
-    total_harga = harga_per_blok * jumlah_blok
-    umur_bulan = int(umur_tahun * 12)
-    if umur_bulan > 0:
-        return total_harga // umur_bulan
-    return 0

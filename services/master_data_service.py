@@ -129,6 +129,99 @@ def nonaktifkan_akun(account_id: int) -> None:
     _eksekusi("UPDATE accounts SET aktif=0 WHERE id=?", (account_id,))
 
 
+def hapus_akun(account_id: int) -> None:
+    """
+    Menghapus akun secara permanen hanya jika belum direferensikan data lain.
+
+    Seluruh foreign key yang mengarah ke tabel accounts diperiksa secara
+    dinamis agar data jurnal, saldo awal, item, aset tetap, dan relasi akun
+    lain tidak kehilangan referensi. Akun yang sudah digunakan harus
+    dinonaktifkan, bukan dihapus.
+    """
+    if account_id <= 0:
+        raise ValueError("Akun yang dipilih tidak valid.")
+
+    # Nama relasi untuk menghasilkan pesan yang mudah dipahami pengguna.
+    label_relasi = {
+        "journal_lines.account_id": "baris jurnal",
+        "opening_balances.account_id": "saldo awal",
+        "items.account_id": "akun persediaan pada item",
+        "fixed_assets.account_id": "akun aset tetap",
+        "fixed_assets.account_akum_id": "akun akumulasi penyusutan",
+    }
+
+    koneksi = get_connection()
+    try:
+        # Menghindari perubahan data lain di antara pemeriksaan dan DELETE.
+        koneksi.execute("BEGIN IMMEDIATE")
+
+        akun = koneksi.execute(
+            "SELECT kode_akun, nama_akun FROM accounts WHERE id = ?",
+            (account_id,),
+        ).fetchone()
+
+        if akun is None:
+            raise ValueError("Akun yang ingin dihapus tidak ditemukan.")
+
+        tabel_rows = koneksi.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        ).fetchall()
+
+        pemakaian = []
+        for tabel_row in tabel_rows:
+            nama_tabel = tabel_row["name"]
+            foreign_keys = koneksi.execute(
+                f'PRAGMA foreign_key_list("{nama_tabel}")'
+            ).fetchall()
+
+            for fk in foreign_keys:
+                if fk["table"] != "accounts":
+                    continue
+
+                nama_kolom = fk["from"]
+                jumlah = koneksi.execute(
+                    f'SELECT COUNT(*) FROM "{nama_tabel}" '
+                    f'WHERE "{nama_kolom}" = ?',
+                    (account_id,),
+                ).fetchone()[0]
+
+                if jumlah:
+                    kunci_label = f"{nama_tabel}.{nama_kolom}"
+                    label = label_relasi.get(kunci_label, kunci_label)
+                    pemakaian.append(f"{jumlah} {label}")
+
+        if pemakaian:
+            detail_pemakaian = ", ".join(pemakaian)
+            raise ValueError(
+                f"Akun '{akun['kode_akun']} - {akun['nama_akun']}' tidak dapat "
+                f"dihapus karena masih digunakan pada {detail_pemakaian}. "
+                "Jika akun tidak digunakan lagi, ubah statusnya menjadi "
+                "nonaktif melalui form Edit Akun agar histori tetap tersimpan."
+            )
+
+        cursor = koneksi.execute(
+            "DELETE FROM accounts WHERE id = ?",
+            (account_id,),
+        )
+        if cursor.rowcount != 1:
+            raise ValueError("Akun gagal dihapus karena data sudah berubah.")
+
+        koneksi.commit()
+
+    except sqlite3.IntegrityError as error:
+        koneksi.rollback()
+        raise ValueError(
+            "Akun tidak dapat dihapus karena masih terhubung dengan data lain. "
+            "Nonaktifkan akun agar histori tetap aman."
+        ) from error
+    except Exception:
+        koneksi.rollback()
+        raise
+    finally:
+        koneksi.close()
+
+
 # ================================================================
 # PELANGGAN
 # ================================================================
@@ -195,18 +288,40 @@ def ubah_supplier(
 # ================================================================
 # ITEM PERSEDIAAN
 # ================================================================
-TIPE_ITEM = ["bahan", "hasil_panen"]
-KOMODITAS_ITEM = ["cabai", "selada", "melon"]
+TIPE_ITEM = ["hasil_panen"]
+KOMODITAS_ITEM = ["cabai"]
 
 
 def ambil_semua_item() -> pd.DataFrame:
     return _ambil_semua("""
         SELECT i.id, i.kode_item, i.nama_item, i.satuan, i.tipe, i.komoditas,
-               a.kode_akun as akun_persediaan, i.aktif
+               i.account_id, a.kode_akun as akun_persediaan, i.aktif
         FROM items i
         LEFT JOIN accounts a ON i.account_id = a.id
         ORDER BY i.tipe, i.kode_item
     """)
+
+
+def _ambil_id_akun_persediaan_otomatis(tipe: str) -> int:
+    """Mengunci akun persediaan berdasarkan tipe item."""
+    kode_akun = {"hasil_panen": "1140"}.get(tipe)
+    if not kode_akun:
+        raise ValueError("Tipe item persediaan tidak dikenal.")
+
+    koneksi = get_connection()
+    try:
+        row = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun = ? AND aktif = 1",
+            (kode_akun,),
+        ).fetchone()
+    finally:
+        koneksi.close()
+
+    if not row:
+        raise ValueError(
+            f"Akun persediaan {kode_akun} belum tersedia. Periksa Bagan Akun."
+        )
+    return int(row["id"])
 
 
 def tambah_item(
@@ -216,16 +331,62 @@ def tambah_item(
     tipe: str,
     komoditas: str,
     account_id: int | None,
-) -> None:
-    if not kode_item.strip():
-        raise ValueError("Kode item tidak boleh kosong.")
-    if not nama_item.strip():
-        raise ValueError("Nama item tidak boleh kosong.")
-    _eksekusi(
-        "INSERT INTO items (kode_item, nama_item, satuan, tipe, komoditas, account_id) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        (kode_item.strip(), nama_item.strip(), satuan.strip(), tipe, komoditas, account_id),
-    )
+) -> int:
+    """
+    Menambahkan variasi barang dagang cabai baru.
+
+    Akun persediaan ditetapkan otomatis ke akun 1140. Item baru langsung
+    aktif sehingga tersedia pada transaksi pembelian, panen, penjualan,
+    kartu persediaan, dan dashboard.
+    """
+    kode = str(kode_item or "").strip().upper()
+    nama = str(nama_item or "").strip()
+    unit = str(satuan or "").strip()
+
+    if not kode:
+        raise ValueError("Kode barang tidak boleh kosong.")
+    if not nama:
+        raise ValueError("Nama barang tidak boleh kosong.")
+    if not unit:
+        raise ValueError("Satuan barang tidak boleh kosong.")
+    if tipe not in TIPE_ITEM:
+        raise ValueError(
+            "Tipe item persediaan tidak dikenal. "
+            "Persediaan hanya untuk barang dagang hasil panen."
+        )
+    if komoditas not in KOMODITAS_ITEM:
+        raise ValueError("Komoditas barang tidak valid.")
+
+    # Semua alur penjualan dan pencatatan panen cabai menggunakan satuan kg.
+    if unit.lower() != "kg":
+        raise ValueError("Satuan barang dagang cabai harus kg agar konsisten dengan transaksi penjualan dan panen.")
+
+    akun_persediaan_id = _ambil_id_akun_persediaan_otomatis(tipe)
+    koneksi = get_connection()
+    try:
+        cursor = koneksi.execute(
+            """
+            INSERT INTO items
+                (kode_item, nama_item, satuan, tipe, komoditas, account_id, aktif)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
+            """,
+            (kode, nama, "kg", tipe, komoditas, akun_persediaan_id),
+        )
+        koneksi.commit()
+        return int(cursor.lastrowid)
+    except sqlite3.IntegrityError as error:
+        koneksi.rollback()
+        pesan = str(error).lower()
+        if "items.kode_item" in pesan or "unique constraint failed" in pesan:
+            raise ValueError(
+                f"Kode barang '{kode}' sudah digunakan. Gunakan kode barang yang berbeda."
+            ) from error
+        raise
+    except Exception:
+        koneksi.rollback()
+        raise
+    finally:
+        koneksi.close()
 
 
 def ubah_item(
@@ -237,11 +398,87 @@ def ubah_item(
     account_id: int | None,
     aktif: bool,
 ) -> None:
+    nama = str(nama_item or "").strip()
+    unit = str(satuan or "").strip()
+    if not nama:
+        raise ValueError("Nama barang tidak boleh kosong.")
+    if not unit:
+        raise ValueError("Satuan barang tidak boleh kosong.")
+    if unit.lower() != "kg":
+        raise ValueError("Satuan barang dagang cabai harus kg agar konsisten dengan transaksi penjualan dan panen.")
+    if tipe not in TIPE_ITEM:
+        raise ValueError("Jenis barang tidak valid.")
+    if komoditas not in KOMODITAS_ITEM:
+        raise ValueError("Komoditas barang tidak valid.")
+
+    akun_persediaan_id = _ambil_id_akun_persediaan_otomatis(tipe)
     _eksekusi(
-        "UPDATE items SET nama_item=?, satuan=?, tipe=?, komoditas=?, account_id=?, aktif=? "
+        "UPDATE items SET nama_item=?, satuan='kg', tipe=?, komoditas=?, account_id=?, aktif=? "
         "WHERE id=?",
-        (nama_item.strip(), satuan.strip(), tipe, komoditas, account_id, int(aktif), item_id),
+        (nama, tipe, komoditas, akun_persediaan_id, int(aktif), item_id),
     )
+
+
+def hapus_item(item_id: int) -> None:
+    """
+    Menghapus item persediaan secara permanen jika belum memiliki riwayat stok.
+
+    Item yang sudah memiliki pergerakan persediaan tidak boleh dihapus karena
+    riwayat tersebut menjadi dasar audit kartu stok. Nonaktifkan item tersebut
+    melalui form Edit Item agar histori tetap tersimpan.
+
+    Args:
+        item_id: ID item yang akan dihapus.
+
+    Raises:
+        ValueError: Jika item tidak ditemukan atau sudah memiliki riwayat stok.
+    """
+    if item_id <= 0:
+        raise ValueError("Item yang dipilih tidak valid.")
+
+    koneksi = get_connection()
+    try:
+        item = koneksi.execute(
+            "SELECT kode_item, nama_item FROM items WHERE id = ?",
+            (item_id,),
+        ).fetchone()
+
+        if item is None:
+            raise ValueError("Item yang ingin dihapus tidak ditemukan.")
+
+        jumlah_riwayat = koneksi.execute(
+            "SELECT COUNT(*) FROM inventory_movements WHERE item_id = ?",
+            (item_id,),
+        ).fetchone()[0]
+
+        if jumlah_riwayat > 0:
+            raise ValueError(
+                f"Item '{item['kode_item']} - {item['nama_item']}' memiliki "
+                f"{jumlah_riwayat} riwayat pergerakan stok sehingga tidak dapat "
+                "dihapus permanen. Gunakan Edit Item lalu hilangkan centang "
+                "'Aktif?' agar item tidak digunakan lagi tanpa menghapus histori."
+            )
+
+        cursor = koneksi.execute(
+            "DELETE FROM items WHERE id = ?",
+            (item_id,),
+        )
+        if cursor.rowcount != 1:
+            raise ValueError("Item gagal dihapus karena data sudah berubah.")
+
+        koneksi.commit()
+
+    except sqlite3.IntegrityError as error:
+        koneksi.rollback()
+        raise ValueError(
+            "Item tidak dapat dihapus karena masih terhubung dengan data lain. "
+            "Nonaktifkan item agar riwayat tetap aman."
+        ) from error
+    except Exception:
+        koneksi.rollback()
+        raise
+    finally:
+        koneksi.close()
 
 
 # ================================================================

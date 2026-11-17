@@ -61,7 +61,6 @@ with get_connection() as db:
     akun_modal = db.execute("SELECT id FROM accounts WHERE kode_akun='3101'").fetchone()
     akun_piutang = db.execute("SELECT id FROM accounts WHERE kode_akun='1201'").fetchone()
     akun_jual_cabai = db.execute("SELECT id FROM accounts WHERE kode_akun='4101'").fetchone()
-    akun_jual_selada = db.execute("SELECT id FROM accounts WHERE kode_akun='4102'").fetchone()
     akun_utang = db.execute("SELECT id FROM accounts WHERE kode_akun='2101'").fetchone()
     akun_listrik = db.execute("SELECT id FROM accounts WHERE kode_akun='6101'").fetchone()
     akun_hpp = db.execute("SELECT id FROM accounts WHERE kode_akun='5104'").fetchone()
@@ -102,7 +101,7 @@ except Exception as e:
     f("Penjualan tunai", e)
 
 # TEST 2: Penjualan Tempo
-print("\n2. Penjualan Tempo selada")
+print("\n2. Penjualan Tempo cabai")
 try:
     result = ts.catat_penjualan_tempo(
         period_id=period_id,
@@ -112,8 +111,8 @@ try:
         jumlah_kg=5.0,
         harga_per_kg=55000,
         akun_piutang_id=akun_piutang["id"],
-        akun_penjualan_id=akun_jual_selada["id"],
-        komoditas="selada"
+        akun_penjualan_id=akun_jual_cabai["id"],
+        komoditas="cabai"
     )
     p("Penjualan tempo", result)
 except Exception as e:

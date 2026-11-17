@@ -8,26 +8,24 @@ Output  : Tabel kartu persediaan + metrik ringkasan + grafik saldo.
 Dipanggil oleh : app.py (st.navigation)
 
 KONSEP KARTU PERSEDIAAN:
-  Metode rata-rata bergerak: setiap kali bahan masuk, harga rata-rata dihitung ulang.
+  Metode rata-rata bergerak: setiap kali barang dagang cabai masuk, harga rata-rata dihitung ulang.
   Kartu ini menunjukkan setiap gerakan beserta saldo kumulatif.
 """
 
 import streamlit as st
 import pandas as pd
-from database.connection import get_connection
-from services.inventory_service import ambil_kartu_persediaan, ambil_saldo_persediaan
+from services.inventory_service import (
+    ambil_daftar_item_persediaan,
+    ambil_kartu_persediaan,
+    ambil_saldo_persediaan,
+)
 from utils.formatting import format_rupiah, format_tanggal, format_qty
 
 
 @st.cache_data(ttl=30)
 def _ambil_daftar_items() -> list[dict]:
-    """Ambil semua item persediaan dari database."""
-    koneksi = get_connection()
-    rows = koneksi.execute(
-        "SELECT id, kode_item, nama_item, satuan, tipe FROM items ORDER BY tipe, kode_item"
-    ).fetchall()
-    koneksi.close()
-    return [dict(r) for r in rows]
+    """Ambil daftar item aktif melalui satu layanan persediaan terpusat."""
+    return ambil_daftar_item_persediaan()
 
 
 def _tampilkan_ringkasan_saldo(item_id: int, satuan: str) -> None:
@@ -58,7 +56,7 @@ def _tampilkan_ringkasan_saldo(item_id: int, satuan: str) -> None:
 def _tampilkan_tabel_kartu(df: pd.DataFrame, satuan: str) -> None:
     """Tampilkan tabel kartu persediaan dengan format yang rapi."""
     if df.empty:
-        st.info("Belum ada gerakan untuk item ini. Lakukan transaksi pembelian bahan atau panen terlebih dahulu.")
+        st.info("Belum ada gerakan untuk item ini. Catat hasil panen atau pembelian barang dagang cabai terlebih dahulu.")
         return
 
     # Format tampilan tabel
@@ -69,6 +67,7 @@ def _tampilkan_tabel_kartu(df: pd.DataFrame, satuan: str) -> None:
 
     # Format tipe gerakan
     df_tampil["tipe_gerakan"] = df_tampil["tipe_gerakan"].map({
+        "saldo_awal": "⚖ Saldo Awal",
         "masuk": "⬆ Masuk",
         "keluar": "⬇ Keluar",
     }).fillna(df_tampil["tipe_gerakan"])
@@ -131,43 +130,24 @@ def _tampilkan_grafik_saldo(df: pd.DataFrame, satuan: str) -> None:
 def tampilkan() -> None:
     """Fungsi utama halaman Kartu Persediaan."""
     st.title("📦 Kartu Persediaan")
-    st.caption("Riwayat gerakan masuk/keluar persediaan dengan saldo berjalan (metode rata-rata bergerak).")
+    st.caption(
+        "Persediaan barang dagang cabai dicatat dengan sistem perpetual dan metode rata-rata bergerak. "
+        "Saldo bertambah melalui pencatatan panen atau pembelian cabai dan berkurang saat penjualan."
+    )
 
     # Ambil data semua item
     semua_items = _ambil_daftar_items()
 
     if not semua_items:
-        st.warning("⚠️ Belum ada item persediaan. Tambahkan item di halaman Master Data → Persediaan.")
+        st.warning("⚠️ Belum ada item barang dagang cabai aktif. Tambahkan item hasil panen di halaman Master Data → Item Persediaan.")
         return
 
-    # Filter berdasarkan tipe item
-    tipe_pilihan = st.radio(
-        "Filter Tipe Item",
-        ["Semua", "Bahan Produksi", "Hasil Panen"],
-        horizontal=True,
-        key="filter_tipe_kartu",
-    )
-
-    tipe_map = {
-        "Semua": None,
-        "Bahan Produksi": "bahan",
-        "Hasil Panen": "hasil_panen",
-    }
-    tipe_filter = tipe_map[tipe_pilihan]
-
-    # Filter items berdasarkan tipe
-    if tipe_filter:
-        items_tampil = [i for i in semua_items if i["tipe"] == tipe_filter]
-    else:
-        items_tampil = semua_items
-
-    if not items_tampil:
-        st.info(f"Tidak ada item dengan tipe '{tipe_pilihan}'.")
-        return
+    # Hanya barang dagang cabai hasil panen yang ditampilkan.
+    items_tampil = semua_items
 
     # Dropdown pilih item
     opsi_item = {
-        f"[{i['tipe'].upper()[:1]}] {i['kode_item']} - {i['nama_item']} ({i['satuan']})": i
+        f"{i['kode_item']} - {i['nama_item']} ({i['satuan']})": i
         for i in items_tampil
     }
 
@@ -196,7 +176,7 @@ def tampilkan() -> None:
     if not df.empty:
         st.caption(
             f"Total **{len(df)} gerakan** tercatat untuk item ini. "
-            f"Metode penilaian: **Rata-Rata Bergerak (Moving Average)**."
+            f"Metode pencatatan: **Perpetual** | Penilaian: **Rata-Rata Bergerak (Moving Average)**."
         )
     _tampilkan_tabel_kartu(df, satuan)
 

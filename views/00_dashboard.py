@@ -27,19 +27,19 @@ def _warna_saldo(nilai: int) -> str:
 
 
 def _tampilkan_metrik_utama(period_id: int) -> None:
-    """Menampilkan 4 metrik utama: Kas, Piutang Overdue, Penjualan, Beban."""
+    """Menampilkan 5 metrik utama termasuk HPP Penjualan dan laba kotor."""
     kas_bank = ds.ambil_saldo_kas_bank(period_id)
     overdue = ds.ambil_piutang_overdue()
     jual_beban = ds.ambil_ringkasan_penjualan_beban(period_id)
 
-    kol1, kol2, kol3, kol4 = st.columns(4)
+    kol1, kol2, kol3, kol4, kol5 = st.columns(5)
     with kol1:
         st.metric(
             label="💵 Total Kas & Bank",
             value=format_rupiah(kas_bank["total"]),
             delta=f"Kas {format_rupiah(kas_bank['kas'])} | Bank {format_rupiah(kas_bank['bank'])}",
             delta_color="off",
-            help="Saldo Kas Tunai (1101) + Bank BRI (1102) periode ini",
+            help="Saldo Kas Tunai (1110) periode ini",
         )
     with kol2:
         jml_overdue = len(overdue)
@@ -55,43 +55,40 @@ def _tampilkan_metrik_utama(period_id: int) -> None:
         st.metric(
             label="📈 Penjualan Periode Ini",
             value=format_rupiah(jual_beban["penjualan"]),
-            help="Total kredit ke akun pendapatan (4xxx)",
+            help="Total kredit akun 4110 - Penjualan Cabai",
         )
     with kol4:
         st.metric(
-            label="📉 Beban Periode Ini",
-            value=format_rupiah(jual_beban["beban"]),
-            delta=format_rupiah(jual_beban["laba_kotor"]),
-            delta_color=_warna_saldo(jual_beban["laba_kotor"]),
-            help="Total debit ke akun beban (5xxx). Delta = Laba Kotor",
+            label="📦 HPP Penjualan",
+            value=format_rupiah(jual_beban["hpp_penjualan"]),
+            help="Total debit ke akun 5110 - Harga Pokok Penjualan",
+        )
+    with kol5:
+        st.metric(
+            label="📈 Laba Kotor",
+            value=format_rupiah(jual_beban["laba_kotor"]),
+            help="Penjualan dikurangi HPP Penjualan (akun 5110)",
         )
 
 
-def _tampilkan_grafik_penjualan(period_id: int) -> None:
-    """Menampilkan grafik bar penjualan per komoditas."""
-    df = ds.ambil_penjualan_per_komoditas(period_id)
+def _tampilkan_grafik_penjualan_cabai(period_id: int) -> None:
+    """Menampilkan tren penjualan cabai harian, termasuk tunai dan tempo."""
+    df = ds.ambil_tren_penjualan_cabai(period_id)
     if df.empty:
-        st.info("📊 Belum ada data penjualan untuk grafik.")
+        st.info("📊 Belum ada data penjualan cabai pada periode ini.")
         return
 
-    # Mapping nama display
-    peta_nama = {
-        "cabai": "🌶️ Cabai",
-        "selada": "🥬 Selada",
-        "melon": "🍈 Melon",
-        "umum": "📦 Umum",
-    }
-    df["komoditas_label"] = df["komoditas"].map(lambda x: peta_nama.get(x, x))
-
+    data_grafik = df.set_index("tanggal")["penjualan"]
     st.bar_chart(
-        data=df.set_index("komoditas_label")["penjualan"],
+        data=data_grafik,
         color=WARNA_PRIMER,
         use_container_width=True,
     )
+    st.caption("Grafik mencakup penjualan cabai tunai dan tempo berdasarkan tanggal transaksi.")
 
 
 def _tampilkan_grafik_penjualan_vs_beban(period_id: int) -> None:
-    """Menampilkan grafik bar perbandingan total penjualan vs beban."""
+    """Menampilkan grafik penjualan, HPP, dan beban produksi lainnya."""
     jual_beban = ds.ambil_ringkasan_penjualan_beban(period_id)
     if jual_beban["penjualan"] == 0 and jual_beban["beban"] == 0:
         st.info("📊 Belum ada data transaksi keuangan untuk grafik.")
@@ -99,7 +96,8 @@ def _tampilkan_grafik_penjualan_vs_beban(period_id: int) -> None:
 
     df_pv = pd.DataFrame([
         {"Kategori": "Penjualan", "Nominal": jual_beban["penjualan"]},
-        {"Kategori": "Total Beban", "Nominal": jual_beban["beban"]},
+        {"Kategori": "HPP Penjualan", "Nominal": jual_beban["hpp_penjualan"]},
+        {"Kategori": "Beban Produksi Lain", "Nominal": jual_beban["beban_produksi_lain"]},
     ])
 
     st.bar_chart(
@@ -276,10 +274,10 @@ def tampilkan() -> None:
 
     with kol_grafik:
         divider_dengan_judul("Grafik Keuangan", "bar-chart-line")
-        tab_komoditas, tab_pv = st.tabs(["🌾 Per Komoditas", "⚖️ Penjualan vs Beban"])
-        with tab_komoditas:
+        tab_penjualan, tab_pv = st.tabs(["🌶️ Penjualan Cabai", "⚖️ Penjualan vs Beban"])
+        with tab_penjualan:
             try:
-                _tampilkan_grafik_penjualan(period_id)
+                _tampilkan_grafik_penjualan_cabai(period_id)
             except Exception as e:
                 st.error(f"Gagal memuat grafik: {e}")
         with tab_pv:

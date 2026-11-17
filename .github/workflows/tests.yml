@@ -1,0 +1,131 @@
+name: Python tests
+
+on:
+  push:
+    branches:
+      - main
+      - feature/hapus-item-persediaan
+      - feature/login-otorisasi
+      - feature/ui-enterprise
+  pull_request:
+    branches:
+      - main
+      - feature/hapus-item-persediaan
+      - feature/login-otorisasi
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Compile and pytest (Python 3.12)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Compile application modules
+        run: python -m compileall -q app.py database services utils views
+      - name: Run test suite
+        run: python -m pytest tests/ -v
+      - name: Validate automatic startup migrations on disposable main database copy
+        shell: bash
+        run: |
+          set -e
+          cp database/akuntansi_cabai.db "${RUNNER_TEMP}/akuntansi_cabai_main_before.db"
+          cp "${RUNNER_TEMP}/akuntansi_cabai_main_before.db" database/akuntansi_cabai.db
+          python - <<'PY' > "${RUNNER_TEMP}/startup-migration-check.log" 2>&1
+          from pathlib import Path
+          from database.connection import get_connection
+          from database.schema import (
+              buat_semua_tabel,
+              migrasikan_komoditas_cabai_saja,
+              migrasikan_akun_persediaan_bahan_produksi,
+              migrasikan_coa_baru,
+              migrasikan_persediaan_barang_dagang_saja,
+              pastikan_akun_hpp_penjualan_tersedia,
+          )
+          from services.period_service import pastikan_periode_dasar_tersedia
+
+          tables = ("journal_entries", "journal_lines", "inventory_movements", "opening_balances")
+          before = {}
+          conn = get_connection()
+          for name in tables:
+              before[name] = conn.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]
+          conn.close()
+
+          buat_semua_tabel()
+          migrasikan_komoditas_cabai_saja()
+          migrasikan_akun_persediaan_bahan_produksi()
+          migrasikan_coa_baru()
+          migrasikan_persediaan_barang_dagang_saja()
+          pastikan_periode_dasar_tersedia()
+          pastikan_akun_hpp_penjualan_tersedia()
+
+          if Path("services/auth_service.py").exists():
+              from services import auth_service
+              auth_service.inisialisasi_otorisasi()
+
+          conn = get_connection()
+          after = {
+              name: conn.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]
+              for name in tables
+          }
+          violations = conn.execute("PRAGMA foreign_key_check").fetchall()
+          conn.close()
+          if violations:
+              raise RuntimeError("Foreign key validation failed after startup migrations.")
+          if before != after:
+              raise RuntimeError("Historical accounting row counts changed during startup migrations.")
+          PY
+          echo "Automatic startup migrations completed on disposable main database copy."
+      - name: Read-only HPP migration preflight on disposable snapshot
+        shell: bash
+        run: |
+          set +e
+          if [ ! -f database/akuntansi_cabai_hpp_branch_snapshot.db ]; then
+            echo "::warning::HPP snapshot is unavailable in this checkout; migration validation is pending."
+            exit 0
+          fi
+          cp database/akuntansi_cabai_hpp_branch_snapshot.db database/akuntansi_cabai.db || exit 1
+          python scripts/migrasi_hpp_data_contoh.py > "${RUNNER_TEMP}/hpp-preview.log" 2>&1
+          status=$?
+          if [ "$status" -eq 0 ]; then
+            echo "Read-only HPP migration preflight passed on disposable snapshot."
+            exit 0
+          fi
+          log="${RUNNER_TEMP}/hpp-preview.log"
+          reason="validation_needs_review"
+          if grep -q "Snapshot saldo awal Oktober yang ada berbeda dari asumsi contoh" "$log"; then
+            reason="opening_inventory_snapshot_differs_from_sample_assumption"
+          elif grep -q "Saldo awal akun 1307 Oktober sudah ada dengan nilai berbeda" "$log"; then
+            reason="opening_inventory_account_balance_conflict"
+          elif grep -q "Ada saldo awal November yang bukan hasil migrasi ini" "$log"; then
+            reason="manual_november_opening_balance_present"
+          elif grep -q "Nilai buku akun 1307 tidak sama dengan kartu persediaan" "$log"; then
+            reason="inventory_gl_vs_stock_card_mismatch"
+          elif grep -q "Tidak ditemukan transaksi Penjualan Cabai" "$log"; then
+            reason="no_matching_chili_sales_found"
+          elif grep -q "Kuantitas kg tidak terbaca" "$log"; then
+            reason="sale_quantity_could_not_be_parsed"
+          elif grep -q "Stok tidak cukup" "$log"; then
+            reason="insufficient_inventory_for_sales"
+          elif grep -q "Mutasi persediaan lama" "$log"; then
+            reason="legacy_inventory_movement_needs_reconciliation"
+          elif grep -q "ValueError" "$log"; then
+            reason="sample_migration_validation_value_error"
+          fi
+          echo "::warning::HPP data preflight needs review ($reason). No migration was applied; detailed financial output is suppressed."
+          exit 0

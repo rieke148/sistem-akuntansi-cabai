@@ -15,6 +15,20 @@ LOGIKA PIVOT:
   lalu pivot journal_lines menjadi kolom-kolom khusus menggunakan CASE WHEN.
   Contoh Cash Receipt: 1 baris = 1 transaksi, kolom = Kas (D), Piutang (K), dll.
 
+COA BARU (sesuai coa_cabai_baru.csv):
+  1110 Kas
+  1120 Piutang Usaha
+  1130 Perlengkapan
+  1140 Persediaan
+  1210-1251 Aset Tetap
+  2110 Utang Usaha
+  2210 Utang Gaji
+  3110 Modal Pribadi, 3120 Laba, 3130 Ikhtisar L/R
+  4110 Penjualan Cabai
+  5110 Harga Pokok Penjualan (HPP)
+  6110-6170 Beban Operasional
+  7110 Beban Lain-lain
+
 CATATAN PENTING (dari brief):
   Dari observasi lapangan, semua pembelian dilakukan TUNAI.
   Jurnal Pembelian (kredit) praktis kosong untuk data asli.
@@ -44,7 +58,7 @@ def ambil_jurnal_penjualan(period_id: int | None = None) -> pd.DataFrame:
 
     Returns:
         DataFrame kolom: tanggal, no_faktur, pelanggan, jatuh_tempo,
-                         piutang_d, penjualan_k
+                         piutang_d, penjualan_k, hpp_d, persediaan_k
     """
     kondisi = "WHERE je.journal_type = 'penjualan'"
     params: list = []
@@ -60,12 +74,18 @@ def ambil_jurnal_penjualan(period_id: int | None = None) -> pd.DataFrame:
             je.no_bukti     AS no_faktur,
             COALESCE(je.pihak_terkait, '-') AS pelanggan,
             COALESCE(r.tanggal_jatuh_tempo, '-')    AS jatuh_tempo,
-            -- Piutang (D): debit ke akun piutang (12xx)
-            SUM(CASE WHEN a.kode_akun LIKE '12%' AND jl.debit  > 0
+            -- Piutang (D): debit ke akun piutang (1120)
+            SUM(CASE WHEN a.kode_akun = '1120' AND jl.debit > 0
                      THEN jl.debit  ELSE 0 END) AS piutang_d,
-            -- Penjualan (K): kredit ke akun pendapatan (4xxx)
+            -- Penjualan (K): kredit ke akun pendapatan (4110)
             SUM(CASE WHEN a.kode_akun LIKE '4%'  AND jl.kredit > 0
-                     THEN jl.kredit ELSE 0 END) AS penjualan_k
+                     THEN jl.kredit ELSE 0 END) AS penjualan_k,
+            -- HPP (D): debit ke akun HPP (5110)
+            SUM(CASE WHEN a.kode_akun = '5110' AND jl.debit > 0
+                     THEN jl.debit ELSE 0 END) AS hpp_d,
+            -- Persediaan (K): kredit ke akun persediaan (1140) saat catat HPP
+            SUM(CASE WHEN a.kode_akun = '1140' AND jl.kredit > 0
+                     THEN jl.kredit ELSE 0 END) AS persediaan_k
         FROM journal_entries je
         JOIN journal_lines jl ON je.id = jl.journal_entry_id
         JOIN accounts a ON jl.account_id = a.id
@@ -113,11 +133,11 @@ def ambil_jurnal_pembelian(period_id: int | None = None) -> pd.DataFrame:
             je.tanggal,
             je.no_bukti     AS no_faktur,
             COALESCE(je.pihak_terkait, '-') AS supplier,
-            -- Persediaan (D): debit ke akun persediaan bahan (13xx)
-            SUM(CASE WHEN a.kode_akun LIKE '13%' AND jl.debit  > 0
+            -- Persediaan, Perlengkapan & Peralatan (D): debit ke persediaan (1140), perlengkapan (1130), atau peralatan/aset (12xx)
+            SUM(CASE WHEN (a.kode_akun IN ('1140', '1130', '1250') OR a.kode_akun LIKE '12%') AND jl.debit > 0
                      THEN jl.debit  ELSE 0 END) AS persediaan_d,
-            -- Utang Usaha (K): kredit ke akun utang usaha (2101)
-            SUM(CASE WHEN a.kode_akun = '2101'   AND jl.kredit > 0
+            -- Utang Usaha (K): kredit ke akun utang usaha (2110)
+            SUM(CASE WHEN a.kode_akun = '2110' AND jl.kredit > 0
                      THEN jl.kredit ELSE 0 END) AS utang_k
         FROM journal_entries je
         JOIN journal_lines jl ON je.id = jl.journal_entry_id
@@ -142,13 +162,15 @@ def ambil_jurnal_penerimaan_kas(period_id: int | None = None) -> pd.DataFrame:
 
     Format kolom tradisional:
       Tanggal | No Bukti | Keterangan | Pihak Terkait | Ref |
-      Kas (D) | Piutang (K) | Penjualan (K) | Lain-lain (K)
+      Kas (D) | Piutang (K) | Penjualan (K) | HPP (D) | Persediaan (K) | Lain-lain (K)
 
     Pivot kolom:
-      kas_d       = debit ke Kas/Bank (110x)
-      piutang_k   = kredit ke Piutang Usaha (12xx) → pelunasan piutang
-      penjualan_k = kredit ke Penjualan/Pendapatan (4xxx)
-      lain_lain_k = kredit ke akun lain (mis. Modal Disetor)
+      kas_d       = debit ke Kas (1110)
+      piutang_k   = kredit ke Piutang Usaha (1120) -> pelunasan piutang
+      penjualan_k = kredit ke Penjualan/Pendapatan (4110)
+      hpp_d       = debit ke HPP (5110) - dicatat bersamaan penjualan tunai
+      persediaan_k= kredit ke Persediaan (1140) - pengurangan stok saat HPP
+      lain_lain_k = kredit ke akun lain (mis. Modal 3110)
 
     Validasi: kas_d == piutang_k + penjualan_k + lain_lain_k (per baris)
 
@@ -169,18 +191,25 @@ def ambil_jurnal_penerimaan_kas(period_id: int | None = None) -> pd.DataFrame:
             je.no_bukti,
             je.keterangan,
             COALESCE(je.pihak_terkait, '-') AS pihak_terkait,
-            -- Kas (D): debit ke kas atau bank (110x)
-            SUM(CASE WHEN a.kode_akun LIKE '110%' AND jl.debit  > 0
+            -- Kas (D): debit ke kas (1110)
+            SUM(CASE WHEN a.kode_akun = '1110' AND jl.debit > 0
                      THEN jl.debit  ELSE 0 END) AS kas_d,
-            -- Piutang (K): kredit ke piutang usaha (pelunasan dari pelanggan)
-            SUM(CASE WHEN a.kode_akun LIKE '12%'  AND jl.kredit > 0
+            -- Piutang (K): kredit ke piutang usaha (1120) - pelunasan piutang
+            SUM(CASE WHEN a.kode_akun = '1120' AND jl.kredit > 0
                      THEN jl.kredit ELSE 0 END) AS piutang_k,
-            -- Penjualan (K): kredit ke akun pendapatan (4xxx)
-            SUM(CASE WHEN a.kode_akun LIKE '4%'   AND jl.kredit > 0
+            -- Penjualan (K): kredit ke akun pendapatan (4110)
+            SUM(CASE WHEN a.kode_akun LIKE '4%' AND jl.kredit > 0
                      THEN jl.kredit ELSE 0 END) AS penjualan_k,
-            -- Lain-lain (K): kredit ke akun selain piutang dan penjualan
-            SUM(CASE WHEN a.kode_akun NOT LIKE '110%'
-                          AND a.kode_akun NOT LIKE '12%'
+            -- HPP dan persediaan dipisahkan agar tidak dianggap sumber penerimaan kas.
+            SUM(CASE WHEN a.kode_akun = '5110' AND jl.debit > 0
+                     THEN jl.debit ELSE 0 END) AS hpp_d,
+            SUM(CASE WHEN a.kode_akun = '1140' AND jl.kredit > 0
+                     THEN jl.kredit ELSE 0 END) AS persediaan_k,
+            -- Lain-lain: kredit ke akun selain kas/piutang/persediaan/penjualan/hpp
+            SUM(CASE WHEN a.kode_akun != '1110'
+                          AND a.kode_akun != '1120'
+                          AND a.kode_akun != '1140'
+                          AND a.kode_akun != '5110'
                           AND a.kode_akun NOT LIKE '4%'
                           AND jl.kredit > 0
                      THEN jl.kredit ELSE 0 END) AS lain_lain_k
@@ -207,15 +236,15 @@ def ambil_jurnal_pengeluaran_kas(period_id: int | None = None) -> pd.DataFrame:
 
     Format kolom tradisional:
       Tanggal | No Bukti | Keterangan | Pihak Terkait | Ref |
-      Kas (K) | Persediaan (D) | Beban Upah (D) | Beban Ops (D) | Lain-lain (D)
+      Kas (K) | Persediaan (D) | Beban Upah (D) | Beban Produksi (D) | Beban Ops (D) | Lain-lain (D)
 
-    Pivot kolom:
-      kas_k           = kredit ke Kas/Bank (110x) → uang keluar
-      persediaan_d    = debit ke Persediaan bahan (13xx) → beli bahan tunai
-      beban_upah_d    = debit ke Beban Upah (5101)
-      beban_produksi_d= debit ke Beban Produksi lain (5xxx selain upah)
-      beban_ops_d     = debit ke Beban Operasional (6xxx: listrik, BBM, traktor)
-      lain_lain_d     = debit ke akun lain (mis. aset tetap saat beli aset)
+    Pivot kolom (COA baru):
+      kas_k            = kredit ke Kas (1110) -> uang keluar
+      persediaan_d     = debit ke Persediaan (1140) -> beli bahan tunai
+      beban_upah_d     = debit ke Beban Gaji (6110)
+      beban_produksi_d = debit ke HPP (5110) - beban produksi
+      beban_ops_d      = debit ke Beban Operasional (6120-6170) selain Beban Gaji
+      lain_lain_d      = debit ke akun lain (mis. aset tetap, beban lain 7110)
 
     Validasi: kas_k == sum semua kolom debit (per baris)
 
@@ -236,29 +265,28 @@ def ambil_jurnal_pengeluaran_kas(period_id: int | None = None) -> pd.DataFrame:
             je.no_bukti,
             je.keterangan,
             COALESCE(je.pihak_terkait, '-') AS pihak_terkait,
-            -- Kas (K): kredit ke kas — uang keluar
-            SUM(CASE WHEN a.kode_akun LIKE '110%' AND jl.kredit > 0
+            -- Kas (K): kredit ke kas (1110) - uang keluar
+            SUM(CASE WHEN a.kode_akun = '1110' AND jl.kredit > 0
                      THEN jl.kredit ELSE 0 END) AS kas_k,
-            -- Persediaan (D): debit ke persediaan bahan (beli tunai)
-            SUM(CASE WHEN a.kode_akun LIKE '13%'  AND jl.debit  > 0
+            -- Persediaan (D): debit ke persediaan (1140) - beli bahan tunai
+            SUM(CASE WHEN a.kode_akun = '1140' AND jl.debit > 0
                      THEN jl.debit  ELSE 0 END) AS persediaan_d,
-            -- Beban Upah (D): debit ke akun upah/gaji (5101)
-            SUM(CASE WHEN a.kode_akun = '5101'    AND jl.debit  > 0
+            -- Beban Upah (D): debit ke akun beban gaji (6110)
+            SUM(CASE WHEN a.kode_akun = '6110' AND jl.debit > 0
                      THEN jl.debit  ELSE 0 END) AS beban_upah_d,
-            -- Beban Produksi Lain (D): debit ke beban produksi selain upah (5102-5107)
-            SUM(CASE WHEN a.kode_akun LIKE '5%'
-                          AND a.kode_akun != '5101'
-                          AND jl.debit  > 0
+            -- Beban Produksi (D): debit ke HPP (5110)
+            SUM(CASE WHEN a.kode_akun = '5110' AND jl.debit > 0
                      THEN jl.debit  ELSE 0 END) AS beban_produksi_d,
-            -- Beban Operasional (D): listrik, BBM, sewa traktor (6xxx)
-            SUM(CASE WHEN a.kode_akun LIKE '6%'   AND jl.debit  > 0
+            -- Beban Operasional (D): beban ops selain gaji (6120-6170)
+            SUM(CASE WHEN a.kode_akun LIKE '6%' AND a.kode_akun != '6110' AND jl.debit > 0
                      THEN jl.debit  ELSE 0 END) AS beban_ops_d,
-            -- Lain-lain (D): akun lain seperti aset tetap saat beli aset
-            SUM(CASE WHEN a.kode_akun NOT LIKE '110%'
-                          AND a.kode_akun NOT LIKE '13%'
-                          AND a.kode_akun NOT LIKE '5%'
+            -- Lain-lain (D): akun lain seperti aset tetap atau beban lainnya (7110)
+            SUM(CASE WHEN a.kode_akun != '1110'
+                          AND a.kode_akun != '1140'
+                          AND a.kode_akun != '5110'
+                          AND a.kode_akun != '6110'
                           AND a.kode_akun NOT LIKE '6%'
-                          AND jl.debit  > 0
+                          AND jl.debit > 0
                      THEN jl.debit  ELSE 0 END) AS lain_lain_d
         FROM journal_entries je
         JOIN journal_lines jl ON je.id = jl.journal_entry_id

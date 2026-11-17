@@ -16,9 +16,9 @@ ATURAN UPAH (dari observasi lapangan):
       minggu1 = tgl 1-14 → dibayar sekitar tgl 15
       minggu2 = tgl 15-akhir → dibayar awal bulan berikutnya
   - Jika belum dibayar (sudah_dibayar=False) → dicatat sebagai Utang Gaji
-      Dr Beban Upah Langsung (5105) | Cr Utang Gaji (2201)
+      Dr Beban Gaji (6110) | Cr Utang Gaji (2210)
   - Jika dibayar tunai (sudah_dibayar=True) → langsung kas keluar
-      Dr Beban Upah Langsung (5105) | Cr Kas (1101)
+      Dr Beban Gaji (6110) | Cr Kas (1110)
 
 NOMOR BUKTI KONVENSI:
   Format: 'GAJI-{PERIODE_BAYAR}-{PERIOD_ID}-{timestamp}'
@@ -87,8 +87,8 @@ def simpan_dan_bayar_upah(
         tanggal_bayar     : Tanggal pembayaran 'YYYY-MM-DD'.
         periode_bayar     : 'minggu1' atau 'minggu2'.
         data_absensi      : List dict [{employee_id: int, hari_kerja: int}, ...]
-        akun_beban_upah_id: ID akun Beban Upah Langsung (mis. id=38, kode 5105).
-        akun_kas_id       : ID akun Kas (mis. id=1, kode 1101).
+        akun_beban_upah_id: ID akun Beban Gaji (mis. kode 6110).
+        akun_kas_id       : ID akun Kas (mis. id=1, kode 1110).
         sudah_dibayar     : True  → jurnal: Dr Beban Upah | Cr Kas
                             False → jurnal: Dr Beban Upah | Cr Utang Gaji
 
@@ -134,10 +134,10 @@ def simpan_dan_bayar_upah(
         else:
             # Akrual → Kredit Utang Gaji (cari dari tabel accounts)
             row_utang = koneksi.execute(
-                "SELECT id FROM accounts WHERE kode_akun = '2201'"
+                "SELECT id FROM accounts WHERE kode_akun = '2210'"
             ).fetchone()
             if not row_utang:
-                raise ValueError("Akun Utang Gaji (2201) tidak ditemukan di Bagan Akun.")
+                raise ValueError("Akun Utang Gaji (2210) tidak ditemukan di Bagan Akun.")
             akun_kredit_id = row_utang["id"]
 
         # -------------------------------------------------------------------

@@ -30,7 +30,7 @@ def test_bersihkan_teks_pdf():
 def test_export_dataframe_ke_excel():
     """Memastikan export dataframe ke bytes Excel (.xlsx) berhasil dan valid."""
     df = pd.DataFrame({
-        "Kode Akun": ["1101", "4101"],
+        "Kode Akun": ["1110", "4110"],
         "Nama Akun": ["Kas Tunai", "Penjualan Cabai Rawit"],
         "Debit": [1000000, 0],
         "Kredit": [0, 1000000],
@@ -50,7 +50,7 @@ def test_export_dataframe_ke_excel():
 def test_export_dataframe_ke_pdf_dengan_unicode():
     """Memastikan export PDF tidak crash saat judul atau isi mengandung em-dash dan unicode."""
     df = pd.DataFrame({
-        "Kode Akun": ["1101", "4101"],
+        "Kode Akun": ["1110", "4110"],
         "Nama Akun": ["Kas — Tunai", "Penjualan Cabai “Super”"],
         "Debit": ["Rp1.000.000", "Rp0"],
         "Kredit": ["Rp0", "Rp1.000.000"],

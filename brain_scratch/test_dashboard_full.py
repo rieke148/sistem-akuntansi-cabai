@@ -35,8 +35,6 @@ print(f"Penjualan per komoditas:\n{komoditas_df}")
 import altair as alt
 peta_nama = {
     "cabai": "🌶️ Cabai",
-    "selada": "🥬 Selada",
-    "melon": "🍈 Melon",
     "umum": "📦 Umum",
 }
 komoditas_df["komoditas_label"] = komoditas_df["komoditas"].map(lambda x: peta_nama.get(x, x))

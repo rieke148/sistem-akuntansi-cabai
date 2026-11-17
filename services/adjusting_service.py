@@ -4,8 +4,7 @@ services/adjusting_service.py
 Tujuan  : Membuat ayat jurnal penyesuaian di akhir periode.
           Jenis penyesuaian yang didukung:
           1. Penyusutan aset tetap (dari depreciation_service, metode garis lurus)
-          2. Amortisasi plastik mulsa (masa pakai 1,5 tahun)
-          3. Akrual upah (sisa upah belum dibayar di akhir periode)
+          2. Akrual upah (sisa upah belum dibayar di akhir periode)
 Input   : period_id, tanggal, parameter akun.
 Output  : Jurnal penyesuaian disimpan ke journal_entries dengan journal_type='umum',
           no_bukti diawali 'PA-' (Penyesuaian Akhir).
@@ -15,7 +14,6 @@ KONVENSI NOMOR BUKTI:
   Semua jurnal penyesuaian menggunakan prefix 'PA-' agar mudah diidentifikasi
   dan difilter dari Neraca Saldo sebelum penyesuaian.
   Format: 'PA-PENYUSUTAN-{asset_id}-{period_id}'
-           'PA-MULSA-{period_id}'
            'PA-AKRUAL-UPAH-{period_id}'
 
 CATATAN AKUNTANSI:
@@ -25,7 +23,7 @@ CATATAN AKUNTANSI:
 
 import pandas as pd
 from database.connection import get_connection
-from services.depreciation_service import hitung_penyusutan_bulanan, hitung_amortisasi_mulsa_bulanan
+from services.depreciation_service import hitung_penyusutan_bulanan
 from services.journal_service import simpan_jurnal
 
 
@@ -34,182 +32,79 @@ def buat_penyesuaian_penyusutan(
     tanggal: str,
 ) -> list[int]:
     """
-    Membuat jurnal penyesuaian penyusutan untuk SEMUA aset aktif yang perlu disusutkan.
-    Satu jurnal dibuat per aset (agar rincian jelas).
+    Membuat jurnal penyusutan bulanan untuk setiap aset tetap yang disusutkan.
 
-    Jurnal per aset:
-      Debit : Beban Penyusutan [nama aset]   (akun beban dari account_id aset)
-      Kredit: Akumulasi Penyusutan [nama aset] (akun akumulasi dari account_akum_id)
-
-    Args:
-        period_id : ID periode akuntansi.
-        tanggal   : Tanggal jurnal penyesuaian 'YYYY-MM-DD'.
-
-    Returns:
-        List ID journal_entry yang dibuat. Kosong jika tidak ada aset disusutkan.
-
-    Raises:
-        ValueError: Jika aset tidak punya akun beban atau akun akumulasi.
+    Jurnal: Dr Beban Penyusutan (6160) / Cr Akumulasi Penyusutan sesuai aset.
+    Akun aset pada master data tetap menunjukkan akun nilai perolehan aset.
     """
     koneksi = get_connection()
     try:
-        # Ambil semua aset aktif yang perlu disusutkan
         aset_rows = koneksi.execute(
             """
-            SELECT fa.id, fa.kode_aset, fa.nama_aset,
-                   fa.account_id, fa.account_akum_id,
-                   fa.kategori_aset
-            FROM fixed_assets fa
-            WHERE fa.aktif = 1
-              AND fa.is_disusutkan = 1
-            ORDER BY fa.kode_aset
+            SELECT id, kode_aset, nama_aset, account_akum_id
+            FROM fixed_assets
+            WHERE aktif = 1 AND is_disusutkan = 1
+            ORDER BY kode_aset
             """
         ).fetchall()
+        akun_beban = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun = '6160' AND aktif = 1"
+        ).fetchone()
     finally:
         koneksi.close()
 
     if not aset_rows:
         return []
+    if not akun_beban:
+        raise ValueError("Akun Beban Penyusutan (6160) belum tersedia di Bagan Akun.")
 
-    id_jurnal_dibuat = []
+    akun_beban_id = int(akun_beban["id"])
+    id_jurnal_dibuat: list[int] = []
 
     for aset in aset_rows:
-        asset_id = aset["id"]
+        asset_id = int(aset["id"])
         nama_aset = aset["nama_aset"]
-        akun_beban_id = aset["account_id"]
         akun_akum_id = aset["account_akum_id"]
-
-        # Validasi: aset harus punya akun beban dan akun akumulasi
-        if not akun_beban_id or not akun_akum_id:
+        if not akun_akum_id:
             raise ValueError(
-                f"Aset '{nama_aset}' belum memiliki akun beban atau akun akumulasi penyusutan. "
-                f"Lengkapi di Master Data → Aset Tetap."
+                f"Aset '{nama_aset}' belum memiliki akun akumulasi penyusutan. "
+                "Lengkapi akun kontra aset pada Master Data → Aset Tetap."
             )
 
-        # Hitung penyusutan bulan ini
         detail = hitung_penyusutan_bulanan(asset_id)
-        penyusutan = detail["penyusutan_per_bulan"]
-
+        penyusutan = int(detail["penyusutan_per_bulan"])
         if penyusutan <= 0:
-            continue  # lewati aset tanpa penyusutan
+            continue
 
-        # Buat nomor bukti unik per aset per periode
         no_bukti = f"PA-PENYUSUTAN-{asset_id}-{period_id}"
-
-        # Cek apakah sudah ada jurnal penyesuaian ini
-        koneksi2 = get_connection()
-        cek = koneksi2.execute(
-            "SELECT id FROM journal_entries WHERE no_bukti = ?",
-            (no_bukti,)
-        ).fetchone()
-        koneksi2.close()
+        koneksi_cek = get_connection()
+        try:
+            cek = koneksi_cek.execute(
+                "SELECT id FROM journal_entries WHERE no_bukti = ?",
+                (no_bukti,),
+            ).fetchone()
+        finally:
+            koneksi_cek.close()
 
         if cek:
-            id_jurnal_dibuat.append(cek["id"])
-            continue  # sudah ada, lewati
+            id_jurnal_dibuat.append(int(cek["id"]))
+            continue
 
-        # Baris jurnal: Debit beban penyusutan, Kredit akumulasi penyusutan
         baris_jurnal = [
             {"account_id": akun_beban_id, "debit": penyusutan, "kredit": 0},
-            {"account_id": akun_akum_id, "debit": 0, "kredit": penyusutan},
+            {"account_id": int(akun_akum_id), "debit": 0, "kredit": penyusutan},
         ]
-
-        # Tentukan akun beban yang tepat berdasarkan kategori aset
-        # (aset produksi → Beban Penyusutan Aset Produksi; aset non-produksi → non-produksi)
-        keterangan = f"Penyesuaian: Penyusutan {nama_aset} bulan ini"
-
         journal_id = simpan_jurnal(
             period_id=period_id,
             tanggal=tanggal,
             no_bukti=no_bukti,
             journal_type="umum",
-            keterangan=keterangan,
+            keterangan=f"Penyesuaian: Penyusutan {nama_aset} bulan ini",
             baris=baris_jurnal,
         )
         id_jurnal_dibuat.append(journal_id)
 
     return id_jurnal_dibuat
-
-
-def buat_penyesuaian_amortisasi_mulsa(
-    period_id: int,
-    tanggal: str,
-    akun_beban_id: int,
-    akun_akumulasi_id: int,
-    harga_per_blok: int = 400_000,
-    jumlah_blok: int = 5,
-    umur_tahun: float = 1.5,
-) -> int:
-    """
-    Membuat jurnal penyesuaian amortisasi plastik mulsa.
-
-    Plastik mulsa dipakai selama 1,5 tahun (18 bulan).
-    Amortisasi per bulan = total harga / 18 bulan.
-
-    Jurnal:
-      Debit : Beban Amortisasi Plastik Mulsa (5107)
-      Kredit: Akumulasi Amortisasi Plastik Mulsa (1601K)
-
-    Args:
-        period_id        : ID periode akuntansi.
-        tanggal          : Tanggal jurnal 'YYYY-MM-DD'.
-        akun_beban_id    : ID akun Beban Amortisasi Plastik Mulsa.
-        akun_akumulasi_id: ID akun Akumulasi Amortisasi Plastik Mulsa.
-        harga_per_blok   : Harga plastik mulsa per blok (default Rp400.000).
-        jumlah_blok      : Jumlah blok yang memakai mulsa (default 5 blok).
-        umur_tahun       : Masa pakai mulsa dalam tahun (default 1,5 tahun).
-
-    Returns:
-        ID journal_entry yang dibuat. 0 jika sudah ada.
-
-    Rumus:
-        total_harga      = harga_per_blok × jumlah_blok = Rp400.000 × 5 = Rp2.000.000
-        amortisasi/bulan = total_harga / (umur_tahun × 12) = Rp2.000.000 / 18 = Rp111.111
-    """
-    no_bukti = f"PA-MULSA-{period_id}"
-
-    # Cek apakah sudah ada
-    koneksi = get_connection()
-    cek = koneksi.execute(
-        "SELECT id FROM journal_entries WHERE no_bukti = ?",
-        (no_bukti,)
-    ).fetchone()
-    koneksi.close()
-
-    if cek:
-        return cek["id"]
-
-    # Hitung amortisasi bulanan menggunakan fungsi dari depreciation_service
-    amortisasi = hitung_amortisasi_mulsa_bulanan(
-        harga_per_blok=harga_per_blok,
-        jumlah_blok=jumlah_blok,
-        umur_tahun=umur_tahun,
-    )
-
-    if amortisasi <= 0:
-        return 0
-
-    baris_jurnal = [
-        {"account_id": akun_beban_id, "debit": amortisasi, "kredit": 0},
-        {"account_id": akun_akumulasi_id, "debit": 0, "kredit": amortisasi},
-    ]
-
-    keterangan = (
-        f"Penyesuaian: Amortisasi Plastik Mulsa "
-        f"({jumlah_blok} blok × Rp{harga_per_blok:,} / {int(umur_tahun*12)} bulan)"
-    )
-
-    journal_id = simpan_jurnal(
-        period_id=period_id,
-        tanggal=tanggal,
-        no_bukti=no_bukti,
-        journal_type="umum",
-        keterangan=keterangan,
-        baris=baris_jurnal,
-    )
-    return journal_id
-
-
 def buat_penyesuaian_akrual_upah(
     period_id: int,
     tanggal: str,
@@ -222,8 +117,8 @@ def buat_penyesuaian_akrual_upah(
     Digunakan jika ada pekerja yang upah minggu-2 belum dibayar di akhir bulan.
 
     Jurnal:
-      Debit : Beban Upah Langsung (5105)
-      Kredit: Utang Gaji (2201)
+      Debit : Beban Gaji (6110)
+      Kredit: Utang Gaji (2210)
 
     Args:
         period_id          : ID periode akuntansi.
@@ -356,14 +251,13 @@ def cek_penyesuaian_sudah_ada(period_id: int, jenis: str) -> bool:
 
     Args:
         period_id : ID periode.
-        jenis     : 'penyusutan', 'mulsa', 'akrual_upah'.
+        jenis     : 'penyusutan' atau 'akrual_upah'.
 
     Returns:
         True jika sudah ada, False jika belum.
     """
     prefix_map = {
         "penyusutan": "PA-PENYUSUTAN-%",
-        "mulsa": f"PA-MULSA-{period_id}",
         "akrual_upah": f"PA-AKRUAL-UPAH-{period_id}",
     }
 

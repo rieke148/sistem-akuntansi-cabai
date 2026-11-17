@@ -18,19 +18,19 @@ Bagian ini adalah peta arsitektur. Jangan mengubah struktur folder, nama tabel, 
         |
         +--> Jurnal Penjualan (tempo)
         +--> Jurnal Penerimaan Kas (penjualan tunai, terima piutang, setoran modal)
-        +--> Jurnal Pengeluaran Kas (beli bahan tunai, gaji, listrik, BBM, sewa traktor, beli aset)
+        +--> Jurnal Pengeluaran Kas (pembelian barang dagang tunai, gaji, listrik, BBM, sewa traktor, beli aset)
         +--> Jurnal Pembelian (beli kredit)
-        +--> Jurnal Umum (saldo awal, pemakaian bahan, penyesuaian, penutup)
+        +--> Jurnal Umum (saldo awal, pencatatan panen, penyesuaian, penutup)
         |
         v
-[Posting] -> Buku Besar (BB)  +  Buku Besar Pembantu (Piutang, Persediaan, Aset Tetap)
+[Posting] -> Buku Besar (BB)  +  Buku Besar Pembantu (Piutang Usaha dan Utang Usaha)
         |                          ^
-        |                          +-- Kartu Persediaan (stok bahan & hasil panen)
+        |                          +-- Kartu Persediaan (stok barang dagang cabai hasil panen)
         v
 [Neraca Saldo (sebelum penyesuaian)]
         |
         v
-[Ayat Penyesuaian] (penyusutan, amortisasi mulsa, akrual upah, bahan terpakai, dll)
+[Ayat Penyesuaian] (penyusutan aset tetap, akrual upah, dan biaya terkait)
         |
         v
 [Neraca Lajur / Worksheet 10 kolom]
@@ -68,7 +68,7 @@ sistem-akuntansi-cabai/
 │   ├── subsidiary_service.py   # BB pembantu piutang, persediaan, aset
 │   ├── inventory_service.py    # kartu persediaan (rata-rata bergerak)
 │   ├── payroll_service.py      # hitung upah dari hari kerja
-│   ├── depreciation_service.py # penyusutan & amortisasi
+│   ├── depreciation_service.py # penyusutan aset tetap
 │   ├── adjusting_service.py    # ayat penyesuaian
 │   ├── trial_balance_service.py
 │   ├── worksheet_service.py    # neraca lajur
@@ -107,10 +107,10 @@ sistem-akuntansi-cabai/
 |---|---|
 | `accounts` | kode akun, nama, kategori, saldo normal (D/K) |
 | `periods` | periode akuntansi (bulanan), status buka/tutup |
-| `journal_entries` | header jurnal: tanggal, no bukti, `journal_type`, keterangan, komoditas, pihak terkait |
+| `journal_entries` | header jurnal: tanggal, no bukti, `journal_type`, keterangan, klasifikasi (`cabai` untuk transaksi budidaya atau `umum` untuk jurnal umum), pihak terkait |
 | `journal_lines` | baris jurnal: akun, debit, kredit |
 | `customers`, `suppliers` | pelanggan (restoran, supermarket, UMKM), supplier (Toko Sido Panen) |
-| `items` | bibit, pupuk, NPK, pestisida, plastik mulsa, bambu, cabai (kg) |
+| `items` | barang dagang cabai hasil panen (kg); item bahan lama hanya disimpan sebagai arsip nonaktif |
 | `inventory_movements` | kartu stok: masuk/keluar, qty, harga, saldo |
 | `employees`, `attendance` | pekerja & hari kerja (tetap Rp90.000, tambahan Rp120.000) |
 | `fixed_assets` | aset tetap, harga, umur, tanggal perolehan, nilai residu |
@@ -120,19 +120,19 @@ sistem-akuntansi-cabai/
 
 | Transaksi | Jurnal | Debit / Kredit |
 |---|---|---|
-| Penjualan **tunai** | Penerimaan Kas | Kas / Penjualan |
-| Penjualan **tempo** (1 minggu) | Penjualan | Piutang Usaha / Penjualan |
+| Penjualan **tunai** | Penerimaan Kas | Kas / Penjualan; HPP Penjualan Cabai / Persediaan Cabai |
+| Penjualan **tempo** (1 minggu) | Penjualan | Piutang Usaha / Penjualan; HPP Penjualan Cabai / Persediaan Cabai |
 | Terima pelunasan piutang | Penerimaan Kas | Kas / Piutang Usaha |
-| Setoran modal | Penerimaan Kas | Kas / Modal Disetor |
-| Beli bahan **tunai** (Toko Sido Panen) | Pengeluaran Kas | Persediaan bahan / Kas |
+| Setoran modal | Penerimaan Kas | Kas (1110) / Modal Pribadi (3110) |
+| Beli barang dagang cabai **tunai** | Pengeluaran Kas | Persediaan barang dagang / Kas |
 | Bayar upah (tiap 2 minggu) | Pengeluaran Kas | Beban Upah (+ Utang Gaji bila akrual) / Kas |
 | Bayar listrik, BBM, sewa traktor | Pengeluaran Kas | Beban terkait / Kas |
 | Beli aset tetap tunai | Pengeluaran Kas | Aset tetap / Kas |
-| Beli **kredit** | Pembelian | Persediaan / Utang Usaha |
-| Pemakaian bahan ke blok | Umum | Beban Bahan Produksi / Persediaan |
+| Beli barang dagang cabai **kredit** | Pembelian | Persediaan barang dagang / Utang Usaha |
+| Pencatatan panen cabai | Umum | Persediaan barang dagang / HPP panen |
 | Saldo awal, penyesuaian, penutup | Umum | sesuai kasus |
 
-> **Catatan jujur:** dari wawancara, semua pembelian dilakukan **tunai**. Jadi **Jurnal Pembelian** praktis kosong untuk data asli. Tetap kita bikin fiturnya (syarat project), dan seed data kasih 1-2 contoh pembelian kredit sebagai simulasi. Sebut ini di laporan lu biar dosen tahu lu sadar.
+> **Catatan jujur:** dari wawancara, semua pembelian dilakukan **tunai**. Jadi **Jurnal Pembelian** praktis kosong untuk data asli. Fitur pembelian kredit tetap disediakan untuk kelengkapan siklus akuntansi dan dapat diuji sebagai simulasi saat diperlukan.
 
 ---
 
@@ -169,14 +169,14 @@ Bangun "Sistem Informasi Siklus Akuntansi" untuk usaha budidaya cabai rawit PT S
 - Jika ada data yang ambigu, jangan menebak diam-diam: catat di bagian ASUMSI, jadikan parameter yang bisa diubah di halaman Master Data, dan beri tahu saya.
 
 # PROFIL USAHA (dari observasi 26 Okt 2026, narasumber: Hanif Margan Asparingga, Agronomist Utama)
-- Badan usaha: PT; sektor hortikultura; komoditas utama cabai rawit; juga selada & melon (dikelola 1 pekerja, dicatat terpisah lewat kolom `komoditas`).
+- Badan usaha: PT; sektor hortikultura; ruang lingkup sistem dibatasi pada budidaya cabai rawit.
 - Lokasi: Ungaran Barat, Kab. Semarang. Mulai tanam: November 2024. Lahan milik pribadi 2.471 m2. Modal awal 100% modal pribadi (nominal belum diketahui, jadi input saldo awal).
 - Lahan 5 blok (A-E), 1.000 pohon per blok (total 5.000). Tanam bertahap, tambah 1 blok per 4 bulan. Panen pertama sekitar 4 bulan setelah tanam, masa produktif sekitar 1 tahun. Pemetikan 3x seminggu. Rata-rata hasil 700 gram per pohon PER PANEN (sudah dikonfirmasi).
 - Aset tetap: Tanah Rp2.500.000.000; Bangunan Kantor dan Gudang Rp120.000.000; Kendaraan Rp250.000.000; Komputer Rp15.000.000.
 - Peralatan (umur, harga satuan): Cangkul 3 th Rp150.000; Sabit 3 th Rp110.000; Tangki Semprot 5 th Rp450.000; Keranjang Panen 2 th Rp40.000; Timbangan 4 th Rp500.000; Selang Air 5 th Rp250.000; Ember 2 th Rp35.000; Pompa Air 4 th Rp1.500.000. (Jumlah unit belum diketahui, jadikan input manual.)
 - Bahan dan perlengkapan: Bibit 1.000/blok @Rp250; Pupuk 4 karung, TOTAL Rp720.000 (awal tanam; sudah dikonfirmasi total, bukan per karung); Pupuk NPK 7 jenis Rp1.190.000/blok; Pestisida 5 jenis Rp380.000/blok; Plastik Mulsa 200 m Rp400.000/blok (masa pakai 1,5 tahun); Bambu 5.000 batang @Rp550. Tidak memakai pupuk kandang.
 - Pembelian: TUNAI, mayoritas di Toko Sido Panen Bandungan, dibeli sesuai kebutuhan (nyaris tanpa sisa).
-- Tenaga kerja: 5 pekerja (4 cabai, 1 selada dan melon). Upah harian tetap Rp90.000/hari; tenaga tambahan (cangkul/olah tanah) Rp120.000/hari. Upah dihitung harian, DIBAYAR tiap 2 minggu (jadi ada utang gaji di akhir periode).
+- Tenaga kerja dalam ruang lingkup sistem: 4 pekerja yang menangani budidaya cabai. Upah harian tetap Rp90.000/hari; tenaga tambahan (cangkul/olah tanah) Rp120.000/hari. Upah dihitung harian, DIBAYAR tiap 2 minggu (jadi ada utang gaji di akhir periode).
 - Biaya: Listrik pompa total Rp500.000/bln (alokasi cabai Rp150.000/bln); BBM pengiriman Rp150.000/minggu; BBM operasional Rp250.000/minggu; Sewa traktor Rp350.000/hari pakai.
 - Penjualan: langsung ke restoran, supermarket, UMKM tanpa tengkulak. Harga fluktuatif Rp25.000-Rp120.000/kg (saat observasi Rp60.000/kg). Pembayaran tunai dan tempo 1 minggu. Ongkir gratis (biaya masuk BBM pengiriman). Laba diputar kembali sebagai modal.
 - Pencatatan saat ini: catatan tulis manual lalu direkap ke spreadsheet. Sistem baru harus bisa menggantikan alur ini dan menyediakan impor CSV/Excel.
@@ -184,7 +184,7 @@ Bangun "Sistem Informasi Siklus Akuntansi" untuk usaha budidaya cabai rawit PT S
 
 # FITUR WAJIB
 1. Master Data: Bagan Akun (COA), pelanggan, supplier, item persediaan, pekerja, aset tetap (dengan umur ekonomis dan nilai residu yang diinput manual per aset), blok lahan, saldo awal, periode, dan parameter operasional (tarif upah, hasil panen per pohon, alokasi biaya).
-2. Input Transaksi (form berbeda per jenis; jurnal dibuat otomatis, tampilkan PRATINJAU jurnal sebelum disimpan): penjualan tunai, penjualan tempo, penerimaan piutang, setoran modal, pembelian tunai, pembelian kredit, pemakaian bahan, pencatatan panen (kg), biaya (listrik, BBM, sewa traktor), pembelian aset.
+2. Input Transaksi (form berbeda per jenis; jurnal dibuat otomatis, tampilkan PRATINJAU jurnal sebelum disimpan): penjualan tunai, penjualan tempo, penerimaan piutang, setoran modal, pembelian barang dagang tunai, pembelian barang dagang kredit, pencatatan panen cabai (kg), biaya (listrik, BBM, sewa traktor), pembelian aset.
 3. Penggajian: input hari kerja per pekerja per periode 2 mingguan, hitung upah (tetap vs tambahan), cetak slip/bukti, jurnal otomatis.
 4. Jurnal Umum (format: tanggal, keterangan, ref, debit, kredit).
 5. Jurnal Khusus berformat kolom tradisional, dengan kolom Ref posting dan total kolom:
@@ -192,11 +192,11 @@ Bangun "Sistem Informasi Siklus Akuntansi" untuk usaha budidaya cabai rawit PT S
    - Purchase Journal (pembelian kredit): tanggal, no faktur, supplier, Persediaan (D), Utang Usaha (K).
    - Cash Receipt Journal: kolom Kas (D), Piutang (K), Penjualan (K), Lain-lain (K).
    - Cash Payment Journal: kolom Kas (K), Persediaan/Pembelian (D), Beban Upah (D), Beban lain (D), Lain-lain (D).
-6. Kartu Persediaan per item (masuk, keluar, saldo; metode rata-rata bergerak) untuk bahan; plus kartu stok hasil panen cabai (kg). Catatan: bahan dibeli sesuai kebutuhan, jadi saldo akhir bisa nol. Itu normal dan tetap ditampilkan benar.
+6. Kartu Persediaan per item barang dagang cabai (masuk, keluar, saldo; metode rata-rata bergerak). Persediaan aktif hanya mencatat cabai hasil panen yang siap dijual; bahan produksi tidak dikelola sebagai persediaan.
 7. Buku Besar per akun (saldo berjalan), bisa filter periode.
-8. Buku Besar Pembantu: Piutang per pelanggan (dengan umur piutang/jatuh tempo), Persediaan per item, Aset Tetap (harga, akumulasi, nilai buku), Utang (kosong kalau tak ada).
+8. Buku Besar Pembantu: Piutang Usaha per pelanggan (dengan umur piutang/jatuh tempo) dan Utang Usaha per supplier/transaksi (kosong kalau tidak ada transaksi kredit). Kartu persediaan disajikan terpisah pada menu Kartu Persediaan; rincian aset tetap dikelola melalui Master Data dan Ayat Penyesuaian.
 9. Neraca Saldo (sebelum penyesuaian).
-10. Ayat Penyesuaian: penyusutan semua aset tetap (garis lurus), amortisasi plastik mulsa (1,5 th), akrual upah belum dibayar, bahan terpakai/stok opname, akrual listrik (jika belum dibayar), alokasi biaya bersama antar komoditas. Tiap ayat bisa dilihat rumusnya.
+10. Ayat Penyesuaian: penyusutan semua aset tetap (garis lurus), akrual upah belum dibayar, stok opname barang dagang, akrual listrik (jika belum dibayar), alokasi biaya bersama untuk kegiatan budidaya cabai. Tiap ayat bisa dilihat rumusnya.
 11. Neraca Lajur 10 kolom (NS, Penyesuaian, NS Disesuaikan, Laba Rugi, Neraca).
 12. Laporan Keuangan: Laporan Laba Rugi, Laporan Perubahan Ekuitas, Neraca (bentuk laporan), Arus Kas (opsional, metode langsung). Export Excel dan PDF.
 13. Jurnal Penutup dan Neraca Saldo Setelah Penutup.
@@ -205,18 +205,21 @@ Bangun "Sistem Informasi Siklus Akuntansi" untuk usaha budidaya cabai rawit PT S
 
 # ATURAN AKUNTANSI
 - Setiap jurnal wajib seimbang; tolak penyimpanan jika tidak.
-- Bagan akun kode terstruktur (1 Aset, 2 Liabilitas, 3 Ekuitas, 4 Pendapatan, 5 Beban Produksi, 6 Beban Operasional). Akun kontra: Akumulasi Penyusutan per kelompok aset.
-- Karena PT: Modal Disetor, Laba Ditahan (laba diputar kembali), Ikhtisar Laba Rugi. Tanpa Prive.
+- Bagan akun mengikuti `coa_cabai_baru.csv` dengan kode 4 digit: kelompok 1xxx Aset, 2xxx Liabilitas, 3xxx Ekuitas, 4xxx Pendapatan, 5xxx HPP, 6xxx Beban Operasional, dan 7xxx Beban Lainnya. Kode kelompok 1000–7000 hanya judul kelompok, bukan akun jurnal. Akun kontra: Akumulasi Penyusutan per kelompok aset.
+- Nama akun ekuitas mengikuti `coa_cabai_baru.csv`: 3110 Modal Pribadi, 3120 Laba, dan 3130 Ikhtisar Laba Rugi. Tidak menggunakan akun Prive.
 - Tanah tidak disusutkan. Umur ekonomis dan nilai residu SETIAP aset adalah INPUT MANUAL dari user di Master Data (jangan hardcode angka paten; boleh isi awal dari observasi untuk peralatan, sisanya kosong/wajib diisi sebelum penyusutan dihitung). Hal yang sama berlaku untuk jumlah unit peralatan, tanggal perolehan, saldo awal, persentase alokasi biaya bersama, dan hasil panen per pohon: semuanya parameter yang bisa diedit user.
 - Penyusutan dihitung bulanan = (harga - residu) / (umur x 12).
-- Persediaan memakai sistem perpetual, rata-rata bergerak. Saat bahan dipakai: Dr Beban Bahan Produksi, Cr Persediaan.
-- Biaya bersama (listrik, tenaga) boleh dialokasikan ke komoditas lewat kolom `komoditas`. Laporan utama fokus pada Cabai, tapi bisa difilter per komoditas.
+- Persediaan barang dagang cabai memakai sistem perpetual dan metode rata-rata bergerak pada akun **1140 — Persediaan**. Kartu stok dicatat per item. Persediaan bertambah melalui pencatatan hasil panen atau pembelian cabai dan berkurang saat penjualan. Bahan produksi seperti bibit, pupuk, dan pestisida tidak dicatat sebagai item persediaan. Pembelian perlengkapan seperti plastik mulsa tetap dicatat pada akun Perlengkapan (1130); sistem tidak membuat jurnal amortisasi untuk mulsa.
+- Saat cabai dijual, sistem langsung mencatat HPP: Dr Harga Pokok Penjualan (5110), Cr Persediaan (1140). Penjualan tanpa stok yang cukup ditolak.
+- Saldo awal persediaan wajib dimasukkan per item berdasarkan kuantitas fisik dan harga pokok per satuan. Sistem menyinkronkan jumlah nilai item ke saldo awal akun persediaan.
+- Mutasi per item harus dicatat secara kronologis supaya perhitungan rata-rata bergerak tetap benar.
+- Biaya bersama (listrik, tenaga) yang terkait budidaya cabai dicatat sebagai biaya komoditas cabai. Biaya untuk kegiatan di luar ruang lingkup sistem tidak dimasukkan ke laporan cabai.
 - Semua nominal pakai tipe Decimal atau integer Rupiah (hindari float). Format tampilan "Rp1.234.567".
 - Periode bulanan. Periode yang sudah ditutup tidak boleh diedit.
 - Untuk penyederhanaan tugas kuliah: aset biologis (PSAK 69) dan pajak tidak diterapkan, kecuali saya minta nanti.
 
 # DATA CONTOH (SEED)
-Buat seed otomatis periode Oktober 2026 berdasarkan data di atas: saldo awal 1 Okt 2026 (angka modal/kas HARUS ditandai "CONTOH, ganti data asli"), 20-30 transaksi realistis (penjualan tunai & tempo ke restoran/supermarket/UMKM dengan harga sekitar Rp60.000/kg, pembelian bahan tunai di Toko Sido Panen, upah 2 mingguan, listrik, BBM, sewa traktor, 1-2 pembelian kredit sebagai simulasi, pelunasan piutang). Setelah seed, semua laporan harus seimbang.
+Buat seed otomatis periode Oktober 2026 berdasarkan data di atas: saldo awal 1 Okt 2026 (angka modal/kas HARUS ditandai "CONTOH, ganti data asli"). Untuk mendemonstrasikan pencatatan perpetual penjualan, gunakan stok awal hasil panen 3.000 kg @ Rp25.000/kg sebagai DATA CONTOH (bukan hasil observasi; wajib diganti dengan stok fisik dan HPP aktual). Buat 20-30 transaksi realistis (penjualan tunai & tempo ke restoran/supermarket/UMKM dengan harga sekitar Rp60.000/kg, pembelian barang dagang cabai tunai/kredit bila ada, upah 2 mingguan, listrik, BBM, sewa traktor, 1-2 pembelian kredit sebagai simulasi, pelunasan piutang). Setelah seed, semua laporan harus seimbang.
 
 # KUALITAS
 - Tes pytest untuk: jurnal seimbang, neraca saldo seimbang, penyusutan, rata-rata bergerak, upah, laba rugi, Aset = Liabilitas + Ekuitas.

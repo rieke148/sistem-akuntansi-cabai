@@ -5,9 +5,6 @@ Tujuan  : Tes pytest untuk logika penyusutan aset tetap (garis lurus).
 Jalankan: pytest tests/ -v
 """
 
-import pytest
-from services.depreciation_service import hitung_amortisasi_mulsa_bulanan
-
 
 class TestPenyusutanGarisLurus:
     """Tes rumus penyusutan garis lurus."""
@@ -43,13 +40,3 @@ class TestPenyusutanGarisLurus:
         penyusutan_bulan = dasar // umur_bulan  # = 281.250
 
         assert penyusutan_bulan == 281_250  # Rp281.250/bulan
-
-    def test_amortisasi_mulsa(self):
-        """Plastik mulsa 5 blok @ Rp400.000, umur 1,5 tahun."""
-        amortisasi = hitung_amortisasi_mulsa_bulanan(
-            harga_per_blok=400_000,
-            jumlah_blok=5,
-            umur_tahun=1.5,
-        )
-        # Total = 2.000.000 / 18 bulan = 111.111 (integer division)
-        assert amortisasi == 111_111

@@ -46,7 +46,7 @@ def _ambil_pekerja_aktif() -> list[dict]:
     """Ambil semua pekerja aktif."""
     koneksi = get_connection()
     rows = koneksi.execute(
-        "SELECT id, nama, tipe_pekerja, upah_harian, komoditas FROM employees WHERE aktif = 1 ORDER BY nama"
+        "SELECT id, nama, tipe_pekerja, upah_harian FROM employees WHERE aktif = 1 ORDER BY nama"
     ).fetchall()
     koneksi.close()
     return [dict(r) for r in rows]
@@ -54,13 +54,13 @@ def _ambil_pekerja_aktif() -> list[dict]:
 
 @st.cache_data(ttl=30)
 def _ambil_akun_upah_dan_kas() -> dict:
-    """Ambil ID akun Beban Upah Langsung (5105) dan Kas (1101)."""
+    """Ambil ID akun Beban Gaji (6110) dan Kas (1110)."""
     koneksi = get_connection()
     akun_upah = koneksi.execute(
-        "SELECT id FROM accounts WHERE kode_akun = '5105'"
+        "SELECT id FROM accounts WHERE kode_akun = '6110'"
     ).fetchone()
     akun_kas = koneksi.execute(
-        "SELECT id FROM accounts WHERE kode_akun = '1101'"
+        "SELECT id FROM accounts WHERE kode_akun = '1110'"
     ).fetchone()
     koneksi.close()
     return {
@@ -209,7 +209,7 @@ def _form_input_absensi(
                 return
 
             if not akun_ids.get("akun_beban_upah_id") or not akun_ids.get("akun_kas_id"):
-                st.error("❌ Akun Beban Upah (5105) atau Kas (1101) tidak ditemukan. Periksa Bagan Akun.")
+                st.error("❌ Akun Beban Gaji (6110) atau Kas (1110) tidak ditemukan. Periksa Bagan Akun.")
                 return
 
             data_absensi = [

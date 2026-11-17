@@ -248,23 +248,236 @@ def ambil_jurnal_dengan_baris(entry_id: int) -> dict:
     return {"header": header, "baris": baris}
 
 
+def _tabel_ada(koneksi: sqlite3.Connection, nama_tabel: str) -> bool:
+    """Mengecek apakah suatu tabel ada di database."""
+    row = koneksi.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?", (nama_tabel,)
+    ).fetchone()
+    return bool(row)
+
+
+def _perbarui_jurnal_nilai_keluar(
+    koneksi: sqlite3.Connection,
+    journal_entry_id: int,
+    account_id_persediaan: int,
+    nilai_lama: int,
+    nilai_baru: int,
+) -> None:
+    """Selaraskan kredit persediaan dan debit biaya pada jurnal gerakan keluar."""
+    if nilai_lama == nilai_baru:
+        return
+
+    baris_persediaan = koneksi.execute(
+        """
+        SELECT id, kredit FROM journal_lines
+        WHERE journal_entry_id = ? AND account_id = ? AND kredit > 0
+        """,
+        (journal_entry_id, account_id_persediaan),
+    ).fetchall()
+    cocok_persediaan = [r for r in baris_persediaan if int(r["kredit"]) == nilai_lama]
+    if len(cocok_persediaan) != 1:
+        raise ValueError(
+            f"Jurnal {journal_entry_id} tidak memiliki satu baris kredit persediaan "
+            f"yang cocok dengan nilai mutasi lama Rp{nilai_lama:,}."
+        )
+
+    baris_beban = koneksi.execute(
+        """
+        SELECT jl.id, jl.debit
+        FROM journal_lines jl
+        JOIN accounts a ON a.id = jl.account_id
+        WHERE jl.journal_entry_id = ?
+          AND jl.account_id != ?
+          AND jl.debit > 0
+          AND a.kategori IN ('HPP', 'Beban Produksi', 'Beban Operasional', 'Beban Lainnya')
+        """,
+        (journal_entry_id, account_id_persediaan),
+    ).fetchall()
+    cocok_beban = [r for r in baris_beban if int(r["debit"]) == nilai_lama]
+    if len(cocok_beban) == 1:
+        baris_beban_terpilih = cocok_beban[0]
+    elif len(cocok_beban) == 0 and len(baris_beban) == 1:
+        baris_beban_terpilih = baris_beban[0]
+    else:
+        raise ValueError(
+            f"Jurnal {journal_entry_id} tidak dapat menentukan satu baris debit "
+            "HPP/beban yang harus diselaraskan. Periksa jurnal secara manual."
+        )
+
+    koneksi.execute(
+        "UPDATE journal_lines SET kredit = ? WHERE id = ?",
+        (nilai_baru, cocok_persediaan[0]["id"]),
+    )
+    koneksi.execute(
+        "UPDATE journal_lines SET debit = ? WHERE id = ?",
+        (nilai_baru, baris_beban_terpilih["id"]),
+    )
+
+
+def _perbarui_saldo_awal_akun(
+    koneksi: sqlite3.Connection,
+    account_id: int | None,
+    tanggal: str,
+) -> None:
+    """Selaraskan saldo awal akun persediaan dengan snapshot seluruh item pada tanggal tersebut."""
+    if account_id is None or not _tabel_ada(koneksi, "opening_balances"):
+        return
+
+    periode = koneksi.execute("""
+        SELECT id FROM periods
+        WHERE tahun = CAST(substr(?, 1, 4) AS INTEGER)
+          AND bulan = CAST(substr(?, 6, 2) AS INTEGER)
+    """, (tanggal, tanggal)).fetchone()
+    if not periode:
+        return
+
+    total_akun = koneksi.execute("""
+        SELECT COALESCE(SUM(im.total_nilai), 0) AS total
+        FROM inventory_movements im
+        JOIN items i ON i.id = im.item_id
+        WHERE i.account_id = ?
+          AND im.tipe_gerakan = 'saldo_awal'
+          AND im.tanggal = ?
+    """, (account_id, tanggal)).fetchone()["total"]
+
+    koneksi.execute("""
+        INSERT INTO opening_balances
+            (period_id, account_id, saldo_debit, saldo_kredit, catatan)
+        VALUES (?, ?, ?, 0, 'Otomatis dari rekalkulasi snapshot kartu persediaan')
+        ON CONFLICT(period_id, account_id) DO UPDATE SET
+            saldo_debit = excluded.saldo_debit,
+            saldo_kredit = 0,
+            catatan = excluded.catatan
+    """, (periode["id"], account_id, int(total_akun)))
+
+
+def _rekalkulasi_kartu_persediaan(koneksi: sqlite3.Connection, item_id: int) -> None:
+    """
+    Hitung ulang saldo kartu stok secara kronologis dan perbarui jurnal biaya
+    untuk setiap gerakan keluar yang nilai HPP-nya berubah.
+
+    Snapshot saldo awal periode berikutnya tidak dijumlahkan sebagai pembelian
+    baru. Snapshot tersebut diperbarui mengikuti saldo hasil perhitungan riwayat.
+    Jika stok menjadi negatif, seluruh penghapusan dibatalkan.
+    """
+    if not _tabel_ada(koneksi, "inventory_movements"):
+        return
+
+    item = koneksi.execute(
+        "SELECT account_id FROM items WHERE id = ?", (item_id,)
+    ).fetchone()
+    if not item:
+        raise ValueError(f"Item persediaan ID {item_id} tidak ditemukan.")
+    account_id_persediaan = item["account_id"]
+
+    rows = koneksi.execute("""
+        SELECT id, journal_entry_id, tanggal, tipe_gerakan, qty, harga_satuan, total_nilai
+        FROM inventory_movements
+        WHERE item_id = ?
+        ORDER BY tanggal ASC, COALESCE(journal_entry_id, id) ASC, id ASC
+    """, (item_id,)).fetchall()
+
+    saldo_qty = 0.0
+    saldo_nilai = 0
+    harga_rata2 = 0
+    ada_mutasi_sebelumnya = False
+
+    for r in rows:
+        m_id = r["id"]
+        tipe = r["tipe_gerakan"]
+        qty = float(r["qty"])
+        harga_satuan = int(r["harga_satuan"])
+
+        if tipe == "saldo_awal":
+            if not ada_mutasi_sebelumnya:
+                # Snapshot pertama adalah saldo pembuka sebenarnya.
+                total_nilai = int(r["total_nilai"])
+                saldo_qty += qty
+                saldo_nilai += total_nilai
+            else:
+                # Snapshot periode berikutnya hanya checkpoint, bukan mutasi masuk.
+                qty = saldo_qty
+                total_nilai = saldo_nilai
+                harga_satuan = harga_rata2
+
+            harga_rata2 = int(saldo_nilai / saldo_qty) if saldo_qty > 0 else 0
+            koneksi.execute("""
+                UPDATE inventory_movements
+                SET qty = ?, harga_satuan = ?, total_nilai = ?,
+                    saldo_qty = ?, saldo_nilai = ?, harga_rata2 = ?
+                WHERE id = ?
+            """, (qty, harga_satuan, total_nilai, saldo_qty, saldo_nilai, harga_rata2, m_id))
+            _perbarui_saldo_awal_akun(koneksi, account_id_persediaan, r["tanggal"])
+            ada_mutasi_sebelumnya = True
+            continue
+
+        if tipe == "masuk":
+            total_nilai = int(qty * harga_satuan)
+            saldo_qty += qty
+            saldo_nilai += total_nilai
+            harga_rata2 = int(saldo_nilai / saldo_qty) if saldo_qty > 0 else 0
+            koneksi.execute("""
+                UPDATE inventory_movements
+                SET total_nilai = ?, saldo_qty = ?, saldo_nilai = ?, harga_rata2 = ?
+                WHERE id = ?
+            """, (total_nilai, saldo_qty, saldo_nilai, harga_rata2, m_id))
+            ada_mutasi_sebelumnya = True
+
+        elif tipe == "keluar":
+            if qty - saldo_qty > 1e-9:
+                raise ValueError(
+                    f"Penghapusan jurnal membuat stok item ID {item_id} negatif "
+                    f"pada mutasi tanggal {r['tanggal']}. Sisa stok {saldo_qty:g}, "
+                    f"sedangkan kebutuhan {qty:g}. Penghapusan dibatalkan."
+                )
+
+            nilai_lama = int(r["total_nilai"])
+            harga_keluar = harga_rata2
+            if abs(saldo_qty - qty) < 1e-9:
+                total_nilai = saldo_nilai
+                saldo_qty = 0.0
+                saldo_nilai = 0
+                harga_rata2 = 0
+            else:
+                total_nilai = int(qty * harga_keluar)
+                saldo_qty -= qty
+                saldo_nilai -= total_nilai
+                if saldo_nilai < 0:
+                    raise ValueError(
+                        f"Rekalkulasi menghasilkan nilai persediaan negatif untuk item ID {item_id}."
+                    )
+
+            koneksi.execute("""
+                UPDATE inventory_movements
+                SET harga_satuan = ?, total_nilai = ?, saldo_qty = ?, saldo_nilai = ?, harga_rata2 = ?
+                WHERE id = ?
+            """, (harga_keluar, total_nilai, saldo_qty, saldo_nilai, harga_rata2, m_id))
+
+            if r["journal_entry_id"] is not None:
+                if account_id_persediaan is None:
+                    raise ValueError(
+                        f"Item ID {item_id} belum memiliki akun persediaan; jurnal HPP tidak dapat diperbarui."
+                    )
+                _perbarui_jurnal_nilai_keluar(
+                    koneksi,
+                    int(r["journal_entry_id"]),
+                    int(account_id_persediaan),
+                    nilai_lama,
+                    total_nilai,
+                )
+            ada_mutasi_sebelumnya = True
+
+
 def hapus_jurnal(entry_id: int) -> None:
     """
-    Menghapus jurnal dan semua barisnya (CASCADE dari schema).
+    Menghapus jurnal dan relasi terkait, lalu menghitung ulang kartu stok serta
+    nilai HPP/beban pada seluruh jurnal gerakan keluar setelahnya.
     Hanya bisa dilakukan jika periode masih 'buka'.
-
-    Args:
-        entry_id : ID journal_entry yang ingin dihapus.
-
-    Raises:
-        PermissionError : Jika periode sudah ditutup (status = 'tutup').
-        ValueError      : Jika entry_id tidak ditemukan.
     """
     koneksi = get_connection()
     try:
-        # Cek status periode dari jurnal ini
         row = koneksi.execute("""
-            SELECT p.status, je.no_bukti
+            SELECT p.status, je.no_bukti, je.journal_type, je.keterangan
             FROM journal_entries je
             JOIN periods p ON je.period_id = p.id
             WHERE je.id = ?
@@ -279,15 +492,89 @@ def hapus_jurnal(entry_id: int) -> None:
                 "Periode sudah ditutup."
             )
 
-        # Hapus header — journal_lines terhapus otomatis via ON DELETE CASCADE
+        items_terdampak = []
+        if _tabel_ada(koneksi, "inventory_movements"):
+            rows_inv = koneksi.execute(
+                "SELECT DISTINCT item_id FROM inventory_movements WHERE journal_entry_id = ?",
+                (entry_id,)
+            ).fetchall()
+            items_terdampak = [r["item_id"] for r in rows_inv]
+            koneksi.execute("DELETE FROM inventory_movements WHERE journal_entry_id = ?", (entry_id,))
+
+        # Batalkan pembayaran piutang yang memang memiliki relasi eksplisit.
+        ada_relasi_pembayaran = False
+        if _tabel_ada(koneksi, "receivable_payments"):
+            pembayaran = koneksi.execute("""
+                SELECT receivable_id, jumlah_bayar
+                FROM receivable_payments
+                WHERE journal_entry_id = ?
+            """, (entry_id,)).fetchall()
+            ada_relasi_pembayaran = bool(pembayaran)
+            for bayar in pembayaran:
+                piutang = koneksi.execute(
+                    "SELECT jumlah, jumlah_terbayar FROM receivables WHERE id = ?",
+                    (bayar["receivable_id"],),
+                ).fetchone()
+                if piutang:
+                    if int(piutang["jumlah_terbayar"]) < int(bayar["jumlah_bayar"]):
+                        raise ValueError(
+                            "Data pembayaran piutang tidak konsisten. "
+                            "Penghapusan jurnal dibatalkan agar saldo piutang tidak salah."
+                        )
+                    terbayar = int(piutang["jumlah_terbayar"]) - int(bayar["jumlah_bayar"])
+                    status = (
+                        "lunas" if terbayar >= int(piutang["jumlah"])
+                        else "sebagian" if terbayar > 0
+                        else "belum_lunas"
+                    )
+                    koneksi.execute(
+                        "UPDATE receivables SET jumlah_terbayar = ?, status = ? WHERE id = ?",
+                        (terbayar, status, bayar["receivable_id"]),
+                    )
+
+        # Jurnal penerimaan piutang dari versi lama belum memiliki relasi.
+        # Jangan menghapusnya diam-diam karena saldo faktur tidak bisa dipulihkan
+        # secara aman tanpa mengetahui faktur yang benar.
+        if (
+            row["journal_type"] == "penerimaan_kas"
+            and str(row["keterangan"] or "").startswith("Pelunasan piutang ")
+            and not ada_relasi_pembayaran
+        ):
+            raise ValueError(
+                "Jurnal penerimaan piutang ini berasal dari versi lama dan belum "
+                "memiliki relasi faktur. Penghapusan otomatis tidak aman; "
+                "periksa dan koreksi saldo piutang secara manual terlebih dahulu."
+            )
+
+        if _tabel_ada(koneksi, "receivables"):
+            row_rec = koneksi.execute(
+                "SELECT id, jumlah_terbayar FROM receivables WHERE journal_entry_id = ?",
+                (entry_id,)
+            ).fetchone()
+            if row_rec:
+                if row_rec["jumlah_terbayar"] > 0:
+                    raise ValueError(
+                        "Tidak bisa menghapus jurnal penjualan tempo yang sudah memiliki pembayaran piutang."
+                    )
+                koneksi.execute("DELETE FROM receivables WHERE journal_entry_id = ?", (entry_id,))
+
+        if _tabel_ada(koneksi, "attendance"):
+            koneksi.execute(
+                "UPDATE attendance SET journal_entry_id = NULL, sudah_dibayar = 0 WHERE journal_entry_id = ?",
+                (entry_id,)
+            )
+
         koneksi.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
+
+        for it_id in items_terdampak:
+            _rekalkulasi_kartu_persediaan(koneksi, it_id)
+
         koneksi.commit()
-    except Exception as e:
+    except Exception:
         koneksi.rollback()
-        raise e
+        raise
     finally:
         koneksi.close()
-
 
 def buat_pratinjau_jurnal(baris: list[dict], nama_akun_map: dict) -> list[dict]:
     """

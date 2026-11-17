@@ -36,7 +36,7 @@ class TestJurnalSeimbang:
         baris = [
             {"debit": 5_000_000, "kredit": 0},   # Kas
             {"debit": 0, "kredit": 3_000_000},   # Penjualan Cabai
-            {"debit": 0, "kredit": 2_000_000},   # Penjualan Selada
+            {"debit": 0, "kredit": 2_000_000},   # Penjualan Cabai
         ]
         total_d, total_k = validasi_jurnal_seimbang(baris)
         assert total_d == total_k == 5_000_000

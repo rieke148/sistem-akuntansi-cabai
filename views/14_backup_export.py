@@ -68,11 +68,11 @@ def _export_semua_tabel_excel(period_id: int) -> bytes:
         "Bagan Akun": "SELECT kode_akun, nama_akun, kategori, saldo_normal FROM accounts WHERE aktif=1 ORDER BY kode_akun",
         "Pelanggan": "SELECT nama, tipe, telepon, alamat FROM customers WHERE aktif=1",
         "Supplier": "SELECT nama, telepon, alamat FROM suppliers WHERE aktif=1",
-        "Pekerja": "SELECT nama, tipe_pekerja, upah_harian, komoditas FROM employees WHERE aktif=1",
-        "Items Persediaan": "SELECT kode_item, nama_item, satuan, tipe, komoditas FROM items WHERE aktif=1",
-        "Blok Lahan": "SELECT kode_blok, komoditas, jumlah_pohon, luas_m2 FROM blok_lahan WHERE aktif=1",
+        "Pekerja": "SELECT nama, tipe_pekerja, upah_harian FROM employees WHERE aktif=1",
+        "Items Persediaan": "SELECT kode_item, nama_item, satuan, tipe FROM items WHERE aktif=1",
+        "Blok Lahan": "SELECT kode_blok, jumlah_pohon, luas_m2 FROM blok_lahan WHERE aktif=1",
         "Aset Tetap": "SELECT kode_aset, nama_aset, kategori_aset, harga_perolehan, umur_ekonomis_tahun FROM fixed_assets WHERE aktif=1",
-        "Jurnal Entries": f"SELECT tanggal, no_bukti, journal_type, keterangan, pihak_terkait, komoditas FROM journal_entries WHERE period_id={period_id} ORDER BY tanggal, id",
+        "Jurnal Entries": f"SELECT tanggal, no_bukti, journal_type, keterangan, pihak_terkait, komoditas AS [Klasifikasi Transaksi] FROM journal_entries WHERE period_id={period_id} ORDER BY tanggal, id",
         "Piutang": "SELECT no_faktur, tanggal_faktur, tanggal_jatuh_tempo, jumlah, jumlah_terbayar, status FROM receivables ORDER BY tanggal_faktur",
     }
 

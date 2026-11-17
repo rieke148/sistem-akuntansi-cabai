@@ -12,7 +12,7 @@ Mencakup pengujian:
 2. validasi_neraca_saldo_seimbang() — benar/tidak seimbang
 3. hitung_upah_pekerja() — perhitungan upah
 4. ambil_rekap_absensi() — struktur DataFrame dan total hari
-5. adjusting_service — amortisasi, akrual, cek sudah ada
+5. adjusting_service — akrual upah, cek jenis aktif, ringkasan histori
 
 CATATAN TEKNIS:
   sqlite3.Connection.close adalah read-only di Python 3.14+, sehingga
@@ -89,11 +89,11 @@ def _buat_db_file(path: str) -> str:
 
     # Data dasar
     cur.executescript("""
-        INSERT INTO accounts VALUES (1, '1101', 'Kas', 'Aset', 'Debit', 0, 1);
-        INSERT INTO accounts VALUES (2, '4101', 'Penjualan', 'Pendapatan', 'Kredit', 0, 1);
-        INSERT INTO accounts VALUES (3, '5105', 'Beban Upah', 'Beban Produksi', 'Debit', 0, 1);
-        INSERT INTO accounts VALUES (4, '2201', 'Utang Gaji', 'Liabilitas', 'Kredit', 0, 1);
-        INSERT INTO accounts VALUES (5, '1502K', 'Akum Penyusutan Bangunan', 'Aset', 'Kredit', 1, 1);
+        INSERT INTO accounts VALUES (1, '1110', 'Kas', 'Aset', 'Debit', 0, 1);
+        INSERT INTO accounts VALUES (2, '4110', 'Penjualan', 'Pendapatan', 'Kredit', 0, 1);
+        INSERT INTO accounts VALUES (3, '6110', 'Beban Gaji', 'Beban Operasional', 'Debit', 0, 1);
+        INSERT INTO accounts VALUES (4, '2210', 'Utang Gaji', 'Liabilitas', 'Kredit', 0, 1);
+        INSERT INTO accounts VALUES (5, '1221', 'Akum Penyusutan Bangunan', 'Aset', 'Kredit', 1, 1);
 
         INSERT INTO periods VALUES (1, 2026, 10, 'Oktober 2026', 'buka');
 
@@ -155,7 +155,7 @@ class TestHitungNeracaSaldo:
         with patch("services.trial_balance_service.get_connection", side_effect=factory):
             df = hitung_neraca_saldo(period_id=1)
 
-        baris_kas = df[df["kode_akun"] == "1101"]
+        baris_kas = df[df["kode_akun"] == "1110"]
         assert not baris_kas.empty
         assert int(baris_kas.iloc[0]["debit"]) == 510_000_000
         assert int(baris_kas.iloc[0]["kredit"]) == 0
@@ -172,7 +172,7 @@ class TestHitungNeracaSaldo:
         with patch("services.trial_balance_service.get_connection", side_effect=factory):
             df = hitung_neraca_saldo(period_id=1)
 
-        baris_penjualan = df[df["kode_akun"] == "4101"]
+        baris_penjualan = df[df["kode_akun"] == "4110"]
         assert not baris_penjualan.empty
         assert int(baris_penjualan.iloc[0]["kredit"]) == 10_000_000
         assert int(baris_penjualan.iloc[0]["debit"]) == 0
@@ -189,7 +189,7 @@ class TestHitungNeracaSaldo:
 
         # Tambah akun Modal Disetor dan saldo awal yang seimbang
         conn = sqlite3.connect(db)
-        conn.execute("INSERT INTO accounts VALUES (6, '3101', 'Modal Disetor', 'Ekuitas', 'Kredit', 0, 1)")
+        conn.execute("INSERT INTO accounts VALUES (6, '3110', 'Modal Pribadi', 'Ekuitas', 'Kredit', 0, 1)")
         # Saldo awal: Kas Dr 500jt ↔ Modal Kr 500jt
         conn.execute("INSERT INTO opening_balances VALUES (3, 1, 6, 0, 500000000, 'Modal awal')")
         conn.commit()
@@ -232,8 +232,8 @@ class TestHitungNeracaSaldo:
             df_sesudah = hitung_neraca_saldo(period_id=1, termasuk_penyesuaian=True)
 
         # Beban Upah (5105) tidak boleh ada di NS sebelum penyesuaian
-        beban_sebelum = df_sebelum[df_sebelum["kode_akun"] == "5105"]
-        beban_sesudah = df_sesudah[df_sesudah["kode_akun"] == "5105"]
+        beban_sebelum = df_sebelum[df_sebelum["kode_akun"] == "6110"]
+        beban_sesudah = df_sesudah[df_sesudah["kode_akun"] == "6110"]
 
         assert beban_sebelum.empty or int(beban_sebelum.iloc[0]["debit"]) == 0
         assert not beban_sesudah.empty and int(beban_sesudah.iloc[0]["debit"]) == 500_000
@@ -248,7 +248,7 @@ class TestHitungNeracaSaldo:
             df = hitung_neraca_saldo(period_id=1)
 
         # Akun 2201 (Utang Gaji) belum pernah dipakai → tidak muncul
-        baris_utang = df[df["kode_akun"] == "2201"]
+        baris_utang = df[df["kode_akun"] == "2210"]
         assert baris_utang.empty
 
 
@@ -264,8 +264,8 @@ class TestValidasiNeracaSaldo:
         from services.trial_balance_service import validasi_neraca_saldo_seimbang
 
         df = pd.DataFrame([
-            {"kode_akun": "1101", "debit": 500_000_000, "kredit": 0},
-            {"kode_akun": "3101", "debit": 0, "kredit": 500_000_000},
+            {"kode_akun": "1110", "debit": 500_000_000, "kredit": 0},
+            {"kode_akun": "3110", "debit": 0, "kredit": 500_000_000},
         ])
         seimbang, total_d, total_k = validasi_neraca_saldo_seimbang(df)
         assert seimbang is True
@@ -277,8 +277,8 @@ class TestValidasiNeracaSaldo:
         from services.trial_balance_service import validasi_neraca_saldo_seimbang
 
         df = pd.DataFrame([
-            {"kode_akun": "1101", "debit": 500_000_000, "kredit": 0},
-            {"kode_akun": "3101", "debit": 0, "kredit": 400_000_000},
+            {"kode_akun": "1110", "debit": 500_000_000, "kredit": 0},
+            {"kode_akun": "3110", "debit": 0, "kredit": 400_000_000},
         ])
         seimbang, total_d, total_k = validasi_neraca_saldo_seimbang(df)
         assert seimbang is False
@@ -440,31 +440,6 @@ class TestAdjustingService:
         )
         assert hasil == 0
 
-    def test_amortisasi_mulsa_kalkulasi(self):
-        """
-        Pembuktian rumus amortisasi:
-        5 blok × Rp400.000 = Rp2.000.000 total
-        Rp2.000.000 ÷ 18 bulan = Rp111.111 (pembulatan bawah integer)
-        """
-        from services.depreciation_service import hitung_amortisasi_mulsa_bulanan
-
-        hasil = hitung_amortisasi_mulsa_bulanan(400_000, 5, 1.5)
-        assert hasil == 111_111  # 2.000.000 // 18
-
-    def test_amortisasi_mulsa_berbeda_parameter(self):
-        """Amortisasi dengan 3 blok saja: 3 × 400.000 = 1.200.000 ÷ 18 = 66.666."""
-        from services.depreciation_service import hitung_amortisasi_mulsa_bulanan
-
-        hasil = hitung_amortisasi_mulsa_bulanan(400_000, 3, 1.5)
-        assert hasil == 66_666  # 1.200.000 // 18
-
-    def test_amortisasi_mulsa_1_blok(self):
-        """1 blok × Rp400.000 ÷ 18 = Rp22.222."""
-        from services.depreciation_service import hitung_amortisasi_mulsa_bulanan
-
-        hasil = hitung_amortisasi_mulsa_bulanan(400_000, 1, 1.5)
-        assert hasil == 22_222  # 400.000 // 18
-
     def test_ambil_ringkasan_penyesuaian_kosong(self, tmp_path):
         """Tanpa jurnal penyesuaian, harus return DataFrame kosong."""
         from services.adjusting_service import ambil_ringkasan_penyesuaian
@@ -477,26 +452,26 @@ class TestAdjustingService:
         assert df.empty
 
     def test_cek_penyesuaian_sudah_ada_false(self, tmp_path):
-        """cek_penyesuaian_sudah_ada harus return False jika belum ada."""
+        """Akrual upah yang belum dibuat harus terdeteksi belum ada."""
         from services.adjusting_service import cek_penyesuaian_sudah_ada
         db = _buat_db_file(str(tmp_path / "adj2.db"))
         factory = _make_conn_factory(db)
 
         with patch("services.adjusting_service.get_connection", side_effect=factory):
-            hasil = cek_penyesuaian_sudah_ada(period_id=1, jenis="mulsa")
+            hasil = cek_penyesuaian_sudah_ada(period_id=1, jenis="akrual_upah")
 
         assert hasil is False
 
     def test_cek_penyesuaian_sudah_ada_true(self, tmp_path):
-        """cek_penyesuaian_sudah_ada harus return True jika sudah ada."""
+        """Akrual upah yang sudah dibuat harus terdeteksi."""
         from services.adjusting_service import cek_penyesuaian_sudah_ada
         db = _buat_db_file(str(tmp_path / "adj3.db"))
 
-        # Tambah jurnal penyesuaian mulsa
+        # Tambah jurnal penyesuaian akrual upah
         conn = sqlite3.connect(db)
         conn.execute("""
             INSERT INTO journal_entries(period_id, tanggal, no_bukti, journal_type, keterangan)
-            VALUES (1, '2026-10-31', 'PA-MULSA-1', 'umum', 'Amortisasi mulsa')
+            VALUES (1, '2026-10-31', 'PA-AKRUAL-UPAH-1', 'umum', 'Akrual upah')
         """)
         conn.commit()
         conn.close()
@@ -504,12 +479,31 @@ class TestAdjustingService:
         factory = _make_conn_factory(db)
 
         with patch("services.adjusting_service.get_connection", side_effect=factory):
-            hasil = cek_penyesuaian_sudah_ada(period_id=1, jenis="mulsa")
+            hasil = cek_penyesuaian_sudah_ada(period_id=1, jenis="akrual_upah")
 
         assert hasil is True
 
+    def test_cek_penyesuaian_mulsa_lama_tidak_dianggap_aktif(self, tmp_path):
+        """Jurnal PA-MULSA historis tidak mengaktifkan lagi fitur amortisasi."""
+        from services.adjusting_service import cek_penyesuaian_sudah_ada
+        db = _buat_db_file(str(tmp_path / "adj_mulsa_lama.db"))
+
+        conn = sqlite3.connect(db)
+        conn.execute("""
+            INSERT INTO journal_entries(period_id, tanggal, no_bukti, journal_type, keterangan)
+            VALUES (1, '2026-10-31', 'PA-MULSA-1', 'umum', 'Amortisasi mulsa lama')
+        """)
+        conn.commit()
+        conn.close()
+
+        factory = _make_conn_factory(db)
+        with patch("services.adjusting_service.get_connection", side_effect=factory):
+            hasil = cek_penyesuaian_sudah_ada(period_id=1, jenis="mulsa")
+
+        assert hasil is False
+
     def test_ambil_ringkasan_penyesuaian_ada_data(self, tmp_path):
-        """Jika ada jurnal PA-, harus muncul di ringkasan."""
+        """Jurnal PA- lama tetap muncul di ringkasan untuk menjaga histori."""
         from services.adjusting_service import ambil_ringkasan_penyesuaian
         db = _buat_db_file(str(tmp_path / "adj4.db"))
 
