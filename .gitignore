@@ -7,6 +7,11 @@
 venv/
 .venv/
 
+# Database SQLite dapat berisi data keuangan, hash password, dan audit log.
+# Catatan: aturan ini tidak otomatis melepas file .db yang sudah terlanjur dilacak Git.
+database/*.db
+database/*.db-*
+
 # Cache Python dan pengujian
 __pycache__/
 *.py[cod]
