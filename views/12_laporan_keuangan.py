@@ -26,7 +26,7 @@ from utils.export import (
     export_dataframe_ke_pdf,
     export_laporan_keuangan_ke_excel,
 )
-from utils.ui_components import selector_periode
+from utils.ui_components import selector_periode, render_page_header
 import services.period_service as ps
 import streamlit_antd_components as sac
 
@@ -547,7 +547,7 @@ def _unduh_neraca_saldo_pdf(period_id: int, label_periode: str) -> None:
 
 def tampilkan() -> None:
     """Halaman utama Laporan Keuangan."""
-    st.title("📄 Laporan Keuangan")
+    render_page_header("Laporan Keuangan", "Tinjau laba rugi, perubahan ekuitas, posisi keuangan, dan arus kas.", eyebrow="laporan")
     st.caption(
         "Laporan keuangan disusun secara berurutan: "
         "Laba Rugi → Perubahan Ekuitas → Neraca → Arus Kas. "
