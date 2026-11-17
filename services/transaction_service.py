@@ -487,7 +487,7 @@ def _validasi_item_barang_dagang(item_id: int, account_id: int) -> None:
         raise ValueError(
             "Item barang dagang tidak ditemukan, bukan hasil panen cabai, atau sudah nonaktif."
         )
-    if item["account_id"] is None or int(item["account_id"]) != int(account_id):
+    if account_id is None or item["account_id"] is None or int(item["account_id"]) != int(account_id):
         raise ValueError(
             "Akun persediaan transaksi tidak sesuai dengan akun pada item barang dagang."
         )
