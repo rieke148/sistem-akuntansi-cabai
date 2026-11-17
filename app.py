@@ -244,45 +244,56 @@ with st.sidebar:
         st.rerun()
 
 # ---------------------------------------------------------------
-# NAVIGASI BERDASARKAN ROLE
+# NAVIGASI BERDASARKAN PERMISSION
 # ---------------------------------------------------------------
-# Tiap halaman juga memiliki guard sendiri; menyembunyikan menu saja
-# tidak dianggap sebagai pemeriksaan otorisasi yang cukup.
-role = user_aktif["role_code"]
-
-halaman_role = {
-    "admin_owner": {
-        "Beranda": [halaman_dashboard],
-        "Setup": [halaman_master_data],
-        "Input": [halaman_transaksi, halaman_penggajian],
-        "Jurnal": [halaman_jurnal_umum, halaman_jurnal_khusus],
-        "Buku Besar": [halaman_kartu_persediaan, halaman_buku_besar, halaman_bb_pembantu],
-        "Laporan": [halaman_neraca_saldo, halaman_penyesuaian, halaman_neraca_lajur, halaman_laporan_keuangan, halaman_jurnal_penutup],
-        "Utilitas": [halaman_backup, halaman_manajemen_pengguna],
-    },
-    "accountant": {
-        "Beranda": [halaman_dashboard],
-        "Setup": [halaman_master_data],
-        "Input": [halaman_transaksi, halaman_penggajian],
-        "Jurnal": [halaman_jurnal_umum, halaman_jurnal_khusus],
-        "Buku Besar": [halaman_kartu_persediaan, halaman_buku_besar, halaman_bb_pembantu],
-        "Laporan": [halaman_neraca_saldo, halaman_penyesuaian, halaman_neraca_lajur, halaman_laporan_keuangan, halaman_jurnal_penutup],
-        "Utilitas": [halaman_backup],
-    },
-    "inventory": {
-        "Setup": [halaman_master_data],
-        "Operasional Persediaan": [halaman_transaksi, halaman_kartu_persediaan],
-    },
-    "leadership": {
-        "Beranda": [halaman_dashboard],
-        "Pemantauan": [halaman_jurnal_umum, halaman_jurnal_khusus, halaman_kartu_persediaan, halaman_buku_besar, halaman_bb_pembantu, halaman_penggajian],
-        "Laporan": [halaman_neraca_saldo, halaman_neraca_lajur, halaman_laporan_keuangan],
-    },
+# Permission dari database menjadi sumber keputusan navigasi.
+# Setiap halaman tetap memiliki pemeriksaan izin internal sebagai lapisan kedua.
+grup_halaman = {
+    "Beranda": [
+        ("dashboard.view", halaman_dashboard),
+    ],
+    "Setup": [
+        ("master_data.view", halaman_master_data),
+    ],
+    "Input": [
+        ("transactions.view", halaman_transaksi),
+        ("payroll.manage", halaman_penggajian),
+        ("payroll.summary.view", halaman_penggajian),
+    ],
+    "Jurnal": [
+        ("journals.view", halaman_jurnal_umum),
+        ("journals.view", halaman_jurnal_khusus),
+    ],
+    "Buku Besar": [
+        ("inventory.view", halaman_kartu_persediaan),
+        ("ledger.view", halaman_buku_besar),
+        ("ledger.view", halaman_bb_pembantu),
+    ],
+    "Laporan": [
+        ("reports.view", halaman_neraca_saldo),
+        ("reports.manage", halaman_penyesuaian),
+        ("reports.view", halaman_neraca_lajur),
+        ("reports.view", halaman_laporan_keuangan),
+        ("closing.manage", halaman_jurnal_penutup),
+    ],
+    "Utilitas": [
+        ("backup.access", halaman_backup),
+        ("users.manage", halaman_manajemen_pengguna),
+    ],
 }
 
-navigasi_role = halaman_role.get(role, {})
+navigasi_role = {}
+for nama_grup, daftar_halaman in grup_halaman.items():
+    halaman_diizinkan = []
+    for permission_code, halaman in daftar_halaman:
+        # Halaman Penggajian dapat dibuka oleh pengelola maupun pembaca ringkasan.
+        if punya_izin(permission_code) and halaman not in halaman_diizinkan:
+            halaman_diizinkan.append(halaman)
+    if halaman_diizinkan:
+        navigasi_role[nama_grup] = halaman_diizinkan
+
 if not navigasi_role:
-    st.error("Role akun tidak dikenali. Hubungi Administrator.")
+    st.error("Akun Anda belum memiliki hak akses ke halaman aplikasi mana pun.")
     st.stop()
 
 navigasi = st.navigation(navigasi_role, position="sidebar")
