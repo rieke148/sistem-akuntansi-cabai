@@ -580,10 +580,10 @@ def _form_setoran_modal(period_id: int):
 
 
 # ================================================================
-# FORM 5: PEMBELIAN BARANG DAGANG TUNAI
+# FORM 5: PEMBELIAN TUNAI
 # ================================================================
 
-def _form_pembelian_barang_dagang_tunai(period_id: int):
+def _form_pembelian_tunai(period_id: int):
     """Form pembelian barang dagang cabai, perlengkapan, atau peralatan secara tunai."""
     st.subheader("🛒 Beli Tunai")
 
@@ -1584,9 +1584,9 @@ def tampilkan() -> None:
             _form_penjualan_tempo(period_id)
 
     elif kelompok == "Pembelian":
-        tab1, tab2 = st.tabs(["🛒 Barang Dagang Tunai", "🏷️ Barang Dagang Kredit"])
+        tab1, tab2 = st.tabs(["🛒 Pembelian Tunai", "🏷️ Pembelian Kredit"])
         with tab1:
-            _form_pembelian_barang_dagang_tunai(period_id)
+            _form_pembelian_tunai(period_id)
         with tab2:
             _form_pembelian_kredit(period_id)
 
