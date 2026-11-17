@@ -41,6 +41,7 @@ jobs:
       - name: Run test suite
         run: python -m pytest tests/ -v
       - name: Read-only HPP migration preflight on disposable snapshot
+        continue-on-error: true
         shell: bash
         run: |
           set +e

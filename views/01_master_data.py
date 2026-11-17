@@ -27,7 +27,7 @@ import streamlit_antd_components as sac
 from services import master_data_service as svc
 from services import inventory_service as inv_svc
 from utils.formatting import format_rupiah, format_tanggal, nama_bulan_tahun
-from utils.ui_components import divider_dengan_judul, selector_periode
+from utils.ui_components import divider_dengan_judul, selector_periode, render_page_header
 from theme import WARNA_PRIMER
 from services.permission_service import punya_izin, wajib_punya_izin
 
@@ -38,7 +38,7 @@ from services.permission_service import punya_izin, wajib_punya_izin
 def tampilkan() -> None:
     """Fungsi utama halaman Master Data. Dipanggil oleh app.py."""
     wajib_punya_izin("master_data.view")
-    st.title("🗄️ Master Data")
+    render_page_header("Master Data", "Kelola akun, pelanggan, pemasok, persediaan, aset, periode, dan parameter usaha.", eyebrow="theme")
     st.caption("Kelola data referensi sesuai tanggung jawab dan hak akses akun.")
 
     konfigurasi_tab = [
