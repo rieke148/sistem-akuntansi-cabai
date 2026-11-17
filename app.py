@@ -120,7 +120,14 @@ def inisialisasi_database() -> bool:
 seed_baru = inisialisasi_database()
 
 # Siapkan role, permission, dan tabel akun setelah database akuntansi siap.
-auth_service.inisialisasi_otorisasi()
+@st.cache_resource(show_spinner=False)
+def _inisialisasi_otorisasi() -> bool:
+    """Siapkan role dan permission satu kali per proses aplikasi."""
+    auth_service.inisialisasi_otorisasi()
+    return True
+
+
+_inisialisasi_otorisasi()
 
 # Tampilkan notifikasi jika baru di-seed
 if seed_baru:
