@@ -1,0 +1,15 @@
+# Rahasia lokal Streamlit — jangan pernah commit
+.streamlit/secrets.toml
+
+# Environment dan virtual environment
+.env
+.env.*
+venv/
+.venv/
+
+# Cache Python dan pengujian
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
