@@ -121,9 +121,9 @@ def _isi_data_dasar(conn: sqlite3.Connection) -> None:
     cur = conn.cursor()
 
     # Akun: 1 Debit (Kas), 1 Kredit (Penjualan)
-    cur.execute("INSERT INTO accounts VALUES (1, '1101', 'Kas', 'Debit', 0)")
-    cur.execute("INSERT INTO accounts VALUES (2, '4101', 'Penjualan', 'Kredit', 0)")
-    cur.execute("INSERT INTO accounts VALUES (3, '1201', 'Piutang Usaha', 'Debit', 0)")
+    cur.execute("INSERT INTO accounts VALUES (1, '1110', 'Kas', 'Debit', 0)")
+    cur.execute("INSERT INTO accounts VALUES (2, '4110', 'Penjualan', 'Kredit', 0)")
+    cur.execute("INSERT INTO accounts VALUES (3, '1120', 'Piutang Usaha', 'Debit', 0)")
 
     # Periode
     cur.execute("INSERT INTO periods VALUES (1, 2026, 10, 'Oktober', 'buka')")
@@ -375,9 +375,9 @@ class TestAmbilSemuaSaldoAkun:
         """)
 
         # Isi data dasar
-        cur.execute("INSERT INTO accounts VALUES (1, '1101', 'Kas', 'Debit', 0)")
-        cur.execute("INSERT INTO accounts VALUES (2, '4101', 'Penjualan', 'Kredit', 0)")
-        cur.execute("INSERT INTO accounts VALUES (3, '1201', 'Piutang Usaha', 'Debit', 0)")
+        cur.execute("INSERT INTO accounts VALUES (1, '1110', 'Kas', 'Debit', 0)")
+        cur.execute("INSERT INTO accounts VALUES (2, '4110', 'Penjualan', 'Kredit', 0)")
+        cur.execute("INSERT INTO accounts VALUES (3, '1120', 'Piutang Usaha', 'Debit', 0)")
         cur.execute("INSERT INTO periods VALUES (1, 2026, 10, 'Oktober', 'buka')")
         cur.execute("INSERT INTO opening_balances VALUES (1, 1, 1, 500000000, 0, 'Saldo awal kas')")
         cur.execute("INSERT INTO opening_balances VALUES (2, 1, 2, 0, 0, '')")
@@ -553,7 +553,7 @@ class TestAmbilBbUtang:
         conn = _buat_db_uji()
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO accounts VALUES (4, '2101', 'Utang Usaha', 'Kredit', 0)"
+            "INSERT INTO accounts VALUES (4, '2110', 'Utang Usaha', 'Kredit', 0)"
         )
         cur.execute("""
             INSERT INTO journal_entries VALUES

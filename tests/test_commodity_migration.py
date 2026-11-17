@@ -129,7 +129,7 @@ def database_lama(tmp_path, monkeypatch):
         INSERT INTO accounts
             (id, kode_akun, nama_akun, kategori, saldo_normal)
         VALUES
-            (1, '4101', 'Penjualan Cabai Rawit', 'Pendapatan', 'Kredit'),
+            (1, '4110', 'Penjualan Cabai Rawit', 'Pendapatan', 'Kredit'),
             (2, '4102', 'Akun Pendapatan Lama A', 'Pendapatan', 'Kredit'),
             (3, '4103', 'Akun Pendapatan Lama B', 'Pendapatan', 'Kredit');
 
@@ -187,7 +187,7 @@ def test_migrasi_mempertahankan_transaksi_dan_menggabungkan_akun(database_lama):
     entries = koneksi.execute(
         "SELECT id, komoditas FROM journal_entries ORDER BY id"
     ).fetchall()
-    assert {row["kode_akun"] for row in akun} == {"4101"}
+    assert {row["kode_akun"] for row in akun} == {"4110"}
     assert {row["account_id"] for row in baris_jurnal} == {1}
     assert (saldo["saldo_debit"], saldo["saldo_kredit"]) == (120, 30)
     assert [row["komoditas"] for row in entries] == ["cabai", "umum"]

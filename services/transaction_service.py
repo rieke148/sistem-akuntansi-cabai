@@ -115,11 +115,11 @@ def _siapkan_hpp_penjualan(
             raise ValueError("Item hasil panen belum dihubungkan ke akun persediaan.")
 
         akun_hpp = koneksi.execute(
-            "SELECT id FROM accounts WHERE kode_akun = '5108' AND aktif = 1"
+            "SELECT id FROM accounts WHERE kode_akun = '5110' AND aktif = 1"
         ).fetchone()
         if not akun_hpp:
             raise ValueError(
-                "Akun 5108 - HPP Penjualan Cabai belum tersedia. Jalankan pembaruan database terlebih dahulu."
+                "Akun 5110 - Harga Pokok Penjualan belum tersedia. Jalankan pembaruan database terlebih dahulu."
             )
         item_info = {
             "item_id": int(item["id"]),
@@ -578,6 +578,80 @@ def catat_pembelian_kredit(
     return entry_id
 
 
+def catat_pembelian_perlengkapan_tunai(
+    period_id: int,
+    tanggal: str,
+    supplier_nama: str,
+    nama_perlengkapan: str,
+    qty: float,
+    harga_satuan: int,
+    akun_perlengkapan_id: int,
+    akun_kas_id: int,
+    keterangan: str = "",
+) -> int:
+    """
+    Mencatat pembelian perlengkapan (bambu, plastik mulsa, karung, dll) secara tunai.
+
+    Jurnal yang dibuat:
+      Debit : Perlengkapan (1130)
+      Kredit: Kas (1110)
+
+    Returns:
+        ID journal_entry yang dibuat.
+    """
+    jumlah = int(qty * harga_satuan)
+    no_bukti = generate_nomor_bukti("KK", _label_periode(period_id))
+    ket = keterangan or f"Beli perlengkapan {nama_perlengkapan} ({qty:g} unit @ Rp{harga_satuan:,}) dari {supplier_nama}"
+
+    baris = [
+        {"account_id": akun_perlengkapan_id, "debit": jumlah, "kredit": 0},
+        {"account_id": akun_kas_id, "debit": 0, "kredit": jumlah},
+    ]
+
+    return simpan_jurnal(
+        period_id=period_id, tanggal=tanggal, no_bukti=no_bukti,
+        journal_type="pengeluaran_kas", keterangan=ket, baris=baris,
+        pihak_terkait=supplier_nama,
+    )
+
+
+def catat_pembelian_perlengkapan_kredit(
+    period_id: int,
+    tanggal: str,
+    supplier_nama: str,
+    nama_perlengkapan: str,
+    qty: float,
+    harga_satuan: int,
+    akun_perlengkapan_id: int,
+    akun_utang_id: int,
+    keterangan: str = "",
+) -> int:
+    """
+    Mencatat pembelian perlengkapan (bambu, plastik mulsa, karung, dll) secara kredit.
+
+    Jurnal yang dibuat:
+      Debit : Perlengkapan (1130)
+      Kredit: Utang Usaha (2110)
+
+    Returns:
+        ID journal_entry yang dibuat.
+    """
+    jumlah = int(qty * harga_satuan)
+    no_bukti = generate_nomor_bukti("PB", _label_periode(period_id))
+    ket = keterangan or f"Beli kredit perlengkapan {nama_perlengkapan} ({qty:g} unit @ Rp{harga_satuan:,}) dari {supplier_nama}"
+
+    baris = [
+        {"account_id": akun_perlengkapan_id, "debit": jumlah, "kredit": 0},
+        {"account_id": akun_utang_id, "debit": 0, "kredit": jumlah},
+    ]
+
+    return simpan_jurnal(
+        period_id=period_id, tanggal=tanggal, no_bukti=no_bukti,
+        journal_type="pembelian", keterangan=ket, baris=baris,
+        pihak_terkait=supplier_nama,
+    )
+
+
 # ================================================================
 # 7. PEMAKAIAN BAHAN KE BLOK LAHAN
 # ================================================================
@@ -657,7 +731,7 @@ def catat_panen(
 
     Panen adalah perpindahan "nilai produksi" menjadi "persediaan hasil".
     Jurnal yang dibuat:
-      Debit : Persediaan Cabai Rawit (1304 / 1305)
+      Debit : Persediaan (1140 - COA baru)
       Kredit: Beban Pokok Produksi / HPP Panen (akun lawan)
 
     Efek samping:

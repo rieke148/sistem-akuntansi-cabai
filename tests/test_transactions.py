@@ -122,14 +122,14 @@ def db_in_memory():
         -- Data awal
         INSERT INTO periods (tahun, bulan, nama_bulan, status) VALUES (2026, 10, 'Oktober 2026', 'buka');
         INSERT INTO accounts (kode_akun, nama_akun, kategori, saldo_normal)
-            VALUES ('1101', 'Kas', 'Aset', 'Debit'),
-                   ('1201', 'Piutang Usaha', 'Aset', 'Debit'),
-                   ('1301', 'Persediaan Bahan', 'Aset', 'Debit'),
-                   ('2101', 'Utang Usaha', 'Liabilitas', 'Kredit'),
-                   ('3101', 'Modal Disetor', 'Ekuitas', 'Kredit'),
-                   ('4101', 'Penjualan Cabai', 'Pendapatan', 'Kredit'),
-                   ('5101', 'Beban Bahan Produksi', 'Beban Produksi', 'Debit'),
-                   ('6101', 'Beban Listrik', 'Beban Operasional', 'Debit');
+            VALUES ('1110', 'Kas', 'Aset', 'Debit'),
+                   ('1120', 'Piutang Usaha', 'Aset', 'Debit'),
+                   ('1140', 'Persediaan', 'Aset', 'Debit'),
+                   ('2110', 'Utang Usaha', 'Liabilitas', 'Kredit'),
+                   ('3110', 'Modal Pribadi', 'Ekuitas', 'Kredit'),
+                   ('4110', 'Penjualan Cabai', 'Pendapatan', 'Kredit'),
+                   ('6110', 'Beban Bahan Produksi', 'Beban Operasional', 'Debit'),
+                   ('6130', 'Beban Air, Listrik, dan Telepon', 'Beban Operasional', 'Debit');
         INSERT INTO customers (nama) VALUES ('Pak Budi');
         INSERT INTO parameters (kunci, nilai) VALUES ('jatuh_tempo_piutang_hari', '7');
         INSERT INTO items (nama_item, satuan, tipe) VALUES ('Pupuk NPK', 'kg', 'bahan');
@@ -189,8 +189,8 @@ class TestPratinjauJurnal:
     def test_buat_pratinjau_format_benar(self):
         """Pratinjau harus menghasilkan dict dengan kolom Akun, Debit, Kredit."""
         nama_akun_map = {
-            1: {"kode_akun": "1101", "nama_akun": "Kas"},
-            6: {"kode_akun": "4101", "nama_akun": "Penjualan"},
+            1: {"kode_akun": "1110", "nama_akun": "Kas"},
+            6: {"kode_akun": "4110", "nama_akun": "Penjualan"},
         }
         baris = [
             {"account_id": 1, "debit": 500_000, "kredit": 0},
@@ -198,7 +198,7 @@ class TestPratinjauJurnal:
         ]
         hasil = buat_pratinjau_jurnal(baris, nama_akun_map)
         assert len(hasil) == 2
-        assert hasil[0]["Akun"] == "1101 - Kas"
+        assert hasil[0]["Akun"] == "1110 - Kas"
         assert hasil[0]["Debit"] == 500_000
         assert hasil[1]["Kredit"] == 500_000
 

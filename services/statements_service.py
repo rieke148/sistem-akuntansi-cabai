@@ -14,7 +14,7 @@ URUTAN PENYUSUNAN (penting — saling bergantung):
 
 SUMBER DATA:
   - Semua angka diambil dari hitung_neraca_saldo(termasuk_penyesuaian=True)
-  - Modal Awal = saldo akun 'Modal Disetor' (3101) + 'Laba Ditahan' (3201)
+  - Modal Awal = saldo akun 'Modal Pribadi' (3110) + 'Laba' (3120)
     dari opening_balances
 """
 
@@ -73,19 +73,21 @@ def susun_laporan_laba_rugi(period_id: int) -> dict:
             hasil["pendapatan"].append({"nama_akun": nama, "jumlah": jumlah})
             hasil["total_pendapatan"] += jumlah
 
-        elif kategori == "Beban Produksi":
+        elif kode == "5110" or kategori == "HPP":
+            # HPP Penjualan (5110) — kategori bisa 'HPP' atau 'Beban Operasional' (legacy)
+            hasil["hpp_penjualan"].append({"nama_akun": nama, "jumlah": jumlah})
+            hasil["total_hpp_penjualan"] += jumlah
             hasil["beban_produksi"].append({"nama_akun": nama, "jumlah": jumlah})
             hasil["total_beban_produksi"] += jumlah
-            if kode == "5108":
-                hasil["hpp_penjualan"].append({"nama_akun": nama, "jumlah": jumlah})
-                hasil["total_hpp_penjualan"] += jumlah
-            else:
-                hasil["beban_produksi_lain"].append({"nama_akun": nama, "jumlah": jumlah})
-                hasil["total_beban_produksi_lain"] += jumlah
 
-        elif kategori == "Beban Operasional":
+        elif kategori in ("Beban Produksi", "Beban Operasional", "Beban Lainnya"):
+            # Beban operasional lain (6110-6170, 7110) dan beban produksi non-HPP
             hasil["beban_operasional"].append({"nama_akun": nama, "jumlah": jumlah})
             hasil["total_beban_operasional"] += jumlah
+            if kategori == "Beban Produksi":
+                # backward compat — masukkan ke beban_produksi_lain juga
+                hasil["beban_produksi_lain"].append({"nama_akun": nama, "jumlah": jumlah})
+                hasil["total_beban_produksi_lain"] += jumlah
 
     # HPP dipisahkan agar laba kotor dapat dibaca: Penjualan - HPP Penjualan.
     hasil["laba_kotor"] = hasil["total_pendapatan"] - hasil["total_hpp_penjualan"]
@@ -121,7 +123,7 @@ def susun_laporan_perubahan_ekuitas(
           'detail'             : list of dict (baris demi baris laporan)
         }
     """
-    # Ambil saldo awal Modal Disetor (3101) dan Laba Ditahan (3201)
+    # Ambil saldo awal Modal Pribadi (3110) dan Laba (3120)
     modal_disetor_awal, laba_ditahan_awal = _ambil_saldo_awal_ekuitas(period_id)
 
     # Tambahan setoran modal selama periode (jurnal kredit ke akun Modal Disetor)
@@ -272,7 +274,8 @@ def susun_arus_kas(period_id: int) -> dict:
     Menyusun Laporan Arus Kas metode langsung.
 
     Metode langsung: membaca langsung penerimaan dan pengeluaran kas
-    dari journal_lines untuk akun Kas (kode 1101) dan Bank (kode 1102).
+    dari journal_lines untuk akun Kas (kode 1110).
+    COA baru tidak memiliki akun Bank terpisah.
 
     Args:
         period_id : ID periode.
@@ -313,7 +316,7 @@ def susun_arus_kas(period_id: int) -> dict:
             FROM opening_balances ob
             JOIN accounts a ON ob.account_id = a.id
             WHERE ob.period_id = ?
-              AND a.kode_akun IN ('1101', '1102')
+              AND a.kode_akun IN ('1110')
             """,
             (period_id,)
         ).fetchall()
@@ -349,8 +352,8 @@ def susun_arus_kas(period_id: int) -> dict:
         debit = int(r["debit"])
         kredit = int(r["kredit"])
 
-        # Hanya proses baris yang melibatkan akun kas atau bank
-        if kode not in ("1101", "1102"):
+        # Hanya proses baris yang melibatkan akun kas (COA baru: 1110)
+        if kode not in ("1110",):
             continue
 
         if debit > 0:
@@ -434,7 +437,7 @@ def _laba_rugi_kosong() -> dict:
 
 def _ambil_saldo_awal_ekuitas(period_id: int) -> tuple[int, int]:
     """
-    Mengambil saldo awal Modal Disetor (3101) dan Laba Ditahan (3201)
+    Mengambil saldo awal Modal Pribadi (3110) dan Laba (3120)
     dari tabel opening_balances.
 
     Returns:
@@ -450,7 +453,7 @@ def _ambil_saldo_awal_ekuitas(period_id: int) -> tuple[int, int]:
             FROM opening_balances ob
             JOIN accounts a ON ob.account_id = a.id
             WHERE ob.period_id = ?
-              AND a.kode_akun IN ('3101', '3201')
+              AND a.kode_akun IN ('3110')
             """,
             (period_id,)
         ).fetchall()
@@ -462,9 +465,9 @@ def _ambil_saldo_awal_ekuitas(period_id: int) -> tuple[int, int]:
     for r in rows:
         # Akun ekuitas: saldo normal Kredit → pakai saldo_kredit - saldo_debit
         saldo = int(r["saldo_kredit"]) - int(r["saldo_debit"])
-        if r["kode_akun"] == "3101":
+        if r["kode_akun"] == "3110":
             modal_disetor = saldo
-        elif r["kode_akun"] == "3201":
+        elif r["kode_akun"] == "3120":
             laba_ditahan = saldo
 
     return modal_disetor, laba_ditahan
@@ -473,7 +476,7 @@ def _ambil_saldo_awal_ekuitas(period_id: int) -> tuple[int, int]:
 def _ambil_tambahan_setoran_modal(period_id: int) -> int:
     """
     Mengambil total setoran modal tambahan selama periode ini.
-    Setoran modal = jurnal kredit ke akun Modal Disetor (3101) di periode ini.
+    Setoran modal = jurnal kredit ke akun Modal Pribadi (3110) di periode ini.
 
     Returns:
         int: total tambahan setoran modal dalam Rupiah.
@@ -487,7 +490,7 @@ def _ambil_tambahan_setoran_modal(period_id: int) -> int:
             JOIN journal_entries je ON jl.journal_entry_id = je.id
             JOIN accounts a ON jl.account_id = a.id
             WHERE je.period_id = ?
-              AND a.kode_akun = '3101'
+              AND a.kode_akun = '3110'
               AND je.no_bukti NOT LIKE 'JP-%'
             """,
             (period_id,)

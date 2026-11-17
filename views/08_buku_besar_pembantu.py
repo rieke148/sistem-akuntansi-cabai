@@ -8,8 +8,8 @@ Dipanggil oleh : app.py (st.navigation)
 
 KONSEP BB PEMBANTU:
   Buku Besar Pembantu (sub-ledger) adalah rincian dari akun kontrol di Buku Besar.
-  - Tab Piutang → rincian akun 1201 (Piutang Usaha) per pelanggan
-  - Tab Utang Usaha → rincian akun 2101 (Utang Usaha) per supplier/transaksi
+  - Tab Piutang → rincian akun 1120 (Piutang Usaha) per pelanggan
+  - Tab Utang Usaha → rincian akun 2110 (Utang Usaha) per supplier/transaksi
 """
 
 import streamlit as st
@@ -131,7 +131,7 @@ def _tampilkan_tab_utang() -> None:
     """Tab BB Pembantu Utang Usaha: ringkasan dari jurnal pembelian kredit."""
     st.subheader("📋 Buku Besar Pembantu Utang Usaha")
     st.caption(
-        "Ringkasan utang usaha dari jurnal pembelian kredit (akun 2101). "
+        "Ringkasan utang usaha dari jurnal pembelian kredit (akun 2110). "
         "Utang timbul saat pembelian tidak langsung dibayar tunai."
     )
 
@@ -169,7 +169,7 @@ def _tampilkan_tab_utang() -> None:
     st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     st.info(
-        "⚠️ **Catatan:** Data ini menampilkan total kredit ke akun Utang Usaha (2101) "
+        "⚠️ **Catatan:** Data ini menampilkan total kredit ke akun Utang Usaha (2110) "
         "dari seluruh jurnal. Belum memperhitungkan pembayaran utang yang sudah dilakukan. "
         "Implementasi penuh pada Fase 5 (Neraca Saldo)."
     )

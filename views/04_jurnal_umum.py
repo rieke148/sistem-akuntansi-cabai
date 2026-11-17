@@ -37,7 +37,7 @@ def _ambil_periode():
 def _hitung_penjualan_tanpa_hpp(
     period_id: int | None = None,
 ) -> int:
-    """Hitung entri penjualan yang belum memiliki debit akun HPP 5108."""
+    """Hitung entri penjualan yang belum memiliki debit akun HPP 5110."""
     kondisi = []
     params = []
     if period_id is not None:
@@ -53,7 +53,7 @@ def _hitung_penjualan_tanpa_hpp(
             FROM journal_lines jl
             JOIN accounts a ON jl.account_id = a.id
             WHERE jl.journal_entry_id = je.id
-              AND a.kode_akun = '4101'
+              AND a.kode_akun = '4110'
               AND jl.kredit > 0
         )
         AND lower(je.keterangan) LIKE 'penjualan cabai%'
@@ -62,7 +62,7 @@ def _hitung_penjualan_tanpa_hpp(
             FROM journal_lines jl
             JOIN accounts a ON jl.account_id = a.id
             WHERE jl.journal_entry_id = je.id
-              AND a.kode_akun = '5108'
+              AND a.kode_akun = '5110'
               AND jl.debit > 0
         )
         {tambahan}
@@ -139,7 +139,7 @@ def tampilkan() -> None:
     if jumlah_penjualan_tanpa_hpp:
         st.warning(
             f"Ditemukan **{jumlah_penjualan_tanpa_hpp} transaksi penjualan** yang belum memiliki "
-            "baris debit akun **5108 - HPP Penjualan Cabai**. Transaksi lama sebelum metode "
+            "baris debit akun **5110 - Harga Pokok Penjualan**. Transaksi lama sebelum metode "
             "perpetual diaktifkan tidak dihitung HPP-nya secara otomatis karena biaya perolehan "
             "historis harus dapat diverifikasi. Pastikan saldo awal dan biaya persediaan benar "
             "untuk transaksi baru."

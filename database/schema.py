@@ -56,12 +56,13 @@ def buat_semua_tabel() -> None:
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS accounts (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
-            kode_akun       TEXT NOT NULL UNIQUE,  -- contoh: '1101'
+            kode_akun       TEXT NOT NULL UNIQUE,  -- contoh: '1110'
             nama_akun       TEXT NOT NULL,         -- contoh: 'Kas'
             kategori        TEXT NOT NULL
                             CHECK (kategori IN (
                                 'Aset', 'Liabilitas', 'Ekuitas',
-                                'Pendapatan', 'Beban Produksi', 'Beban Operasional'
+                                'Pendapatan', 'HPP', 'Beban Produksi',
+                                'Beban Operasional', 'Beban Lainnya'
                             )),
             saldo_normal    TEXT NOT NULL
                             CHECK (saldo_normal IN ('Debit', 'Kredit')),
@@ -382,17 +383,17 @@ def _gabungkan_akun_penjualan_lama(koneksi: sqlite3.Connection) -> None:
         return
 
     akun_cabai = koneksi.execute(
-        "SELECT id FROM accounts WHERE kode_akun = '4101'"
+        "SELECT id FROM accounts WHERE kode_akun = '4110'"
     ).fetchone()
 
     if akun_cabai is None:
         koneksi.execute(
             "INSERT INTO accounts "
             "(kode_akun, nama_akun, kategori, saldo_normal, is_kontra, aktif) "
-            "VALUES ('4101', 'Penjualan Cabai Rawit', 'Pendapatan', 'Kredit', 0, 1)"
+            "VALUES ('4110', 'Penjualan Cabai Rawit', 'Pendapatan', 'Kredit', 0, 1)"
         )
         account_id_cabai = koneksi.execute(
-            "SELECT id FROM accounts WHERE kode_akun = '4101'"
+            "SELECT id FROM accounts WHERE kode_akun = '4110'"
         ).fetchone()["id"]
     else:
         account_id_cabai = akun_cabai["id"]
@@ -590,10 +591,13 @@ def migrasikan_akun_persediaan_bahan_produksi() -> None:
     """
     Menyatukan akun persediaan bahan lama (1301-1306) ke akun 1301.
 
-    Semua item bertipe 'bahan' diarahkan ke 1301 - Persediaan Bahan Produksi,
-    sedangkan item 'hasil_panen' diarahkan ke 1307 - Persediaan Cabai.
+    Fungsi migrasi database LAMA: menggabungkan 6 akun bahan (1301-1306)
+    ke satu akun 1301. Akun cabai (1307) dipertahankan terpisah.
     Baris jurnal dan saldo awal lama dipindahkan tanpa mengubah nilainya.
     Kartu stok per item tidak digabung.
+
+    Catatan: fungsi migrasikan_coa_baru() kemudian akan mengubah 1301 → 1140
+    dan 1307 → 1140 (menyatukan keduanya ke akun Persediaan baru).
     """
     koneksi = get_connection()
     try:
@@ -607,12 +611,12 @@ def migrasikan_akun_persediaan_bahan_produksi() -> None:
             kode_terkait,
         ).fetchall()
 
-        # Database baru belum memiliki akun; biarkan seed membuat COA lengkap.
+        # Database baru belum memiliki akun lama; biarkan seed membuat COA lengkap.
         if not akun_tersedia:
             koneksi.commit()
             return
 
-        def pastikan_akun(kode: str, nama: str) -> int:
+        def pastikan_akun_lokal(kode: str, nama: str) -> int:
             row = koneksi.execute(
                 "SELECT id FROM accounts WHERE kode_akun = ?", (kode,)
             ).fetchone()
@@ -639,10 +643,11 @@ def migrasikan_akun_persediaan_bahan_produksi() -> None:
             )
             return int(cursor.lastrowid)
 
-        akun_bahan_id = pastikan_akun("1301", "Persediaan Bahan Produksi")
-        akun_cabai_id = pastikan_akun("1307", "Persediaan Cabai")
+        # Akun tujuan: 1301 untuk bahan, 1307 untuk cabai tetap ada
+        akun_bahan_id = pastikan_akun_lokal("1301", "Persediaan Bahan")
 
-        akun_lama = koneksi.execute(
+        # Akun lama yang akan digabung ke 1301 (1302-1306)
+        akun_lama_bahan = koneksi.execute(
             "SELECT id FROM accounts WHERE kode_akun IN ('1302', '1303', '1304', '1305', '1306')"
         ).fetchall()
 
@@ -651,7 +656,7 @@ def migrasikan_akun_persediaan_bahan_produksi() -> None:
             "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
         ).fetchall()
 
-        for akun in akun_lama:
+        for akun in akun_lama_bahan:
             account_id_lama = int(akun["id"])
 
             # Pindahkan seluruh foreign key yang menunjuk akun lama. Saldo awal
@@ -680,15 +685,12 @@ def migrasikan_akun_persediaan_bahan_produksi() -> None:
 
             koneksi.execute("DELETE FROM accounts WHERE id = ?", (account_id_lama,))
 
-        # Kunci pemetaan untuk item baru maupun item lama yang pernah salah akun.
+        # Perbaiki account_id item bahan ke 1301
         koneksi.execute(
             "UPDATE items SET account_id = ? WHERE tipe = 'bahan'",
             (akun_bahan_id,),
         )
-        koneksi.execute(
-            "UPDATE items SET account_id = ? WHERE tipe = 'hasil_panen'",
-            (akun_cabai_id,),
-        )
+        # Akun 1307 (cabai/hasil_panen) dibiarkan — tidak diubah di sini
 
         pelanggaran_fk = koneksi.execute("PRAGMA foreign_key_check").fetchall()
         if pelanggaran_fk:
@@ -708,21 +710,19 @@ def migrasikan_akun_persediaan_bahan_produksi() -> None:
 
 def pastikan_akun_hpp_penjualan_tersedia() -> None:
     """
-    Memastikan akun HPP Penjualan Cabai tersedia pada database lama maupun baru.
-
-    Kode 5108 termasuk kategori Beban Produksi sehingga otomatis masuk ke
-    laporan laba rugi, neraca lajur, dan jurnal penutup.
+    Memastikan akun Harga Pokok Penjualan (5110) tersedia pada database lama maupun baru.
+    Kategori 'HPP' agar tampil terpisah di laporan laba rugi.
     """
     koneksi = get_connection()
     try:
         ada = koneksi.execute(
-            "SELECT id FROM accounts WHERE kode_akun = '5108'"
+            "SELECT id FROM accounts WHERE kode_akun = '5110'"
         ).fetchone()
         if not ada:
             koneksi.execute("""
                 INSERT INTO accounts
                     (kode_akun, nama_akun, kategori, saldo_normal, is_kontra, aktif)
-                VALUES ('5108', 'HPP Penjualan Cabai', 'Beban Produksi', 'Debit', 0, 1)
+                VALUES ('5110', 'Harga Pokok Penjualan', 'HPP', 'Debit', 0, 1)
             """)
             koneksi.commit()
     except Exception:
@@ -735,6 +735,257 @@ def pastikan_akun_hpp_penjualan_tersedia() -> None:
 def tutup_connection(koneksi: sqlite3.Connection) -> None:
     """Menutup koneksi database dengan aman."""
     if koneksi:
+        koneksi.close()
+
+
+def migrasikan_coa_baru() -> None:
+    """
+    Migrasi COA lama ke COA baru (file coa_cabai_baru.csv).
+
+    Fungsi ini aman dipanggil berulang: hanya menjalankan UPDATE jika
+    kode akun lama masih ada. Database baru (fresh seed) tidak terpengaruh.
+
+    Pemetaan utama:
+      1101/1102 → 1110  Kas
+      1120 → 1120       Piutang Usaha (pertahankan)
+      1130/1401 → 1130  Perlengkapan
+      1301/1307/1150 → 1140  Persediaan (konsolidasi)
+      1501 → 1210, 1502→1220, 1502K→1221
+      1503→1230, 1503K→1231, 1504→1240, 1504K→1241
+      1505→1250, 1505K→1251
+      2101→2110, 2201→2210
+      3101→3110, 3201→3120, 3301→3130
+      4101→4110 (Penjualan Cabai)
+      5101-5107→6110 (Beban Gaji), 5108→5110 (HPP)
+      6101→6130, 6102→6140, 6103→6150, 6104→6120, 6105→6160, 6901→7110
+    """
+    koneksi = get_connection()
+    try:
+        koneksi.execute("PRAGMA foreign_keys = OFF")
+        koneksi.execute("BEGIN IMMEDIATE")
+
+        # --- 1. Tambah kategori baru yang belum ada di CHECK constraint ---
+        # SQLite tidak bisa ALTER CHECK, tapi kita bisa update data setelah
+        # schema sudah menggunakan kategori baru (sudah diubah di buat_semua_tabel).
+        # Untuk database lama, kita gunakan PRAGMA ignore_check_constraints.
+        koneksi.execute("PRAGMA ignore_check_constraints = ON")
+
+        # Daftar: (kode_lama, kode_baru, nama_baru, kategori_baru)
+        pemetaan = [
+            # Aset Lancar
+            ("1101", "1110", "Kas", "Aset"),
+            ("1102", None,   None, None),   # Bank BCA → gabung ke 1110
+            ("1150", "1140", "Persediaan", "Aset"),
+            ("1201", "1120", "Piutang Usaha", "Aset"),
+            ("1401", "1130", "Perlengkapan", "Aset"),
+            ("1301", "1140", "Persediaan", "Aset"),
+            ("1307", "1140", "Persediaan", "Aset"),  # akan digabung
+            # Aset Tetap
+            ("1501",  "1210", "Tanah",                            "Aset"),
+            ("1502",  "1220", "Bangunan",                         "Aset"),
+            ("1502K", "1221", "Akumulasi Penyusutan Bangunan",    "Aset"),
+            ("1503",  "1230", "Kendaraan",                        "Aset"),
+            ("1503K", "1231", "Akumulasi Penyusutan Kendaraan",   "Aset"),
+            ("1504",  "1240", "Komputer",                         "Aset"),
+            ("1504K", "1241", "Akumulasi Penyusutan Komputer",    "Aset"),
+            ("1505",  "1250", "Peralatan Pertanian",              "Aset"),
+            ("1505K", "1251", "Akumulasi Penyusutan Peralatan",   "Aset"),
+            # Aset lain yang dihapus (tidak ada di COA baru)
+            ("1601",  None,  None, None),   # Plastik Mulsa → masuk ke Persediaan/Perlengkapan
+            ("1601K", None,  None, None),   # Akumulasi Amortisasi Plastik Mulsa → gabung ke 1251
+            # Liabilitas
+            ("2101", "2110", "Utang Usaha",  "Liabilitas"),
+            ("2201", "2210", "Utang Gaji",   "Liabilitas"),
+            ("2202", None,   None, None),   # Utang Listrik → gabung ke 2210
+            ("2203", None,   None, None),   # Utang Lain-lain → gabung ke 2210
+            # Ekuitas
+            ("3101", "3110", "Modal Pribadi",     "Ekuitas"),
+            ("3201", "3120", "Laba",              "Ekuitas"),
+            ("3301", "3130", "Ikhtisar Laba Rugi","Ekuitas"),
+            # Pendapatan
+            ("4101", "4110", "Penjualan Cabai", "Pendapatan"),
+            ("4901", "7110", "Beban Lain-lain", "Beban Lainnya"),  # reklasifikasi
+            # HPP
+            ("5108", "5110", "Harga Pokok Penjualan", "HPP"),
+            # Beban Produksi → Beban Operasional
+            ("5101", "6110", "Beban Gaji",          "Beban Operasional"),
+            ("5102", "6110", "Beban Gaji",          "Beban Operasional"),  # Pupuk → Gaji
+            ("5103", "6110", "Beban Gaji",          "Beban Operasional"),  # Pestisida → Gaji
+            ("5104", "6110", "Beban Gaji",          "Beban Operasional"),
+            ("5105", "6110", "Beban Gaji",          "Beban Operasional"),
+            ("5106", "6160", "Beban Penyusutan",    "Beban Operasional"),
+            ("5107", "6160", "Beban Penyusutan",    "Beban Operasional"),
+            # Beban Operasional lama → baru
+            ("6101", "6130", "Beban Air, Listrik, dan Telepon", "Beban Operasional"),
+            ("6102", "6140", "Beban BBM Pengiriman",           "Beban Operasional"),
+            ("6103", "6150", "Beban BBM Operasional",          "Beban Operasional"),
+            ("6104", "6120", "Beban Sewa",                     "Beban Operasional"),
+            ("6105", "6160", "Beban Penyusutan",               "Beban Operasional"),
+            ("6901", "7110", "Beban Lain-lain",                "Beban Lainnya"),
+        ]
+
+        tabel_rows = koneksi.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        ).fetchall()
+
+        def pindahkan_referensi(id_lama: int, id_tujuan: int) -> None:
+            """Pindahkan semua FK ke id_tujuan, lalu hapus akun lama."""
+            for tr in tabel_rows:
+                nama_tbl = tr["name"]
+                fks = koneksi.execute(
+                    f'PRAGMA foreign_key_list("{nama_tbl}")'
+                ).fetchall()
+                for fk in fks:
+                    if fk["table"] != "accounts":
+                        continue
+                    kolom = fk["from"]
+                    if nama_tbl == "opening_balances" and kolom == "account_id":
+                        _gabungkan_saldo_awal_akun(koneksi, id_lama, id_tujuan)
+                    else:
+                        koneksi.execute(
+                            f'UPDATE "{nama_tbl}" SET "{kolom}" = ? WHERE "{kolom}" = ?',
+                            (id_tujuan, id_lama),
+                        )
+            koneksi.execute("DELETE FROM accounts WHERE id = ?", (id_lama,))
+
+        for kode_lama, kode_baru, nama_baru, kategori_baru in pemetaan:
+            akun_lama = koneksi.execute(
+                "SELECT id FROM accounts WHERE kode_akun = ?", (kode_lama,)
+            ).fetchone()
+            if not akun_lama:
+                continue  # sudah tidak ada, skip
+
+            id_lama = int(akun_lama["id"])
+
+            if kode_baru is None:
+                # Akun dihapus: pindahkan referensi ke akun paling dekat yang ada
+                # (misalnya 1102 Bank BCA → pindah ke 1110 Kas)
+                fallback_map = {
+                    "1102": "1110", "1601": "1130", "1601K": "1251",
+                    "2202": "2210", "2203": "2210",
+                }
+                kode_fallback = fallback_map.get(kode_lama)
+                if kode_fallback:
+                    akun_fallback = koneksi.execute(
+                        "SELECT id FROM accounts WHERE kode_akun = ?", (kode_fallback,)
+                    ).fetchone()
+                    if akun_fallback:
+                        pindahkan_referensi(id_lama, int(akun_fallback["id"]))
+                    else:
+                        koneksi.execute("DELETE FROM accounts WHERE id = ?", (id_lama,))
+                else:
+                    koneksi.execute("DELETE FROM accounts WHERE id = ?", (id_lama,))
+                continue
+
+            # Cek apakah kode_baru sudah ada
+            akun_baru = koneksi.execute(
+                "SELECT id FROM accounts WHERE kode_akun = ?", (kode_baru,)
+            ).fetchone()
+
+            if akun_baru:
+                # Kode baru sudah ada → gabungkan akun lama ke akun baru
+                id_baru = int(akun_baru["id"])
+                if id_lama != id_baru:
+                    pindahkan_referensi(id_lama, id_baru)
+            else:
+                # Kode baru belum ada → rename kode lama
+                koneksi.execute(
+                    "UPDATE accounts SET kode_akun=?, nama_akun=?, kategori=? WHERE id=?",
+                    (kode_baru, nama_baru, kategori_baru, id_lama),
+                )
+
+        # Pastikan nama akun 1110 adalah "Kas" (bukan "Bank BCA" jika dimerge)
+        for kode, nama, kat in [
+            ("1110", "Kas", "Aset"),
+            ("1120", "Piutang Usaha", "Aset"),
+            ("1130", "Perlengkapan", "Aset"),
+            ("1140", "Persediaan", "Aset"),
+            ("2110", "Utang Usaha", "Liabilitas"),
+            ("2210", "Utang Gaji", "Liabilitas"),
+            ("3110", "Modal Pribadi", "Ekuitas"),
+            ("3120", "Laba", "Ekuitas"),
+            ("3130", "Ikhtisar Laba Rugi", "Ekuitas"),
+            ("4110", "Penjualan Cabai", "Pendapatan"),
+            ("5110", "Harga Pokok Penjualan", "HPP"),
+            ("6110", "Beban Gaji", "Beban Operasional"),
+            ("6120", "Beban Sewa", "Beban Operasional"),
+            ("6130", "Beban Air, Listrik, dan Telepon", "Beban Operasional"),
+            ("6140", "Beban BBM Pengiriman", "Beban Operasional"),
+            ("6150", "Beban BBM Operasional", "Beban Operasional"),
+            ("6160", "Beban Penyusutan", "Beban Operasional"),
+            ("6170", "Beban Perbaikan", "Beban Operasional"),
+            ("7110", "Beban Lain-lain", "Beban Lainnya"),
+        ]:
+            exists = koneksi.execute(
+                "SELECT id FROM accounts WHERE kode_akun = ?", (kode,)
+            ).fetchone()
+            if exists:
+                koneksi.execute(
+                    "UPDATE accounts SET nama_akun=?, kategori=? WHERE kode_akun=?",
+                    (nama, kat, kode),
+                )
+
+        # Pastikan akun baru yang belum ada ditambahkan
+        akun_wajib = [
+            ("1110", "Kas", "Aset", "Debit", 0),
+            ("1120", "Piutang Usaha", "Aset", "Debit", 0),
+            ("1130", "Perlengkapan", "Aset", "Debit", 0),
+            ("1140", "Persediaan", "Aset", "Debit", 0),
+            ("1210", "Tanah", "Aset", "Debit", 0),
+            ("1220", "Bangunan", "Aset", "Debit", 0),
+            ("1221", "Akumulasi Penyusutan Bangunan", "Aset", "Kredit", 1),
+            ("1230", "Kendaraan", "Aset", "Debit", 0),
+            ("1231", "Akumulasi Penyusutan Kendaraan", "Aset", "Kredit", 1),
+            ("1240", "Komputer", "Aset", "Debit", 0),
+            ("1241", "Akumulasi Penyusutan Komputer", "Aset", "Kredit", 1),
+            ("1250", "Peralatan Pertanian", "Aset", "Debit", 0),
+            ("1251", "Akumulasi Penyusutan Peralatan", "Aset", "Kredit", 1),
+            ("2110", "Utang Usaha", "Liabilitas", "Kredit", 0),
+            ("2210", "Utang Gaji", "Liabilitas", "Kredit", 0),
+            ("3110", "Modal Pribadi", "Ekuitas", "Kredit", 0),
+            ("3120", "Laba", "Ekuitas", "Kredit", 0),
+            ("3130", "Ikhtisar Laba Rugi", "Ekuitas", "Kredit", 0),
+            ("4110", "Penjualan Cabai", "Pendapatan", "Kredit", 0),
+            ("5110", "Harga Pokok Penjualan", "HPP", "Debit", 0),
+            ("6110", "Beban Gaji", "Beban Operasional", "Debit", 0),
+            ("6120", "Beban Sewa", "Beban Operasional", "Debit", 0),
+            ("6130", "Beban Air, Listrik, dan Telepon", "Beban Operasional", "Debit", 0),
+            ("6140", "Beban BBM Pengiriman", "Beban Operasional", "Debit", 0),
+            ("6150", "Beban BBM Operasional", "Beban Operasional", "Debit", 0),
+            ("6160", "Beban Penyusutan", "Beban Operasional", "Debit", 0),
+            ("6170", "Beban Perbaikan", "Beban Operasional", "Debit", 0),
+            ("7110", "Beban Lain-lain", "Beban Lainnya", "Debit", 0),
+        ]
+        for kode, nama, kat, saldo, kontra in akun_wajib:
+            ada = koneksi.execute(
+                "SELECT id FROM accounts WHERE kode_akun = ?", (kode,)
+            ).fetchone()
+            if not ada:
+                koneksi.execute(
+                    "INSERT INTO accounts (kode_akun, nama_akun, kategori, saldo_normal, is_kontra) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (kode, nama, kat, saldo, kontra),
+                )
+
+        # Perbarui items agar tipe bahan/panen → semua ke akun 1140
+        akun_1140 = koneksi.execute(
+            "SELECT id FROM accounts WHERE kode_akun = '1140'"
+        ).fetchone()
+        if akun_1140:
+            koneksi.execute(
+                "UPDATE items SET account_id = ? WHERE tipe IN ('bahan', 'hasil_panen')",
+                (int(akun_1140["id"]),),
+            )
+
+        koneksi.execute("PRAGMA ignore_check_constraints = OFF")
+        koneksi.commit()
+        koneksi.execute("PRAGMA foreign_keys = ON")
+        print("[OK] Migrasi COA baru selesai.")
+    except Exception as e:
+        koneksi.rollback()
+        print(f"[ERROR] Migrasi COA gagal: {e}")
+        raise
+    finally:
         koneksi.close()
 
 

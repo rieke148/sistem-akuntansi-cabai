@@ -25,8 +25,9 @@ from database.connection import get_connection
 # ---------------------------------------------------------------
 def ambil_saldo_kas_bank(period_id: int) -> dict[str, int]:
     """
-    Mengembalikan saldo Kas (1101) dan Bank BRI (1102) dari
+    Mengembalikan saldo Kas (1110) dari
     neraca saldo periode ini (saldo_debit - saldo_kredit dari journal_lines).
+    COA baru tidak memiliki akun Bank terpisah — semua kas di akun 1110.
 
     Returns:
         dict dengan keys: 'kas', 'bank', 'total'
@@ -38,7 +39,7 @@ def ambil_saldo_kas_bank(period_id: int) -> dict[str, int]:
         JOIN journal_entries je ON jl.journal_entry_id = je.id
         JOIN accounts a ON jl.account_id = a.id
         WHERE je.period_id = ?
-          AND a.kode_akun IN ('1101', '1102')
+          AND a.kode_akun IN ('1110')
         GROUP BY a.kode_akun
     """
     conn = get_connection()
@@ -51,7 +52,7 @@ def ambil_saldo_kas_bank(period_id: int) -> dict[str, int]:
         FROM opening_balances ob
         JOIN accounts a ON ob.account_id = a.id
         WHERE ob.period_id = ?
-          AND a.kode_akun IN ('1101', '1102')
+          AND a.kode_akun IN ('1110')
     """
     rows_ob = conn.execute(sql_ob, (period_id,)).fetchall()
 
@@ -62,8 +63,8 @@ def ambil_saldo_kas_bank(period_id: int) -> dict[str, int]:
     for r in rows:
         peta[r["kode_akun"]] = peta.get(r["kode_akun"], 0) + int(r["saldo"] or 0)
 
-    kas = peta.get("1101", 0)
-    bank = peta.get("1102", 0)
+    kas = peta.get("1110", 0)
+    bank = 0  # COA baru: tidak ada akun bank terpisah, semua kas di akun 1110
     return {"kas": kas, "bank": bank, "total": kas + bank}
 
 
@@ -103,7 +104,7 @@ def ambil_piutang_overdue(hari_ini: date | None = None) -> list[dict]:
 # ---------------------------------------------------------------
 def ambil_ringkasan_penjualan_beban(period_id: int) -> dict[str, int]:
     """
-    Menghitung penjualan, HPP Penjualan (akun 5108), dan total beban produksi.
+    Menghitung penjualan, HPP Penjualan (akun 5110), dan total beban produksi.
 
     Laba kotor dihitung sebagai penjualan dikurangi HPP Penjualan saja;
     beban produksi lainnya tetap disajikan terpisah.
@@ -114,14 +115,17 @@ def ambil_ringkasan_penjualan_beban(period_id: int) -> dict[str, int]:
     """
     sql = """
         SELECT
-            SUM(CASE WHEN a.kode_akun = '4101'
+            SUM(CASE WHEN a.kode_akun = '4110'
                           AND je.komoditas = 'cabai'
                           AND je.journal_type IN ('penjualan', 'penerimaan_kas')
                           AND jl.kredit > 0
                      THEN jl.kredit ELSE 0 END) AS penjualan,
-            SUM(CASE WHEN a.kode_akun LIKE '5%' AND jl.debit > 0
+            SUM(CASE WHEN (a.kode_akun LIKE '5%'
+                          OR a.kode_akun LIKE '6%'
+                          OR a.kode_akun LIKE '7%')
+                          AND jl.debit > 0
                      THEN jl.debit ELSE 0 END) AS beban,
-            SUM(CASE WHEN a.kode_akun = '5108' AND jl.debit > 0
+            SUM(CASE WHEN a.kode_akun = '5110' AND jl.debit > 0
                      THEN jl.debit ELSE 0 END) AS hpp_penjualan
         FROM journal_lines jl
         JOIN journal_entries je ON jl.journal_entry_id = je.id
@@ -271,7 +275,7 @@ def ambil_tren_penjualan_cabai(period_id: int) -> pd.DataFrame:
 
     Penjualan tunai disimpan sebagai penerimaan_kas, sedangkan penjualan
     tempo disimpan sebagai penjualan. Keduanya diambil dari kredit akun
-    4101 agar nilai grafik konsisten dengan ringkasan penjualan.
+    4110 agar nilai grafik konsisten dengan ringkasan penjualan.
 
     Returns:
         DataFrame kolom: tanggal, penjualan
@@ -285,7 +289,7 @@ def ambil_tren_penjualan_cabai(period_id: int) -> pd.DataFrame:
         WHERE je.period_id = ?
           AND je.komoditas = 'cabai'
           AND je.journal_type IN ('penjualan', 'penerimaan_kas')
-          AND a.kode_akun = '4101'
+          AND a.kode_akun = '4110'
           AND jl.kredit > 0
         GROUP BY je.tanggal
         ORDER BY je.tanggal

@@ -70,16 +70,15 @@ def db_jurnal():
         -- Akun COA minimal
         INSERT INTO accounts (id, kode_akun, nama_akun, kategori, saldo_normal)
         VALUES
-            (1,  '1101', 'Kas',               'Aset',             'Debit'),
-            (2,  '1201', 'Piutang Usaha',      'Aset',             'Debit'),
-            (3,  '1301', 'Persediaan Bahan',   'Aset',             'Debit'),
-            (4,  '2101', 'Utang Usaha',        'Liabilitas',       'Kredit'),
-            (5,  '3101', 'Modal Disetor',      'Ekuitas',          'Kredit'),
-            (6,  '4101', 'Penjualan Cabai',    'Pendapatan',       'Kredit'),
-            (7,  '5101', 'Beban Upah',         'Beban Produksi',   'Debit'),
-            (8,  '6101', 'Beban Listrik',      'Beban Operasional','Debit'),
-            (9,  '5108', 'HPP Penjualan Cabai', 'Beban Produksi',   'Debit'),
-            (10, '1307', 'Persediaan Cabai',    'Aset',             'Debit');
+            (1,  '1110', 'Kas',               'Aset',             'Debit'),
+            (2,  '1120', 'Piutang Usaha',      'Aset',             'Debit'),
+            (3,  '1140', 'Persediaan',   'Aset',             'Debit'),
+            (4,  '2110', 'Utang Usaha',        'Liabilitas',       'Kredit'),
+            (5,  '3110', 'Modal Pribadi',      'Ekuitas',          'Kredit'),
+            (6,  '4110', 'Penjualan Cabai',    'Pendapatan',       'Kredit'),
+            (7,  '6110', 'Beban Gaji',         'Beban Operasional',   'Debit'),
+            (8,  '6130', 'Beban Air, Listrik, dan Telepon',      'Beban Operasional','Debit'),
+            (9,  '5110', 'Harga Pokok Penjualan', 'HPP',   'Debit');
 
         -- 1. Penjualan Tempo (Sales Journal) — Rp600.000
         INSERT INTO journal_entries (period_id, tanggal, no_bukti, journal_type, keterangan, pihak_terkait)
@@ -87,7 +86,7 @@ def db_jurnal():
         INSERT INTO journal_lines (journal_entry_id, account_id, debit, kredit)
         VALUES
             (1, 2, 600000, 0), (1, 6, 0, 600000),
-            (1, 9, 100000, 0), (1, 10, 0, 100000);
+            (1, 9, 100000, 0), (1, 3, 0, 100000);
         INSERT INTO receivables (journal_entry_id, customer_id, no_faktur, tanggal_faktur, tanggal_jatuh_tempo, jumlah)
         VALUES (1, 1, 'JL-OKT26-001', '2026-10-05', '2026-10-12', 600000);
 
@@ -103,7 +102,7 @@ def db_jurnal():
         INSERT INTO journal_lines (journal_entry_id, account_id, debit, kredit)
         VALUES
             (3, 1, 900000, 0), (3, 6, 0, 900000),
-            (3, 9, 150000, 0), (3, 10, 0, 150000);
+            (3, 9, 150000, 0), (3, 3, 0, 150000);
 
         -- 4. Penerimaan Kas — pelunasan piutang Rp600.000
         INSERT INTO journal_entries (period_id, tanggal, no_bukti, journal_type, keterangan, pihak_terkait)

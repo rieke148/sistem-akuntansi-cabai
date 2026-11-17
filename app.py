@@ -22,6 +22,7 @@ from database.schema import (
     migrasikan_komoditas_cabai_saja,
     migrasikan_akun_persediaan_bahan_produksi,
     pastikan_akun_hpp_penjualan_tersedia,
+    migrasikan_coa_baru,
 )
 from database.seed import jalankan_seed
 from theme import NAMA_APLIKASI, NAMA_PERUSAHAAN, WARNA_PRIMER
@@ -85,6 +86,8 @@ def inisialisasi_database() -> bool:
     buat_semua_tabel()
     migrasikan_komoditas_cabai_saja()
     migrasikan_akun_persediaan_bahan_produksi()
+    # Migrasi COA lama ke COA baru (coa_cabai_baru.csv)
+    migrasikan_coa_baru()
 
     # Pastikan periode dasar (2025-2027) tersedia
     from services.period_service import pastikan_periode_dasar_tersedia

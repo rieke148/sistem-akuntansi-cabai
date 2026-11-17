@@ -11,8 +11,8 @@ Dipanggil oleh : views/08_buku_besar_pembantu.py
 
 KONSEP BUKU BESAR PEMBANTU:
   BB Pembantu merupakan rincian (sub-ledger) dari akun kontrol di Buku Besar.
-  - BB Piutang → rincian akun 1201 (Piutang Usaha) per pelanggan
-  - BB Utang → rincian akun 2101 (Utang Usaha) per supplier/transaksi
+  - BB Piutang → rincian akun 1120 (Piutang Usaha) per pelanggan
+  - BB Utang → rincian akun 2110 (Utang Usaha) per supplier/transaksi
   Rincian BB Pembantu digunakan untuk menelusuri saldo akun kontrol di Buku Besar.
 """
 
@@ -149,9 +149,9 @@ def ambil_bb_utang() -> pd.DataFrame:
     """
     koneksi = get_connection()
     try:
-        # Cari akun Utang Usaha (kode 2101)
+        # Cari akun Utang Usaha (kode 2110)
         akun_utang = koneksi.execute(
-            "SELECT id FROM accounts WHERE kode_akun = '2101'"
+            "SELECT id FROM accounts WHERE kode_akun = '2110'"
         ).fetchone()
 
         if not akun_utang:

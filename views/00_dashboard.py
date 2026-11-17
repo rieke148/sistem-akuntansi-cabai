@@ -39,7 +39,7 @@ def _tampilkan_metrik_utama(period_id: int) -> None:
             value=format_rupiah(kas_bank["total"]),
             delta=f"Kas {format_rupiah(kas_bank['kas'])} | Bank {format_rupiah(kas_bank['bank'])}",
             delta_color="off",
-            help="Saldo Kas Tunai (1101) + Bank BRI (1102) periode ini",
+            help="Saldo Kas Tunai (1110) periode ini",
         )
     with kol2:
         jml_overdue = len(overdue)
@@ -55,19 +55,19 @@ def _tampilkan_metrik_utama(period_id: int) -> None:
         st.metric(
             label="📈 Penjualan Periode Ini",
             value=format_rupiah(jual_beban["penjualan"]),
-            help="Total kredit akun 4101 - Penjualan Cabai",
+            help="Total kredit akun 4110 - Penjualan Cabai",
         )
     with kol4:
         st.metric(
             label="📦 HPP Penjualan",
             value=format_rupiah(jual_beban["hpp_penjualan"]),
-            help="Total debit ke akun 5108 - HPP Penjualan Cabai",
+            help="Total debit ke akun 5110 - Harga Pokok Penjualan",
         )
     with kol5:
         st.metric(
             label="📈 Laba Kotor",
             value=format_rupiah(jual_beban["laba_kotor"]),
-            help="Penjualan dikurangi HPP Penjualan (akun 5108)",
+            help="Penjualan dikurangi HPP Penjualan (akun 5110)",
         )
 
 

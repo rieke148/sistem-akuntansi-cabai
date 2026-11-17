@@ -89,11 +89,11 @@ def _buat_db_file(path: str) -> str:
 
     # Data dasar
     cur.executescript("""
-        INSERT INTO accounts VALUES (1, '1101', 'Kas', 'Aset', 'Debit', 0, 1);
-        INSERT INTO accounts VALUES (2, '4101', 'Penjualan', 'Pendapatan', 'Kredit', 0, 1);
-        INSERT INTO accounts VALUES (3, '5105', 'Beban Upah', 'Beban Produksi', 'Debit', 0, 1);
-        INSERT INTO accounts VALUES (4, '2201', 'Utang Gaji', 'Liabilitas', 'Kredit', 0, 1);
-        INSERT INTO accounts VALUES (5, '1502K', 'Akum Penyusutan Bangunan', 'Aset', 'Kredit', 1, 1);
+        INSERT INTO accounts VALUES (1, '1110', 'Kas', 'Aset', 'Debit', 0, 1);
+        INSERT INTO accounts VALUES (2, '4110', 'Penjualan', 'Pendapatan', 'Kredit', 0, 1);
+        INSERT INTO accounts VALUES (3, '6110', 'Beban Gaji', 'Beban Operasional', 'Debit', 0, 1);
+        INSERT INTO accounts VALUES (4, '2210', 'Utang Gaji', 'Liabilitas', 'Kredit', 0, 1);
+        INSERT INTO accounts VALUES (5, '1221', 'Akum Penyusutan Bangunan', 'Aset', 'Kredit', 1, 1);
 
         INSERT INTO periods VALUES (1, 2026, 10, 'Oktober 2026', 'buka');
 
@@ -155,7 +155,7 @@ class TestHitungNeracaSaldo:
         with patch("services.trial_balance_service.get_connection", side_effect=factory):
             df = hitung_neraca_saldo(period_id=1)
 
-        baris_kas = df[df["kode_akun"] == "1101"]
+        baris_kas = df[df["kode_akun"] == "1110"]
         assert not baris_kas.empty
         assert int(baris_kas.iloc[0]["debit"]) == 510_000_000
         assert int(baris_kas.iloc[0]["kredit"]) == 0
@@ -172,7 +172,7 @@ class TestHitungNeracaSaldo:
         with patch("services.trial_balance_service.get_connection", side_effect=factory):
             df = hitung_neraca_saldo(period_id=1)
 
-        baris_penjualan = df[df["kode_akun"] == "4101"]
+        baris_penjualan = df[df["kode_akun"] == "4110"]
         assert not baris_penjualan.empty
         assert int(baris_penjualan.iloc[0]["kredit"]) == 10_000_000
         assert int(baris_penjualan.iloc[0]["debit"]) == 0
@@ -189,7 +189,7 @@ class TestHitungNeracaSaldo:
 
         # Tambah akun Modal Disetor dan saldo awal yang seimbang
         conn = sqlite3.connect(db)
-        conn.execute("INSERT INTO accounts VALUES (6, '3101', 'Modal Disetor', 'Ekuitas', 'Kredit', 0, 1)")
+        conn.execute("INSERT INTO accounts VALUES (6, '3110', 'Modal Pribadi', 'Ekuitas', 'Kredit', 0, 1)")
         # Saldo awal: Kas Dr 500jt ↔ Modal Kr 500jt
         conn.execute("INSERT INTO opening_balances VALUES (3, 1, 6, 0, 500000000, 'Modal awal')")
         conn.commit()
@@ -232,8 +232,8 @@ class TestHitungNeracaSaldo:
             df_sesudah = hitung_neraca_saldo(period_id=1, termasuk_penyesuaian=True)
 
         # Beban Upah (5105) tidak boleh ada di NS sebelum penyesuaian
-        beban_sebelum = df_sebelum[df_sebelum["kode_akun"] == "5105"]
-        beban_sesudah = df_sesudah[df_sesudah["kode_akun"] == "5105"]
+        beban_sebelum = df_sebelum[df_sebelum["kode_akun"] == "6110"]
+        beban_sesudah = df_sesudah[df_sesudah["kode_akun"] == "6110"]
 
         assert beban_sebelum.empty or int(beban_sebelum.iloc[0]["debit"]) == 0
         assert not beban_sesudah.empty and int(beban_sesudah.iloc[0]["debit"]) == 500_000
@@ -248,7 +248,7 @@ class TestHitungNeracaSaldo:
             df = hitung_neraca_saldo(period_id=1)
 
         # Akun 2201 (Utang Gaji) belum pernah dipakai → tidak muncul
-        baris_utang = df[df["kode_akun"] == "2201"]
+        baris_utang = df[df["kode_akun"] == "2210"]
         assert baris_utang.empty
 
 
@@ -264,8 +264,8 @@ class TestValidasiNeracaSaldo:
         from services.trial_balance_service import validasi_neraca_saldo_seimbang
 
         df = pd.DataFrame([
-            {"kode_akun": "1101", "debit": 500_000_000, "kredit": 0},
-            {"kode_akun": "3101", "debit": 0, "kredit": 500_000_000},
+            {"kode_akun": "1110", "debit": 500_000_000, "kredit": 0},
+            {"kode_akun": "3110", "debit": 0, "kredit": 500_000_000},
         ])
         seimbang, total_d, total_k = validasi_neraca_saldo_seimbang(df)
         assert seimbang is True
@@ -277,8 +277,8 @@ class TestValidasiNeracaSaldo:
         from services.trial_balance_service import validasi_neraca_saldo_seimbang
 
         df = pd.DataFrame([
-            {"kode_akun": "1101", "debit": 500_000_000, "kredit": 0},
-            {"kode_akun": "3101", "debit": 0, "kredit": 400_000_000},
+            {"kode_akun": "1110", "debit": 500_000_000, "kredit": 0},
+            {"kode_akun": "3110", "debit": 0, "kredit": 400_000_000},
         ])
         seimbang, total_d, total_k = validasi_neraca_saldo_seimbang(df)
         assert seimbang is False
