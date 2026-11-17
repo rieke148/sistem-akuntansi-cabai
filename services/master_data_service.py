@@ -288,7 +288,7 @@ def ubah_supplier(
 # ================================================================
 # ITEM PERSEDIAAN
 # ================================================================
-TIPE_ITEM = ["bahan", "hasil_panen"]
+TIPE_ITEM = ["hasil_panen"]
 KOMODITAS_ITEM = ["cabai"]
 
 
@@ -304,7 +304,7 @@ def ambil_semua_item() -> pd.DataFrame:
 
 def _ambil_id_akun_persediaan_otomatis(tipe: str) -> int:
     """Mengunci akun persediaan berdasarkan tipe item."""
-    kode_akun = {"bahan": "1140", "hasil_panen": "1140"}.get(tipe)
+    kode_akun = {"hasil_panen": "1140"}.get(tipe)
     if not kode_akun:
         raise ValueError("Tipe item persediaan tidak dikenal.")
 
