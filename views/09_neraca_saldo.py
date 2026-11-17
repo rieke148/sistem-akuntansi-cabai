@@ -17,7 +17,7 @@ import pandas as pd
 from database.connection import get_connection
 from services.trial_balance_service import hitung_neraca_saldo, validasi_neraca_saldo_seimbang
 from utils.formatting import format_rupiah
-from utils.ui_components import selector_periode
+from utils.ui_components import selector_periode, render_page_header
 
 
 @st.cache_data(ttl=30)
@@ -83,7 +83,7 @@ def _tampilkan_total_baris(df: pd.DataFrame) -> None:
 
 def tampilkan() -> None:
     """Fungsi utama halaman Neraca Saldo."""
-    st.title("⚖️ Neraca Saldo")
+    render_page_header("Neraca Saldo", "Periksa keseimbangan debit dan kredit sebelum atau setelah penyesuaian.", eyebrow="laporan")
     st.caption(
         "Trial Balance: ringkasan saldo semua akun aktif. "
         "Total Debit harus sama dengan total Kredit."
