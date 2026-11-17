@@ -217,7 +217,7 @@ def catat_saldo_awal_persediaan(
 
         item = koneksi.execute("""
             SELECT id, nama_item, satuan, account_id
-            FROM items WHERE id = ? AND aktif = 1
+            FROM items WHERE id = ? AND aktif = 1 AND tipe = 'hasil_panen'
         """, (item_id,)).fetchone()
         if not item:
             raise ValueError("Item persediaan tidak ditemukan atau sudah nonaktif.")
