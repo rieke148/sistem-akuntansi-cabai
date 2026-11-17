@@ -8,7 +8,7 @@ import streamlit as st
 import pandas as pd
 
 from services import auth_service
-from services.permission_service import wajib_punya_izin, pengguna_aktif
+from services.permission_service import wajib_punya_izin, pengguna_aktif, punya_izin
 
 
 wajib_punya_izin("users.manage")
@@ -20,7 +20,13 @@ actor_id = int(user["id"])
 st.title("👥 Manajemen Pengguna")
 st.caption("Buat akun, atur role, aktif/nonaktifkan pengguna, dan reset password.")
 
-tab_user, tab_audit = st.tabs(["Pengguna", "Audit Aktivitas"])
+label_tab = ["Pengguna"]
+if punya_izin("audit.view"):
+    label_tab.append("Audit Aktivitas")
+
+semua_tab = st.tabs(label_tab)
+tab_user = semua_tab[0]
+tab_audit = semua_tab[1] if len(semua_tab) > 1 else None
 
 with tab_user:
     st.subheader("Buat Akun Pengguna")
@@ -122,19 +128,20 @@ with tab_user:
                     except (ValueError, PermissionError) as error:
                         st.error(str(error))
 
-with tab_audit:
-    st.subheader("Audit Aktivitas Terbaru")
-    logs = auth_service.daftar_audit_logs(250)
-    if logs:
-        audit_df = pd.DataFrame(logs).rename(columns={
-            "created_at": "Waktu", "username": "Username",
-            "full_name": "Nama Pengguna", "action": "Aktivitas",
-            "entity_type": "Objek", "entity_id": "ID Objek",
-            "details": "Detail",
-        })
-        st.dataframe(
-            audit_df[["Waktu", "Username", "Nama Pengguna", "Aktivitas", "Objek", "ID Objek", "Detail"]],
-            use_container_width=True, hide_index=True,
-        )
-    else:
-        st.info("Belum ada aktivitas tercatat.")
+if tab_audit is not None:
+    with tab_audit:
+        st.subheader("Audit Aktivitas Terbaru")
+        logs = auth_service.daftar_audit_logs(250)
+        if logs:
+            audit_df = pd.DataFrame(logs).rename(columns={
+                "created_at": "Waktu", "username": "Username",
+                "full_name": "Nama Pengguna", "action": "Aktivitas",
+                "entity_type": "Objek", "entity_id": "ID Objek",
+                "details": "Detail",
+            })
+            st.dataframe(
+                audit_df[["Waktu", "Username", "Nama Pengguna", "Aktivitas", "Objek", "ID Objek", "Detail"]],
+                use_container_width=True, hide_index=True,
+            )
+        else:
+            st.info("Belum ada aktivitas tercatat.")
