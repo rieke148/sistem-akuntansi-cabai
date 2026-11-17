@@ -40,17 +40,22 @@ jobs:
         run: python -m compileall -q app.py database services utils views
       - name: Run test suite
         run: python -m pytest tests/ -v
-      - name: Read-only HPP migration preflight
+      - name: Read-only HPP migration preflight on disposable snapshot
         shell: bash
         run: |
           set +e
+          if [ ! -f database/akuntansi_cabai_hpp_branch_snapshot.db ]; then
+            echo "::error::HPP database snapshot is missing."
+            exit 1
+          fi
+          cp database/akuntansi_cabai_hpp_branch_snapshot.db database/akuntansi_cabai.db
           python scripts/migrasi_hpp_data_contoh.py > "${RUNNER_TEMP}/hpp-preview.log" 2>&1
           status=$?
           if [ "$status" -eq 0 ]; then
-            echo "Read-only HPP migration preflight completed."
+            echo "Read-only HPP migration preflight completed on disposable snapshot."
           else
             reason=$(grep -Eo '^[A-Za-z][A-Za-z0-9_]*Error:' "${RUNNER_TEMP}/hpp-preview.log" | tail -n 1 | cut -d: -f1)
             if [ -z "$reason" ]; then reason="validation error"; fi
-            echo "::error::Read-only HPP migration preflight failed ($reason). Details are suppressed."
+            echo "::error::HPP snapshot preflight failed ($reason). Details are suppressed."
           fi
           exit "$status"
