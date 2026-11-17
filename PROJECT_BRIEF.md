@@ -132,7 +132,7 @@ sistem-akuntansi-cabai/
 | Pencatatan panen cabai | Umum | Persediaan barang dagang / HPP panen |
 | Saldo awal, penyesuaian, penutup | Umum | sesuai kasus |
 
-> **Catatan jujur:** dari wawancara, semua pembelian dilakukan **tunai**. Jadi **Jurnal Pembelian** praktis kosong untuk data asli. Tetap kita bikin fiturnya (syarat project), dan seed data kasih 1-2 contoh pembelian kredit sebagai simulasi. Sebut ini di laporan lu biar dosen tahu lu sadar.
+> **Catatan jujur:** dari wawancara, semua pembelian dilakukan **tunai**. Jadi **Jurnal Pembelian** praktis kosong untuk data asli. Fitur pembelian kredit tetap disediakan untuk kelengkapan siklus akuntansi dan dapat diuji sebagai simulasi saat diperlukan.
 
 ---
 
