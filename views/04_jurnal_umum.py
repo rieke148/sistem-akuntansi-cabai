@@ -15,7 +15,7 @@ import streamlit_antd_components as sac
 from database.connection import get_connection
 from services.journal_service import ambil_semua_jurnal, hapus_jurnal
 from utils.formatting import format_rupiah, format_tanggal
-from utils.ui_components import divider_dengan_judul, selector_periode
+from utils.ui_components import divider_dengan_judul, selector_periode, render_page_header
 from theme import WARNA_PRIMER
 
 
@@ -81,7 +81,7 @@ def _hitung_penjualan_tanpa_hpp(
 
 def tampilkan() -> None:
     """Fungsi utama halaman Jurnal Umum."""
-    st.title("📔 Jurnal Umum")
+    render_page_header("Jurnal Umum", "Telusuri jurnal dan detail debit-kredit berdasarkan periode akuntansi.", eyebrow="akuntansi")
     st.caption(
         "Seluruh transaksi cabai dan jurnal umum akuntansi ditampilkan dalam format "
         "Debit - Kredit. Jurnal bertanda umum merupakan transaksi akuntansi yang "

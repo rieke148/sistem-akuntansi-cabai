@@ -32,7 +32,7 @@ from services.special_journal_service import (
     hitung_total_kolom,
 )
 from utils.formatting import format_rupiah, format_tanggal
-from utils.ui_components import divider_dengan_judul, selector_periode
+from utils.ui_components import divider_dengan_judul, selector_periode, render_page_header
 from theme import WARNA_PRIMER
 
 
@@ -529,7 +529,7 @@ def tampilkan() -> None:
     Fungsi utama halaman Jurnal Khusus.
     Dipanggil oleh app.py.
     """
-    st.title("📚 Jurnal Khusus")
+    render_page_header("Jurnal Khusus", "Lihat jurnal penjualan, pembelian, penerimaan kas, dan pengeluaran kas.", eyebrow="akuntansi")
     st.caption(
         "4 Jurnal Khusus berformat kolom tradisional. "
         "Data bersumber dari satu tabel `journal_entries` yang difilter dan dipivot."

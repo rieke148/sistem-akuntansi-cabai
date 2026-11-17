@@ -26,7 +26,7 @@ from services.payroll_service import (
     ambil_absensi_per_minggu,
 )
 from utils.formatting import format_rupiah, format_tanggal
-from utils.ui_components import selector_periode
+from utils.ui_components import selector_periode, render_page_header
 import services.period_service as ps
 
 
@@ -251,7 +251,7 @@ def _form_input_absensi(
 
 def tampilkan() -> None:
     """Fungsi utama halaman Penggajian."""
-    st.title("💰 Penggajian")
+    render_page_header("Penggajian", "Kelola absensi, hitung upah, dan catat pembayaran atau akrual gaji.", eyebrow="operasional")
     st.caption(
         "Input hari kerja pekerja per periode 2 mingguan. "
         "Sistem akan menghitung upah dan membuat jurnal otomatis."
