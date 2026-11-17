@@ -330,7 +330,7 @@ def _tab_supplier() -> None:
 def _tab_item() -> None:
     """CRUD Item Persediaan."""
     divider_dengan_judul("Item Persediaan & Hasil Panen", "box-seam")
-    st.caption("Item bisa berupa bahan produksi (pupuk, bibit, dll) atau hasil panen (cabai kg).")
+    st.caption("Persediaan hanya digunakan untuk barang dagang cabai hasil panen yang siap dijual. Item bahan dari data lama tetap tersimpan sebagai arsip nonaktif.")
 
     df = svc.ambil_semua_item()
     df_tampil = df[["kode_item", "nama_item", "satuan", "tipe", "akun_persediaan", "aktif"]].copy()
@@ -345,12 +345,13 @@ def _tab_item() -> None:
                 kode = st.text_input("Kode Item *", placeholder="Contoh: BHN-007")
                 nama = st.text_input("Nama Item *")
                 satuan = st.text_input("Satuan *", placeholder="Contoh: kg, karung, batang")
-                tipe = st.selectbox("Tipe", svc.TIPE_ITEM,
-                                    help="bahan=input produksi, hasil_panen=output")
-                st.caption(
-                    "Akun otomatis: Bahan → 1140 Persediaan; "
-                    "hasil panen → 1140 Persediaan."
+                tipe = st.selectbox(
+                    "Tipe",
+                    svc.TIPE_ITEM,
+                    format_func=lambda _: "Barang Dagang — Hasil Panen Cabai",
+                    help="Hanya hasil panen cabai yang siap dijual yang dicatat sebagai persediaan.",
                 )
+                st.caption("Akun otomatis: 1140 — Persediaan Barang Dagang.")
                 if st.form_submit_button("💾 Simpan", use_container_width=True):
                     try:
                         svc.tambah_item(kode, nama, satuan, tipe, "cabai", None)
@@ -361,28 +362,32 @@ def _tab_item() -> None:
 
     with kol2:
         with st.expander("✏️ Edit Item"):
-            pilihan = {f"{r['kode_item']} - {r['nama_item']}": r["id"] for _, r in df.iterrows()}
-            dipilih = st.selectbox("Pilih Item", list(pilihan.keys()), key="edit_item_sel")
-            if dipilih:
-                baris = df[df["id"] == pilihan[dipilih]].iloc[0]
-                with st.form("form_edit_item"):
-                    st.caption(f"Kode: **{baris['kode_item']}** (tidak bisa diubah)")
-                    nama_b = st.text_input("Nama Item *", value=baris["nama_item"])
-                    sat_b = st.text_input("Satuan *", value=baris["satuan"])
-                    tipe_b = st.selectbox("Tipe", svc.TIPE_ITEM,
-                                          index=svc.TIPE_ITEM.index(baris["tipe"]))
-                    st.caption(
-                        "Akun otomatis mengikuti tipe item: Bahan → 1140; "
-                        "Hasil panen → 1140."
-                    )
-                    aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
-                    if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
-                        try:
-                            svc.ubah_item(baris["id"], nama_b, sat_b, tipe_b, "cabai", None, aktif_b)
-                            st.success("Item berhasil diperbarui!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Gagal: {e}")
+            df_edit = df[df["tipe"] == "hasil_panen"]
+            if df_edit.empty:
+                st.info("Belum ada item barang dagang cabai yang dapat diedit.")
+            else:
+                pilihan = {f"{r['kode_item']} - {r['nama_item']}": r["id"] for _, r in df_edit.iterrows()}
+                dipilih = st.selectbox("Pilih Item", list(pilihan.keys()), key="edit_item_sel")
+                if dipilih:
+                    baris = df_edit[df_edit["id"] == pilihan[dipilih]].iloc[0]
+                    with st.form("form_edit_item"):
+                        st.caption(f"Kode: **{baris['kode_item']}** (tidak bisa diubah)")
+                        nama_b = st.text_input("Nama Item *", value=baris["nama_item"])
+                        sat_b = st.text_input("Satuan *", value=baris["satuan"])
+                        tipe_b = st.selectbox(
+                            "Tipe",
+                            svc.TIPE_ITEM,
+                            format_func=lambda _: "Barang Dagang — Hasil Panen Cabai",
+                        )
+                        st.caption("Akun otomatis: 1140 — Persediaan Barang Dagang.")
+                        aktif_b = st.checkbox("Aktif?", value=bool(baris["aktif"]))
+                        if st.form_submit_button("💾 Simpan Perubahan", use_container_width=True):
+                            try:
+                                svc.ubah_item(baris["id"], nama_b, sat_b, tipe_b, "cabai", None, aktif_b)
+                                st.success("Item berhasil diperbarui!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Gagal: {e}")
 
     # --- Hapus permanen ---
     with st.expander("🗑️ Hapus Item"):
