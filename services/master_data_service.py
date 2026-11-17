@@ -350,7 +350,10 @@ def tambah_item(
     if not unit:
         raise ValueError("Satuan barang tidak boleh kosong.")
     if tipe not in TIPE_ITEM:
-        raise ValueError("Jenis barang tidak valid. Persediaan hanya untuk barang dagang hasil panen.")
+        raise ValueError(
+            "Tipe item persediaan tidak dikenal. "
+            "Persediaan hanya untuk barang dagang hasil panen."
+        )
     if komoditas not in KOMODITAS_ITEM:
         raise ValueError("Komoditas barang tidak valid.")
 
