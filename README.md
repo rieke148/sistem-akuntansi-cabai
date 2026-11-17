@@ -35,7 +35,7 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
    - Bagan Akun (Chart of Accounts 4 Digit, 28 akun detail sesuai CSV), Pelanggan, Supplier, Item Persediaan, Pekerja, Aset Tetap, Blok Lahan, Saldo Awal, Periode Akuntansi, dan Parameter Operasional.
 
 3. **Input Transaksi & Mesin Jurnal Otomatis**:
-   - 10 Formulir transaksi spesifik (Penjualan Tunai/Tempo, Pembelian Tunai/Kredit, Pelunasan Piutang, Setoran Modal, Pemakaian Bahan, Catat Panen, Biaya Operasional, dan Beli Aset).
+   - 9 Formulir transaksi spesifik (Penjualan Tunai/Tempo, Pembelian Barang Dagang Tunai/Kredit, Pelunasan Piutang, Setoran Modal, Catat Panen, Biaya Operasional, dan Beli Aset).
    - Fitur **Pratinjau Jurnal Interaktif** dengan validasi keseimbangan Debit == Kredit sebelum data tersimpan.
 
 4. **Jurnal Umum & 4 Jurnal Khusus**:
@@ -48,8 +48,8 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
    - Kartu persediaan tersedia terpisah pada menu Kartu Persediaan; data aset tetap tetap dikelola pada Master Data dan penyusutannya pada Ayat Penyesuaian.
 
 6. **Kartu Persediaan Perpetual — Moving Average**:
-   - Seluruh item bahan produksi dan hasil panen memakai satu akun GL: **1140 — Persediaan**. Kartu stok tetap terpisah per item agar satuan, kuantitas, dan harga pokok masing-masing tidak tercampur.
-   - Pembelian, pemakaian bahan, panen, dan penjualan langsung memperbarui kuantitas serta nilai persediaan.
+   - Persediaan aktif hanya untuk barang dagang cabai hasil panen pada akun GL **1140 — Persediaan**. Kartu stok tetap terpisah per item agar satuan, kuantitas, dan harga pokok tidak tercampur.
+   - Pembelian barang dagang, pencatatan panen, dan penjualan langsung memperbarui kuantitas serta nilai persediaan.
    - Penjualan tunai dan tempo otomatis membentuk jurnal Harga Pokok Penjualan (Dr 5110) / Persediaan (Cr 1140).
    - HPP dihitung dengan rata-rata bergerak. Penjualan yang melebihi stok yang tersedia ditolak.
    - Saldo awal dimasukkan per item (kuantitas fisik × harga pokok per satuan) melalui Master Data → Saldo Awal Persediaan.
@@ -58,7 +58,7 @@ Sistem akuntansi ini mengotomatiskan seluruh tahapan siklus akuntansi dari penca
    - Perhitungan upah harian pekerja tetap (Rp90.000/hari) dan pekerja tambahan (Rp120.000/hari) per periode 2 mingguan, cetak slip upah, dan pencatatan akrual utang gaji.
 
 8. **Ayat Jurnal Penyesuaian**:
-   - Perhitungan otomatis penyusutan aset tetap (garis lurus), amortisasi plastik mulsa (1,5 tahun), akrual upah tenaga kerja, dan pemakaian bahan.
+   - Perhitungan otomatis penyusutan aset tetap (garis lurus), amortisasi plastik mulsa (1,5 tahun), akrual upah tenaga kerja.
 
 9. **Neraca Lajur 10 Kolom (Worksheet)**:
    - Kertas kerja lengkap 10 kolom menghubungkan Neraca Saldo, Penyesuaian, NSD, Laba Rugi, dan Neraca dengan verifikasi keseimbangan otomatis.
