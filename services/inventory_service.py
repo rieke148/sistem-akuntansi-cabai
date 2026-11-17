@@ -23,7 +23,7 @@ def ambil_daftar_item_persediaan() -> list[dict]:
     try:
         rows = koneksi.execute("""
             SELECT id, kode_item, nama_item, satuan, tipe, account_id
-            FROM items WHERE aktif = 1 ORDER BY tipe, kode_item
+            FROM items WHERE aktif = 1 AND tipe = 'hasil_panen' ORDER BY kode_item
         """).fetchall()
         return [dict(row) for row in rows]
     finally:
