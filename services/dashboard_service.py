@@ -169,7 +169,9 @@ def ambil_stok_persediaan() -> list[dict]:
                im.saldo_qty, im.saldo_nilai
         FROM inventory_movements im
         JOIN items i ON im.item_id = i.id
-        WHERE im.id = (
+        WHERE i.tipe = 'hasil_panen'
+          AND i.aktif = 1
+          AND im.id = (
             SELECT im2.id
             FROM inventory_movements im2
             WHERE im2.item_id = im.item_id
