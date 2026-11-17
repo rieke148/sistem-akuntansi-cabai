@@ -115,6 +115,7 @@ if seed_baru:
 halaman_dashboard = st.Page(
     "views/00_dashboard.py",
     title="Dashboard",
+    icon="📊",
     default=True,
 )
 
@@ -122,73 +123,88 @@ halaman_dashboard = st.Page(
 halaman_master_data = st.Page(
     "views/01_master_data.py",
     title="Master Data",
+    icon="🗂️",
 )
 
 # --- Input ---
 halaman_transaksi = st.Page(
     "views/02_input_transaksi.py",
     title="Input Transaksi",
+    icon="✍️",
 )
 halaman_penggajian = st.Page(
     "views/03_penggajian.py",
     title="Penggajian",
+    icon="💼",
 )
 
 # --- Jurnal ---
 halaman_jurnal_umum = st.Page(
     "views/04_jurnal_umum.py",
     title="Jurnal Umum",
+    icon="📓",
 )
 halaman_jurnal_khusus = st.Page(
     "views/05_jurnal_khusus.py",
     title="Jurnal Khusus",
+    icon="📚",
 )
 
 # --- Buku Besar ---
 halaman_kartu_persediaan = st.Page(
     "views/06_kartu_persediaan.py",
     title="Kartu Persediaan",
+    icon="📦",
 )
 halaman_buku_besar = st.Page(
     "views/07_buku_besar.py",
     title="Buku Besar",
+    icon="📘",
 )
 halaman_bb_pembantu = st.Page(
     "views/08_buku_besar_pembantu.py",
     title="BB Pembantu",
+    icon="🔎",
 )
 
 # --- Laporan ---
 halaman_neraca_saldo = st.Page(
     "views/09_neraca_saldo.py",
     title="Neraca Saldo",
+    icon="⚖️",
 )
 halaman_penyesuaian = st.Page(
     "views/10_ayat_penyesuaian.py",
     title="Ayat Penyesuaian",
+    icon="📝",
 )
 halaman_neraca_lajur = st.Page(
     "views/11_neraca_lajur.py",
     title="Neraca Lajur",
+    icon="📋",
 )
 halaman_laporan_keuangan = st.Page(
     "views/12_laporan_keuangan.py",
     title="Laporan Keuangan",
+    icon="📈",
 )
 halaman_jurnal_penutup = st.Page(
     "views/13_jurnal_penutup.py",
     title="Jurnal Penutup",
+    icon="🔒",
 )
 
 # --- Utilitas ---
 halaman_backup = st.Page(
     "views/14_backup_export.py",
     title="Backup & Export",
+    icon="💾",
 )
 
 halaman_manajemen_pengguna = st.Page(
     "views/15_manajemen_pengguna.py",
     title="Manajemen Pengguna",
+    icon="👥",
 )
 
 
@@ -204,6 +220,7 @@ if not user_aktif:
 with st.sidebar:
     st.markdown(f"### 🌶️ {NAMA_APLIKASI}")
     st.caption("ENTERPRISE ACCOUNTING WORKSPACE")
+    st.caption(NAMA_PERUSAHAAN)
     st.divider()
     st.caption("PENGGUNA AKTIF")
     st.markdown(f"**{user_aktif['full_name']}**")
