@@ -57,6 +57,7 @@ def tampilkan() -> None:
                     username, full_name, password, setup_key, expected_key
                 )
                 st.session_state["auth_user_id"] = user_id
+                st.session_state["auth_session_version"] = 0
                 st.session_state["auth_login_at"] = time.time()
                 st.session_state["auth_last_activity"] = time.time()
                 st.success("Akun Admin / Owner berhasil dibuat. Anda sudah masuk.")
@@ -77,6 +78,7 @@ def tampilkan() -> None:
             return
         hapus_session_login()
         st.session_state["auth_user_id"] = int(user["id"])
+        st.session_state["auth_session_version"] = int(user["session_version"])
         now = time.time()
         st.session_state["auth_login_at"] = now
         st.session_state["auth_last_activity"] = now
