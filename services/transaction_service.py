@@ -2,7 +2,7 @@
 services/transaction_service.py
 ---------------------------------
 Tujuan  : Mengubah input form transaksi menjadi jurnal otomatis.
-          Setiap jenis transaksi (penjualan tunai, beli bahan, dll)
+          Setiap jenis transaksi (penjualan tunai, pembelian barang dagang, dll)
           punya fungsi tersendiri yang menghasilkan baris debit/kredit.
 Input   : Data transaksi dari views/02_input_transaksi.py (dict).
 Output  : Memanggil journal_service.simpan_jurnal() untuk menyimpan.
@@ -19,12 +19,11 @@ PEMETAAN TRANSAKSI → JURNAL:
   Penjualan tempo     : Dr Piutang      / Kr Penjualan; Dr HPP / Kr Persediaan
   Terima piutang      : Dr Kas          / Kr Piutang Usaha
   Setoran modal       : Dr Kas          / Kr Modal Disetor
-  Beli tunai          : Dr Persediaan   / Kr Kas
-  Beli kredit         : Dr Persediaan   / Kr Utang Usaha
+  Beli barang dagang  : Dr Persediaan   / Kr Kas
+  Beli kredit dagang  : Dr Persediaan   / Kr Utang Usaha
   Bayar upah          : Dr Beban Upah   / Kr Kas
   Biaya operasional   : Dr Beban terkait/ Kr Kas
   Beli aset           : Dr Aset Tetap   / Kr Kas
-  Pakai bahan         : Dr Beban Produksi/ Kr Persediaan
   Panen               : Dr Persediaan Hasil / Kr Beban Produksi (HPP panen)
 """
 
@@ -469,8 +468,33 @@ def catat_setoran_modal(
     )
 
 
+def _validasi_item_barang_dagang(item_id: int, account_id: int) -> None:
+    """Pastikan transaksi persediaan hanya menggunakan item hasil panen cabai aktif."""
+    koneksi = get_connection()
+    try:
+        item = koneksi.execute(
+            """
+            SELECT id, account_id
+            FROM items
+            WHERE id = ? AND tipe = 'hasil_panen' AND aktif = 1
+            """,
+            (item_id,),
+        ).fetchone()
+    finally:
+        koneksi.close()
+
+    if not item:
+        raise ValueError(
+            "Item barang dagang tidak ditemukan, bukan hasil panen cabai, atau sudah nonaktif."
+        )
+    if item["account_id"] is None or int(item["account_id"]) != int(account_id):
+        raise ValueError(
+            "Akun persediaan transaksi tidak sesuai dengan akun pada item barang dagang."
+        )
+
+
 # ================================================================
-# 5. PEMBELIAN BAHAN TUNAI
+# 5. PEMBELIAN BARANG DAGANG TUNAI
 # ================================================================
 
 def catat_pembelian_tunai(
@@ -485,14 +509,14 @@ def catat_pembelian_tunai(
     keterangan: str = "",
 ) -> int:
     """
-    Mencatat pembelian bahan tunai dari supplier.
+    Mencatat pembelian barang dagang cabai secara tunai dari supplier.
 
     Jurnal yang dibuat:
-      Debit : Persediaan (bahan)
+      Debit : Persediaan barang dagang cabai
       Kredit: Kas
 
     Efek samping:
-      INSERT ke inventory_movements (bahan masuk, hitung rata-rata bergerak).
+      INSERT ke inventory_movements (barang dagang masuk, hitung rata-rata bergerak).
 
     Args:
         item_id      : ID item dari tabel items (untuk kartu persediaan).
@@ -502,9 +526,10 @@ def catat_pembelian_tunai(
     Returns:
         ID journal_entry yang dibuat.
     """
+    _validasi_item_barang_dagang(item_id, akun_persediaan_id)
     jumlah = int(qty * harga_satuan)
     no_bukti = generate_nomor_bukti("KK", _label_periode(period_id))
-    ket = keterangan or f"Beli bahan tunai - {supplier_nama}"
+    ket = keterangan or f"Pembelian barang dagang tunai - {supplier_nama}"
 
     baris = [
         {"account_id": akun_persediaan_id, "debit": jumlah, "kredit": 0},
@@ -547,18 +572,19 @@ def catat_pembelian_kredit(
     keterangan: str = "",
 ) -> int:
     """
-    Mencatat pembelian bahan secara kredit (menambah hutang usaha).
+    Mencatat pembelian barang dagang cabai secara kredit (menambah utang usaha).
 
     Jurnal yang dibuat:
       Debit : Persediaan
       Kredit: Utang Usaha
 
     Efek samping:
-      INSERT ke inventory_movements (bahan masuk).
+      INSERT ke inventory_movements (barang dagang masuk).
 
     Returns:
         ID journal_entry yang dibuat.
     """
+    _validasi_item_barang_dagang(item_id, akun_persediaan_id)
     jumlah = int(qty * harga_satuan)
     no_bukti = generate_nomor_bukti("PB", _label_periode(period_id))
     ket = keterangan or f"Beli kredit dari {supplier_nama}"
@@ -737,65 +763,7 @@ def catat_pembelian_peralatan_kredit(
 
 
 # ================================================================
-# 7. PEMAKAIAN BAHAN KE BLOK LAHAN
-# ================================================================
-
-def catat_pemakaian_bahan(
-    period_id: int,
-    tanggal: str,
-    item_id: int,
-    qty: float,
-    akun_beban_id: int,
-    akun_persediaan_id: int,
-    blok_nama: str = "",
-    keterangan: str = "",
-    komoditas: str = "cabai",
-    hpp_estimasi: int | None = None,
-) -> int:
-    """
-    Mencatat pemakaian bahan dengan metode perpetual.
-
-    Jurnal: Dr Beban Bahan Produksi / Cr Persediaan.
-    Mutasi stok dihubungkan ke jurnal yang sama.
-    """
-    hasil_hitung = hitung_nilai_keluar(item_id, qty)
-    total_nilai = int(hasil_hitung["total_keluar"])
-    if hpp_estimasi is not None and int(hpp_estimasi) != total_nilai:
-        raise ValueError(
-            "Nilai persediaan berubah setelah pratinjau. Silakan buat pratinjau jurnal kembali."
-        )
-
-    ket = keterangan or f"Pemakaian bahan produksi ke blok {blok_nama}"
-    if blok_nama and not keterangan:
-        ket = f"Pemakaian bahan ke blok {blok_nama}"
-
-    no_bukti = generate_nomor_bukti("JU", _label_periode(period_id))
-    baris = [
-        {"account_id": akun_beban_id, "debit": total_nilai, "kredit": 0},
-        {"account_id": akun_persediaan_id, "debit": 0, "kredit": total_nilai},
-    ]
-
-    entry_id = simpan_jurnal(
-        period_id=period_id, tanggal=tanggal, no_bukti=no_bukti,
-        journal_type="umum", keterangan=ket, baris=baris, komoditas=komoditas,
-    )
-    try:
-        catat_gerakan_keluar(
-            item_id=item_id,
-            tanggal=tanggal,
-            qty=qty,
-            keterangan=ket,
-            journal_entry_id=entry_id,
-        )
-    except Exception:
-        _hapus_jurnal_transaksi_gagal(entry_id)
-        raise
-
-    return entry_id
-
-
-# ================================================================
-# 8. PENCATATAN HASIL PANEN
+# 7. PENCATATAN HASIL PANEN
 # ================================================================
 
 def catat_panen(
@@ -811,7 +779,7 @@ def catat_panen(
     keterangan: str = "",
 ) -> int:
     """
-    Mencatat hasil panen masuk ke persediaan (Jurnal Umum).
+    Mencatat hasil panen cabai masuk ke persediaan barang dagang (Jurnal Umum).
 
     Panen adalah perpindahan "nilai produksi" menjadi "persediaan hasil".
     Jurnal yang dibuat:
@@ -830,6 +798,7 @@ def catat_panen(
     Returns:
         ID journal_entry yang dibuat.
     """
+    _validasi_item_barang_dagang(item_panen_id, akun_persediaan_panen_id)
     total_nilai = int(jumlah_kg * harga_estimasi_per_kg)
     no_bukti = generate_nomor_bukti("JU", _label_periode(period_id))
     ket = keterangan or f"Panen cabai {jumlah_kg} kg dari blok {blok_nama}"
