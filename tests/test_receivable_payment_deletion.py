@@ -169,3 +169,32 @@ def test_status_piutang_sebagian_setelah_pembayaran_pertama(tmp_path, monkeypatc
         assert conn.execute("SELECT COUNT(*) FROM receivable_payments").fetchone()[0] == 1
     finally:
         conn.close()
+
+
+
+def test_jurnal_pembayaran_versi_lama_ditolak_jika_tidak_punya_relasi(tmp_path, monkeypatch):
+    buka_koneksi = _db_piutang(tmp_path, monkeypatch)
+    conn = buka_koneksi()
+    cur = conn.execute("""
+        INSERT INTO journal_entries
+            (period_id, tanggal, no_bukti, journal_type, keterangan)
+        VALUES (1, '2026-01-04', 'KM-LEGACY', 'penerimaan_kas',
+                'Pelunasan piutang Pelanggan Uji No.JL-001')
+    """)
+    entry_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+
+    from services.journal_service import hapus_jurnal
+    import pytest
+
+    with pytest.raises(ValueError, match="versi lama"):
+        hapus_jurnal(entry_id)
+
+    conn = buka_koneksi()
+    try:
+        assert conn.execute(
+            "SELECT COUNT(*) FROM journal_entries WHERE id = ?", (entry_id,)
+        ).fetchone()[0] == 1
+    finally:
+        conn.close()
