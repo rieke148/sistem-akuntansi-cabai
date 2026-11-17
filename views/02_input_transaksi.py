@@ -13,7 +13,7 @@ JENIS TRANSAKSI:
   Pembelian   : 3. Pembelian Barang Dagang Tunai, 4. Pembelian Kredit
   Kas         : 5. Terima Pelunasan Piutang, 6. Setoran Modal
   Persediaan  : 7. Catat Panen
-  Lainnya     : 9. Biaya Operasional, 10. Pembelian Aset
+  Lainnya     : 8. Biaya Operasional, 9. Pembelian Aset
 """
 
 import streamlit as st
@@ -1356,7 +1356,7 @@ def _form_catat_panen(period_id: int):
 
 
 # ================================================================
-# FORM 9: BIAYA OPERASIONAL
+# FORM 8: BIAYA OPERASIONAL
 # ================================================================
 
 def _form_biaya_operasional(period_id: int):
@@ -1443,7 +1443,7 @@ def _form_biaya_operasional(period_id: int):
 
 
 # ================================================================
-# FORM 10: PEMBELIAN ASET
+# FORM 9: PEMBELIAN ASET
 # ================================================================
 
 def _form_pembelian_aset(period_id: int):
