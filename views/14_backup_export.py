@@ -395,6 +395,6 @@ def tampilkan() -> None:
         _section_export_laporan()
 
 
-from services.permission_service import wajib_punya_izin
+from services.permission_service import punya_izin, wajib_punya_izin
 wajib_punya_izin("backup.access")
 tampilkan()
