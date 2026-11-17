@@ -13,6 +13,8 @@ from services.permission_service import wajib_punya_izin, pengguna_aktif
 
 wajib_punya_izin("users.manage")
 user = pengguna_aktif()
+if not user:
+    st.stop()
 actor_id = int(user["id"])
 
 st.title("👥 Manajemen Pengguna")
@@ -42,7 +44,7 @@ with tab_user:
                 )
                 st.success(f"Akun berhasil dibuat (ID: {new_id}).")
                 st.rerun()
-            except ValueError as error:
+            except (ValueError, PermissionError) as error:
                 st.error(str(error))
 
     st.divider()
@@ -85,7 +87,7 @@ with tab_user:
                     )
                     st.success("Role berhasil diperbarui.")
                     st.rerun()
-                except ValueError as error:
+                except (ValueError, PermissionError) as error:
                     st.error(str(error))
 
         with st.expander("Status Akun"):
@@ -100,7 +102,7 @@ with tab_user:
                     )
                     st.success("Status akun berhasil diperbarui.")
                     st.rerun()
-                except ValueError as error:
+                except (ValueError, PermissionError) as error:
                     st.error(str(error))
 
         with st.expander("Reset Password"):
@@ -117,7 +119,7 @@ with tab_user:
                             int(selected["id"]), new_password, actor_id
                         )
                         st.success("Password berhasil direset. Sampaikan password baru melalui kanal pribadi yang aman.")
-                    except ValueError as error:
+                    except (ValueError, PermissionError) as error:
                         st.error(str(error))
 
 with tab_audit:
