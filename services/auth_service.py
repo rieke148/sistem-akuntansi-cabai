@@ -604,9 +604,8 @@ def ubah_role_pengguna(user_id: int, role_code: str, actor_user_id: int) -> None
 def ubah_status_pengguna(
     user_id: int, is_active: bool, actor_user_id: int
 ) -> None:
+    """Mengubah status akun tanpa menonaktifkan admin aktif terakhir."""
     _pastikan_admin_aktif(actor_user_id)
-    if user_id == actor_user_id and not is_active:
-        raise ValueError("Anda tidak dapat menonaktifkan akun yang sedang digunakan.")
     koneksi = get_connection()
     try:
         target = koneksi.execute(
@@ -616,6 +615,8 @@ def ubah_status_pengguna(
         ).fetchone()
         if not target:
             raise ValueError("Pengguna tidak ditemukan.")
+
+        # Prioritaskan perlindungan admin terakhir agar pesan validasi spesifik.
         if target["role_code"] == "admin_owner" and target["is_active"] and not is_active:
             jumlah_admin = koneksi.execute(
                 """SELECT COUNT(*) FROM users u JOIN roles r ON r.id = u.role_id
@@ -623,6 +624,11 @@ def ubah_status_pengguna(
             ).fetchone()[0]
             if int(jumlah_admin) <= 1:
                 raise ValueError("Admin aktif terakhir tidak boleh dinonaktifkan.")
+
+        # Akun yang sedang digunakan tidak boleh dinonaktifkan sendiri.
+        if user_id == actor_user_id and not is_active:
+            raise ValueError("Anda tidak dapat menonaktifkan akun yang sedang digunakan.")
+
         koneksi.execute(
             "UPDATE users SET is_active = ?, session_version = session_version + 1, updated_at = ? WHERE id = ?",
             (int(is_active), _utc_text(), user_id),
