@@ -17,12 +17,11 @@ CATATAN HOSTING:
 """
 
 import streamlit as st
-import streamlit_antd_components as sac
 import pandas as pd
 from pathlib import Path
 
 from database.connection import get_connection, PATH_DATABASE
-from utils.ui_components import divider_dengan_judul, selector_periode, render_page_header
+from utils.ui_components import divider_dengan_judul, selector_periode, render_page_header, render_alert
 from utils.formatting import format_rupiah
 from utils.export import (
     export_dataframe_ke_excel,
@@ -326,7 +325,7 @@ def _section_reset_database() -> None:
     """Menampilkan seksi reset database ke data contoh."""
     divider_dengan_judul("Reset ke Data Contoh", "arrow-counterclockwise")
 
-    sac.alert(
+    render_alert(
         label="⚠️ Tindakan Berbahaya!",
         description=(
             "Reset akan menghapus SEMUA data dan mengisi ulang dengan data contoh Oktober 2026. "
@@ -372,7 +371,7 @@ def tampilkan() -> None:
     render_page_header("Backup & Ekspor", "Amankan database dan ekspor laporan dalam format Excel atau PDF.", eyebrow="administrasi")
     st.caption("Simpan, pulihkan, dan ekspor data sistem akuntansi.")
 
-    sac.alert(
+    render_alert(
         label="📢 Penting untuk Pengguna Streamlit Cloud",
         description=(
             "Streamlit Community Cloud tidak menyimpan data secara permanen. "
