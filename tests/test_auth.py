@@ -241,3 +241,48 @@ def test_reset_password_mengganti_password_dan_membatalkan_session(auth_db):
     assert pengguna["session_version"] == versi_sebelum + 1
     assert auth_service.autentikasi("accountant01", "PasswordAman!2026") is None
     assert auth_service.autentikasi("accountant01", "PasswordBaru!2026") is not None
+
+
+def test_inisialisasi_menghapus_permission_role_yang_sudah_dicabut(auth_db):
+    """Permission yang tidak ada di matriks kode tidak boleh tertinggal di database."""
+    koneksi = auth_db()
+    role = koneksi.execute(
+        "SELECT id FROM roles WHERE role_code = 'inventory'"
+    ).fetchone()
+    permission = koneksi.execute(
+        "SELECT id FROM permissions WHERE permission_code = 'users.manage'"
+    ).fetchone()
+    koneksi.execute(
+        "INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)",
+        (role["id"], permission["id"]),
+    )
+    koneksi.commit()
+    koneksi.close()
+
+    # Inisialisasi ulang harus menyelaraskan database dengan ROLE_PERMISSIONS.
+    auth_service.inisialisasi_otorisasi()
+    assert "users.manage" not in auth_service.ambil_permission_role(role["id"])
+
+
+def test_matriks_role_membatasi_akses_ke_fitur_sesuai_tanggung_jawab(auth_db):
+    """Pastikan role operasional dan pimpinan tidak mendapat izin administratif."""
+    koneksi = auth_db()
+    role_ids = {
+        row["role_code"]: row["id"]
+        for row in koneksi.execute("SELECT id, role_code FROM roles")
+    }
+    koneksi.close()
+
+    inventory = auth_service.ambil_permission_role(role_ids["inventory"])
+    leadership = auth_service.ambil_permission_role(role_ids["leadership"])
+    accountant = auth_service.ambil_permission_role(role_ids["accountant"])
+
+    assert "transactions.inventory.manage" in inventory
+    assert "transactions.financial.manage" not in inventory
+    assert "users.manage" not in inventory
+    assert "payroll.summary.view" in leadership
+    assert "payroll.manage" not in leadership
+    assert "reports.view" in leadership
+    assert "reports.manage" not in leadership
+    assert "backup.export" in accountant
+    assert "backup.restore" not in accountant
