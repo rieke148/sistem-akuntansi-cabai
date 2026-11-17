@@ -383,8 +383,9 @@ def _status_lockout(koneksi, username_key: str) -> datetime | None:
 
 def autentikasi(username: str, password: str) -> dict | None:
     """
-    Memeriksa kredensial. Mengembalikan profil pengguna tanpa hash password,
-    atau None jika kredensial salah, akun nonaktif, atau sedang terkunci.
+    Memeriksa kredensial dan mengembalikan profil tanpa hash password.
+    Percobaan login diperbarui dalam transaksi SQLite agar hitungan tidak
+    hilang ketika beberapa permintaan login datang hampir bersamaan.
     """
     username_key = str(username or "").strip().casefold()
     if not username_key or not password:
@@ -392,10 +393,20 @@ def autentikasi(username: str, password: str) -> dict | None:
 
     koneksi = get_connection()
     try:
-        locked_until = _status_lockout(koneksi, username_key)
-        if locked_until:
-            koneksi.commit()
-            return None
+        # Pemeriksaan awal ini hanya membaca data agar akun yang sedang
+        # terkunci tidak perlu menjalankan proses hash password yang mahal.
+        attempt_awal = koneksi.execute(
+            "SELECT locked_until FROM login_attempts WHERE username_key = ?",
+            (username_key,),
+        ).fetchone()
+        if attempt_awal and attempt_awal["locked_until"]:
+            try:
+                batas_awal = datetime.fromisoformat(attempt_awal["locked_until"])
+                if batas_awal > _utc_now():
+                    return None
+            except ValueError:
+                # Nilai lockout yang rusak akan dibersihkan dalam transaksi.
+                pass
 
         row = koneksi.execute(
             """SELECT u.id, u.username, u.full_name, u.password_hash,
@@ -405,8 +416,44 @@ def autentikasi(username: str, password: str) -> dict | None:
             (username_key,),
         ).fetchone()
 
-        password_valid = verifikasi_password(password, row["password_hash"]) if row else False
-        if not row or not password_valid or not row["is_active"]:
+        password_valid = (
+            verifikasi_password(password, row["password_hash"]) if row else False
+        )
+
+        # Kunci penulisan sebelum membaca dan mengubah jumlah percobaan.
+        # Ini mencegah dua permintaan bersamaan menimpa hitungan satu sama lain.
+        koneksi.execute("BEGIN IMMEDIATE")
+
+        locked_until = _status_lockout(koneksi, username_key)
+        if locked_until:
+            koneksi.commit()
+            return None
+
+        # Ambil ulang data akun setelah transaksi dimulai. Akun mungkin saja
+        # dinonaktifkan atau password-nya diubah ketika hash sedang diverifikasi.
+        row_terbaru = koneksi.execute(
+            """SELECT u.id, u.username, u.full_name, u.password_hash,
+                      u.is_active, u.role_id, u.session_version, r.role_code, r.role_name
+               FROM users u JOIN roles r ON r.id = u.role_id
+               WHERE u.username = ? COLLATE NOCASE""",
+            (username_key,),
+        ).fetchone()
+
+        hash_tidak_berubah = (
+            row is not None
+            and row_terbaru is not None
+            and hmac.compare_digest(
+                str(row["password_hash"]), str(row_terbaru["password_hash"])
+            )
+        )
+        login_valid = (
+            row_terbaru is not None
+            and bool(row_terbaru["is_active"])
+            and password_valid
+            and hash_tidak_berubah
+        )
+
+        if not login_valid:
             attempt = koneksi.execute(
                 "SELECT failed_attempts FROM login_attempts WHERE username_key = ?",
                 (username_key,),
@@ -427,8 +474,11 @@ def autentikasi(username: str, password: str) -> dict | None:
                 (username_key, failures, lock_until, _utc_text()),
             )
             _catat_audit(
-                koneksi, int(row["id"]) if row else None,
-                "login_failed", "authentication", username_key,
+                koneksi,
+                int(row_terbaru["id"]) if row_terbaru else None,
+                "login_failed",
+                "authentication",
+                username_key,
                 {"reason": "invalid_credentials_or_inactive"},
             )
             koneksi.commit()
@@ -439,24 +489,25 @@ def autentikasi(username: str, password: str) -> dict | None:
         )
         koneksi.execute(
             "UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?",
-            (_utc_text(), _utc_text(), row["id"]),
+            (_utc_text(), _utc_text(), row_terbaru["id"]),
         )
-        _catat_audit(koneksi, int(row["id"]), "login_success", "authentication", row["id"])
+        _catat_audit(
+            koneksi, int(row_terbaru["id"]), "login_success",
+            "authentication", row_terbaru["id"],
+        )
         koneksi.commit()
         return {
-            "id": int(row["id"]),
-            "username": row["username"],
-            "full_name": row["full_name"],
-            "is_active": bool(row["is_active"]),
-            "role_id": int(row["role_id"]),
-            "session_version": int(row["session_version"]),
-            "role_code": row["role_code"],
-            "role_name": row["role_name"],
+            "id": int(row_terbaru["id"]),
+            "username": row_terbaru["username"],
+            "full_name": row_terbaru["full_name"],
+            "is_active": bool(row_terbaru["is_active"]),
+            "role_id": int(row_terbaru["role_id"]),
+            "session_version": int(row_terbaru["session_version"]),
+            "role_code": row_terbaru["role_code"],
+            "role_name": row_terbaru["role_name"],
         }
     finally:
         koneksi.close()
-
-
 def ambil_pengguna(user_id: int) -> dict | None:
     koneksi = get_connection()
     try:
