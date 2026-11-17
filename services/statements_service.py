@@ -212,10 +212,51 @@ def susun_neraca(period_id: int, modal_akhir: int) -> dict:
             jumlah = int(baris["kredit"]) - int(baris["debit"])
 
         if kategori == "Aset":
-            # Aset lancar: Kas & Bank (11xx), Piutang (12xx), Persediaan (13xx), Perlengkapan (14xx)
-            # Aset tetap: 15xx dan aset lain-lain (16xx)
-            is_kontra = kode.endswith("K")  # konvensi kode kontra pakai suffix K
-            if kode.startswith(("11", "12", "13", "14")):
+            # COA Baru:
+            #   Aset Lancar : 11xx (Kas, Piutang, Perlengkapan, Persediaan)
+            #   Aset Tetap  : 12xx ke atas (Tanah, Bangunan, Kendaraan, Komputer, Peralatan, dll.)
+            # COA Lama (fallback):
+            #   Aset Lancar : 11xx, 12xx, 13xx, 14xx
+            #   Aset Tetap  : 15xx, 16xx ke atas
+            is_kontra = kode.endswith("K") or saldo_normal == "Kredit"
+            kode_num = kode.rstrip("K")
+            # Aset lancar: hanya 11xx (COA baru) atau 11xx/12xx/13xx/14xx (COA lama)
+            # Gunakan pendekatan: jika kode 11xx → lancar; 12xx → cek apakah nilainya
+            # menunjukkan aset tetap (kode 1200-1299 = aset tetap di COA baru)
+            # Untuk COA baru: 1110,1120,1130,1140 = lancar; 1210+ = tetap
+            # Untuk COA lama: 1101,1102,1201,1301,1401 = lancar; 1501+ = tetap
+            # Deteksi COA baru: kode 4-digit, 11xx pasti lancar, 12xx cek range
+            try:
+                kode_int = int(kode_num)
+                # COA baru: 1100-1199 = lancar; 1200+ = tetap
+                # COA lama: 1100-1499 = lancar; 1500+ = tetap
+                # Pembeda: jika ada akun 15xx atau 16xx di DB → pakai logika lama
+                # Cara aman: 1110,1120,1130,1140 adalah lancar; semua 12xx adalah tetap (COA baru)
+                # 1101,1102,1201,1301,1401 adalah lancar (COA lama)
+                # Kunci: kode 1200-1299 di COA baru = aset tetap; di COA lama = piutang (lancar)
+                # Bisa dibedakan: COA baru pakai 1210,1220,... (kelipatan 10), COA lama pakai 1201
+                # Simpel: gunakan range numerik
+                # 1100-1199 → selalu lancar
+                # 1200-1299 → tetap JIKA kode berakhir 0 (COA baru: 1210,1220,1230,1240,1250,1251)
+                #           → lancar JIKA kode berakhir 1 (COA lama: 1201)
+                # 1300-1499 → lancar (COA lama), tidak ada di COA baru
+                # 1500+     → tetap (COA lama)
+                if 1100 <= kode_int <= 1199:
+                    is_lancar = True
+                elif 1200 <= kode_int <= 1299:
+                    # COA baru: 1210,1220,1221,1230,1231,1240,1241,1250,1251 = aset tetap
+                    # COA lama: 1201 = piutang usaha (lancar)
+                    # Jika kode_int % 10 == 1 dan ratusan == 2 → COA lama piutang
+                    is_lancar = (kode_int == 1201)
+                elif 1300 <= kode_int <= 1499:
+                    is_lancar = True   # COA lama: persediaan & perlengkapan
+                else:
+                    is_lancar = False  # 1500+ → aset tetap (COA lama)
+            except ValueError:
+                # kode bukan integer murni (misal ada suffix aneh)
+                is_lancar = True
+
+            if is_lancar:
                 hasil["aset_lancar"].append({
                     "nama_akun": nama,
                     "jumlah": jumlah,
@@ -265,6 +306,7 @@ def susun_neraca(period_id: int, modal_akhir: int) -> dict:
 
     # Validasi: Aset = Liabilitas + Ekuitas
     hasil["seimbang"] = hasil["total_aset"] == hasil["total_liabilitas_ekuitas"]
+    hasil["selisih"] = abs(hasil["total_aset"] - hasil["total_liabilitas_ekuitas"])
 
     return hasil
 

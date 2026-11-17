@@ -123,6 +123,17 @@ def _cari_akun_penjualan(komoditas: str) -> int | None:
     return _cari_akun_by_kode("4110")
 
 
+def _cari_akun_peralatan() -> int | None:
+    """Mengembalikan akun aset untuk peralatan pertanian (1250)."""
+    akun_id = _cari_akun_by_kode("1250")
+    if akun_id:
+        return akun_id
+    for a in _ambil_akun("Aset"):
+        if "peralatan" in a["nama_akun"].lower() and not a.get("is_kontra"):
+            return a["id"]
+    return None
+
+
 def _bersihkan_pratinjau():
     """Bersihkan state pratinjau dari session_state."""
     for key in ["pratinjau_data", "pratinjau_baris", "pratinjau_params"]:
@@ -573,7 +584,7 @@ def _form_setoran_modal(period_id: int):
 # ================================================================
 
 def _form_beli_bahan_tunai(period_id: int):
-    """Form pembelian bahan produksi atau perlengkapan secara tunai."""
+    """Form pembelian bahan produksi, perlengkapan, atau peralatan secara tunai."""
     st.subheader("🛒 Beli Tunai")
 
     suppliers = _ambil_suppliers()
@@ -581,7 +592,11 @@ def _form_beli_bahan_tunai(period_id: int):
 
     kategori_pembelian = st.radio(
         "Kategori Pembelian *",
-        ["🌱 Bahan Persediaan (Bibit, Pupuk, Obat/Pestisida)", "📦 Perlengkapan (Bambu, Plastik Mulsa, Karung, dll)"],
+        [
+            "🌱 Bahan Persediaan (Bibit, Pupuk, Obat/Pestisida)",
+            "📦 Perlengkapan (Bambu, Plastik Mulsa, Karung, Keranjang, dll)",
+            "🔧 Peralatan (Ember, Cangkul, Sabit, Tangki Semprot, dll)",
+        ],
         horizontal=True,
         key=f"kat_beli_tunai_{period_id}",
     )
@@ -674,8 +689,8 @@ def _form_beli_bahan_tunai(period_id: int):
                 except Exception as e:
                     st.error(f"Gagal menyimpan: {e}")
 
-    else:
-        # Pembelian Perlengkapan Tunai (Bambu, Plastik Mulsa, Karung, dll)
+    elif kategori_pembelian.startswith("📦"):
+        # Pembelian Perlengkapan Tunai (Bambu, Plastik Mulsa, Karung, Keranjang, dll)
         with st.form("form_beli_perlengkapan_tunai"):
             kol1, kol2 = st.columns(2)
             with kol1:
@@ -695,8 +710,7 @@ def _form_beli_bahan_tunai(period_id: int):
                     "Bambu",
                     "Plastik Mulsa",
                     "Karung",
-                    "Tali Rafia",
-                    "Koker / Polybag",
+                    "Keranjang",
                     "Lainnya (Ketik Manual)",
                 ]
                 pilih_item_p = st.selectbox("Jenis Perlengkapan *", options=pilihan_perlengkapan, key=f"jenis_pt_{period_id}")
@@ -712,7 +726,7 @@ def _form_beli_bahan_tunai(period_id: int):
                 with kol_satuan:
                     satuan_p = st.selectbox(
                         "Satuan",
-                        ["batang", "roll", "karung / lembar", "ikat", "buah", "meter", "kg", "pack"],
+                        ["batang", "roll", "karung / lembar", "buah", "ikat", "meter", "kg", "pack"],
                         key=f"satuan_pt_{period_id}",
                     )
                 harga_satuan = st.number_input("Harga Satuan (Rp)", min_value=100, step=500, value=10000, key=f"harga_pt_{period_id}")
@@ -781,13 +795,122 @@ def _form_beli_bahan_tunai(period_id: int):
                 except Exception as e:
                     st.error(f"Gagal menyimpan: {e}")
 
+    else:
+        # Pembelian Peralatan Tunai (Ember, Cangkul, Sabit, Tangki Semprot, Timbangan, Pompa Air, Selang Air, dll)
+        with st.form("form_beli_peralatan_tunai"):
+            kol1, kol2 = st.columns(2)
+            with kol1:
+                tanggal = st.date_input("Tanggal", value="today")
+                if suppliers:
+                    supplier_idx = st.selectbox(
+                        "Supplier",
+                        range(len(suppliers)),
+                        format_func=lambda i: suppliers[i]["nama"],
+                        key=f"supp_alat_t_{period_id}",
+                    )
+                    supplier_nama = suppliers[supplier_idx]["nama"]
+                else:
+                    supplier_nama = st.text_input("Nama Supplier", placeholder="Nama supplier / toko", key=f"supp_txt_alat_t_{period_id}")
+
+                pilihan_peralatan = [
+                    "Ember",
+                    "Cangkul",
+                    "Sabit",
+                    "Tangki Semprot",
+                    "Timbangan",
+                    "Pompa Air",
+                    "Selang Air",
+                    "Lainnya (Ketik Manual)",
+                ]
+                pilih_item_alat = st.selectbox("Jenis Peralatan *", options=pilihan_peralatan, key=f"jenis_alat_t_{period_id}")
+                if pilih_item_alat == "Lainnya (Ketik Manual)":
+                    nama_peralatan = st.text_input("Nama Peralatan *", placeholder="Contoh: Gembor / Terpal", key=f"manual_alat_t_{period_id}")
+                else:
+                    nama_peralatan = pilih_item_alat
+
+            with kol2:
+                kol_qty, kol_satuan = st.columns([1, 1])
+                with kol_qty:
+                    qty = st.number_input("Kuantitas", min_value=1.0, step=1.0, value=1.0, key=f"qty_alat_t_{period_id}")
+                with kol_satuan:
+                    satuan_alat = st.selectbox(
+                        "Satuan",
+                        ["unit", "buah", "set", "meter", "roll", "paket"],
+                        key=f"satuan_alat_t_{period_id}",
+                    )
+                harga_satuan = st.number_input("Harga Satuan (Rp)", min_value=1000, step=5000, value=50000, key=f"harga_alat_t_{period_id}")
+                st.caption("Akun otomatis: **1250 - Peralatan** (Aset Tetap)")
+
+            keterangan = st.text_input("Keterangan", placeholder="(opsional)", key=f"ket_alat_t_{period_id}")
+            total = int(qty * harga_satuan)
+            st.caption(f"**Total: {format_rupiah(total)}**")
+            pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+
+        if pratinjau_btn:
+            if not nama_peralatan.strip():
+                st.error("Nama peralatan wajib diisi.")
+                return
+            akun_peralatan_id = _cari_akun_peralatan()
+            if not akun_peralatan_id:
+                st.error("Akun 1250 - Peralatan tidak ditemukan dalam Bagan Akun.")
+                return
+            akun_kas_id = _cari_akun_by_kode("1110")
+            if not akun_kas_id:
+                st.error("Akun 1110 - Kas tidak ditemukan dalam Bagan Akun.")
+                return
+
+            baris = [
+                {"account_id": akun_peralatan_id, "debit": total, "kredit": 0},
+                {"account_id": akun_kas_id, "debit": 0, "kredit": total},
+            ]
+            st.session_state["pratinjau_baris"] = baris
+            label_nama = f"{nama_peralatan} ({qty:g} {satuan_alat})"
+            st.session_state["pratinjau_params"] = {
+                "jenis": "beli_peralatan_tunai",
+                "period_id": period_id,
+                "tanggal": str(tanggal),
+                "supplier_nama": supplier_nama,
+                "nama_peralatan": label_nama,
+                "qty": qty,
+                "harga_satuan": harga_satuan,
+                "akun_peralatan_id": akun_peralatan_id,
+                "akun_kas_id": akun_kas_id,
+                "keterangan": keterangan or f"Beli peralatan {label_nama} tunai - {supplier_nama}",
+            }
+
+        if "pratinjau_baris" in st.session_state and st.session_state.get("pratinjau_params", {}).get("jenis") == "beli_peralatan_tunai":
+            disimpan = _tampilkan_pratinjau(
+                st.session_state["pratinjau_baris"],
+                st.session_state["pratinjau_params"],
+            )
+            if disimpan:
+                try:
+                    p = st.session_state["pratinjau_params"]
+                    ts.catat_pembelian_peralatan_tunai(
+                        period_id=p["period_id"],
+                        tanggal=p["tanggal"],
+                        supplier_nama=p["supplier_nama"],
+                        nama_peralatan=p["nama_peralatan"],
+                        qty=p["qty"],
+                        harga_satuan=p["harga_satuan"],
+                        akun_peralatan_id=p["akun_peralatan_id"],
+                        akun_kas_id=p["akun_kas_id"],
+                        keterangan=p["keterangan"],
+                    )
+                    st.success(f"✅ Pembelian peralatan **{p['nama_peralatan']}** tunai berhasil dicatat!")
+                    _bersihkan_pratinjau()
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Gagal menyimpan: {e}")
+
 
 # ================================================================
 # FORM 6: BELI KREDIT
 # ================================================================
 
 def _form_beli_kredit(period_id: int):
-    """Form pembelian bahan atau perlengkapan secara kredit (menambah utang usaha)."""
+    """Form pembelian bahan, perlengkapan, atau peralatan secara kredit (menambah utang usaha)."""
     st.subheader("🏷️ Beli Kredit (Hutang Dagang)")
 
     suppliers = _ambil_suppliers()
@@ -795,7 +918,11 @@ def _form_beli_kredit(period_id: int):
 
     kategori_pembelian = st.radio(
         "Kategori Pembelian *",
-        ["🌱 Bahan Persediaan (Bibit, Pupuk, Obat/Pestisida)", "📦 Perlengkapan (Bambu, Plastik Mulsa, Karung, dll)"],
+        [
+            "🌱 Bahan Persediaan (Bibit, Pupuk, Obat/Pestisida)",
+            "📦 Perlengkapan (Bambu, Plastik Mulsa, Karung, Keranjang, dll)",
+            "🔧 Peralatan (Ember, Cangkul, Sabit, Tangki Semprot, dll)",
+        ],
         horizontal=True,
         key=f"kat_beli_kredit_{period_id}",
     )
@@ -887,8 +1014,8 @@ def _form_beli_kredit(period_id: int):
                 except Exception as e:
                     st.error(f"Gagal menyimpan: {e}")
 
-    else:
-        # Pembelian Perlengkapan Kredit (Bambu, Plastik Mulsa, Karung, dll)
+    elif kategori_pembelian.startswith("📦"):
+        # Pembelian Perlengkapan Kredit (Bambu, Plastik Mulsa, Karung, Keranjang, dll)
         with st.form("form_beli_perlengkapan_kredit"):
             kol1, kol2 = st.columns(2)
             with kol1:
@@ -908,8 +1035,7 @@ def _form_beli_kredit(period_id: int):
                     "Bambu",
                     "Plastik Mulsa",
                     "Karung",
-                    "Tali Rafia",
-                    "Koker / Polybag",
+                    "Keranjang",
                     "Lainnya (Ketik Manual)",
                 ]
                 pilih_item_p = st.selectbox("Jenis Perlengkapan *", options=pilihan_perlengkapan, key=f"jenis_pk_{period_id}")
@@ -925,7 +1051,7 @@ def _form_beli_kredit(period_id: int):
                 with kol_satuan:
                     satuan_p = st.selectbox(
                         "Satuan",
-                        ["batang", "roll", "karung / lembar", "ikat", "buah", "meter", "kg", "pack"],
+                        ["batang", "roll", "karung / lembar", "buah", "ikat", "meter", "kg", "pack"],
                         key=f"satuan_pk_{period_id}",
                     )
                 harga_satuan = st.number_input("Harga Satuan (Rp)", min_value=100, step=500, value=10000, key=f"harga_pk_{period_id}")
@@ -991,6 +1117,118 @@ def _form_beli_kredit(period_id: int):
                         keterangan=p["keterangan"],
                     )
                     st.success(f"✅ Pembelian kredit perlengkapan **{p['nama_perlengkapan']}** berhasil dicatat!")
+                    _bersihkan_pratinjau()
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Gagal menyimpan: {e}")
+
+    else:
+        # Pembelian Peralatan Kredit (Ember, Cangkul, Sabit, Tangki Semprot, Timbangan, Pompa Air, Selang Air, dll)
+        with st.form("form_beli_peralatan_kredit"):
+            kol1, kol2 = st.columns(2)
+            with kol1:
+                tanggal = st.date_input("Tanggal", value="today")
+                if suppliers:
+                    supplier_idx = st.selectbox(
+                        "Supplier *",
+                        range(len(suppliers)),
+                        format_func=lambda i: suppliers[i]["nama"],
+                        key=f"supp_alat_k_{period_id}",
+                    )
+                    supplier_nama = suppliers[supplier_idx]["nama"]
+                else:
+                    supplier_nama = st.text_input("Nama Supplier *", key=f"supp_txt_alat_k_{period_id}")
+
+                pilihan_peralatan = [
+                    "Ember",
+                    "Cangkul",
+                    "Sabit",
+                    "Tangki Semprot",
+                    "Timbangan",
+                    "Pompa Air",
+                    "Selang Air",
+                    "Lainnya (Ketik Manual)",
+                ]
+                pilih_item_alat = st.selectbox("Jenis Peralatan *", options=pilihan_peralatan, key=f"jenis_alat_k_{period_id}")
+                if pilih_item_alat == "Lainnya (Ketik Manual)":
+                    nama_peralatan = st.text_input("Nama Peralatan *", placeholder="Contoh: Gembor / Terpal", key=f"manual_alat_k_{period_id}")
+                else:
+                    nama_peralatan = pilih_item_alat
+
+            with kol2:
+                kol_qty, kol_satuan = st.columns([1, 1])
+                with kol_qty:
+                    qty = st.number_input("Kuantitas", min_value=1.0, step=1.0, value=1.0, key=f"qty_alat_k_{period_id}")
+                with kol_satuan:
+                    satuan_alat = st.selectbox(
+                        "Satuan",
+                        ["unit", "buah", "set", "meter", "roll", "paket"],
+                        key=f"satuan_alat_k_{period_id}",
+                    )
+                harga_satuan = st.number_input("Harga Satuan (Rp)", min_value=1000, step=5000, value=50000, key=f"harga_alat_k_{period_id}")
+                st.caption("Akun otomatis: **1250 - Peralatan** (Aset Tetap)")
+
+            keterangan = st.text_input("Keterangan", placeholder="(opsional)", key=f"ket_alat_k_{period_id}")
+            total = int(qty * harga_satuan)
+            st.caption(f"**Total: {format_rupiah(total)}** | Jatuh tempo standar 30 hari")
+            pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+
+        if pratinjau_btn:
+            if not supplier_nama:
+                st.error("Nama supplier wajib diisi.")
+                return
+            if not nama_peralatan.strip():
+                st.error("Nama peralatan wajib diisi.")
+                return
+            akun_peralatan_id = _cari_akun_peralatan()
+            if not akun_peralatan_id:
+                st.error("Akun 1250 - Peralatan tidak ditemukan dalam Bagan Akun.")
+                return
+            akun_utang_id = _cari_akun_by_kode("2110")
+            if not akun_utang_id:
+                st.error("Akun 2110 - Utang Usaha tidak ditemukan dalam Bagan Akun.")
+                return
+
+            baris = [
+                {"account_id": akun_peralatan_id, "debit": total, "kredit": 0},
+                {"account_id": akun_utang_id, "debit": 0, "kredit": total},
+            ]
+            st.session_state["pratinjau_baris"] = baris
+            label_nama = f"{nama_peralatan} ({qty:g} {satuan_alat})"
+            st.session_state["pratinjau_params"] = {
+                "jenis": "beli_peralatan_kredit",
+                "period_id": period_id,
+                "tanggal": str(tanggal),
+                "supplier_nama": supplier_nama,
+                "nama_peralatan": label_nama,
+                "qty": qty,
+                "harga_satuan": harga_satuan,
+                "akun_peralatan_id": akun_peralatan_id,
+                "akun_utang_id": akun_utang_id,
+                "keterangan": keterangan or f"Beli kredit peralatan {label_nama} dari {supplier_nama}",
+            }
+
+        if "pratinjau_baris" in st.session_state and st.session_state.get("pratinjau_params", {}).get("jenis") == "beli_peralatan_kredit":
+            disimpan = _tampilkan_pratinjau(
+                st.session_state["pratinjau_baris"],
+                st.session_state["pratinjau_params"],
+            )
+            if disimpan:
+                try:
+                    p = st.session_state["pratinjau_params"]
+                    ts.catat_pembelian_peralatan_kredit(
+                        period_id=p["period_id"],
+                        tanggal=p["tanggal"],
+                        supplier_nama=p["supplier_nama"],
+                        nama_peralatan=p["nama_peralatan"],
+                        qty=p["qty"],
+                        harga_satuan=p["harga_satuan"],
+                        akun_peralatan_id=p["akun_peralatan_id"],
+                        akun_utang_id=p["akun_utang_id"],
+                        keterangan=p["keterangan"],
+                    )
+                    st.success(f"✅ Pembelian kredit peralatan **{p['nama_peralatan']}** berhasil dicatat!")
                     _bersihkan_pratinjau()
                     st.cache_data.clear()
                     st.rerun()

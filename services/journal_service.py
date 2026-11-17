@@ -248,9 +248,65 @@ def ambil_jurnal_dengan_baris(entry_id: int) -> dict:
     return {"header": header, "baris": baris}
 
 
+def _tabel_ada(koneksi: sqlite3.Connection, nama_tabel: str) -> bool:
+    """Mengecek apakah suatu tabel ada di database."""
+    row = koneksi.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?", (nama_tabel,)
+    ).fetchone()
+    return bool(row)
+
+
+def _rekalkulasi_kartu_persediaan(koneksi: sqlite3.Connection, item_id: int) -> None:
+    """Menghitung ulang running balance saldo_qty, saldo_nilai, dan harga_rata2 kartu stok."""
+    if not _tabel_ada(koneksi, "inventory_movements"):
+        return
+    rows = koneksi.execute("""
+        SELECT id, tanggal, tipe_gerakan, qty, harga_satuan, total_nilai
+        FROM inventory_movements
+        WHERE item_id = ?
+        ORDER BY tanggal ASC, COALESCE(journal_entry_id, id) ASC, id ASC
+    """, (item_id,)).fetchall()
+
+    saldo_qty = 0.0
+    saldo_nilai = 0
+    harga_rata2 = 0
+
+    for r in rows:
+        m_id = r["id"]
+        tipe = r["tipe_gerakan"]
+        qty = float(r["qty"])
+        harga_satuan = int(r["harga_satuan"])
+
+        if tipe in ("saldo_awal", "masuk"):
+            total_nilai = int(qty * harga_satuan) if tipe == "masuk" else int(r["total_nilai"])
+            saldo_qty += qty
+            saldo_nilai += total_nilai
+            harga_rata2 = int(saldo_nilai / saldo_qty) if saldo_qty > 0 else 0
+            koneksi.execute("""
+                UPDATE inventory_movements
+                SET total_nilai = ?, saldo_qty = ?, saldo_nilai = ?, harga_rata2 = ?
+                WHERE id = ?
+            """, (total_nilai, saldo_qty, saldo_nilai, harga_rata2, m_id))
+        elif tipe == "keluar":
+            if abs(saldo_qty - qty) < 1e-9 or qty >= saldo_qty:
+                total_nilai = saldo_nilai
+                saldo_qty = 0.0
+                saldo_nilai = 0
+                harga_rata2 = 0
+            else:
+                total_nilai = int(qty * harga_rata2)
+                saldo_qty = max(0.0, saldo_qty - qty)
+                saldo_nilai = max(0, saldo_nilai - total_nilai)
+            koneksi.execute("""
+                UPDATE inventory_movements
+                SET harga_satuan = ?, total_nilai = ?, saldo_qty = ?, saldo_nilai = ?, harga_rata2 = ?
+                WHERE id = ?
+            """, (harga_rata2, total_nilai, saldo_qty, saldo_nilai, harga_rata2, m_id))
+
+
 def hapus_jurnal(entry_id: int) -> None:
     """
-    Menghapus jurnal dan semua barisnya (CASCADE dari schema).
+    Menghapus jurnal dan semua relasi terkait (lines, inventory, receivables, attendance).
     Hanya bisa dilakukan jika periode masih 'buka'.
 
     Args:
@@ -258,7 +314,7 @@ def hapus_jurnal(entry_id: int) -> None:
 
     Raises:
         PermissionError : Jika periode sudah ditutup (status = 'tutup').
-        ValueError      : Jika entry_id tidak ditemukan.
+        ValueError      : Jika entry_id tidak ditemukan atau sudah ada pelunasan piutang.
     """
     koneksi = get_connection()
     try:
@@ -279,8 +335,41 @@ def hapus_jurnal(entry_id: int) -> None:
                 "Periode sudah ditutup."
             )
 
-        # Hapus header — journal_lines terhapus otomatis via ON DELETE CASCADE
+        items_terdampak = []
+        # 1. Cek apakah ada pergerakan persediaan terkait
+        if _tabel_ada(koneksi, "inventory_movements"):
+            rows_inv = koneksi.execute(
+                "SELECT DISTINCT item_id FROM inventory_movements WHERE journal_entry_id = ?",
+                (entry_id,)
+            ).fetchall()
+            items_terdampak = [r["item_id"] for r in rows_inv]
+            koneksi.execute("DELETE FROM inventory_movements WHERE journal_entry_id = ?", (entry_id,))
+
+        # 2. Cek piutang terkait
+        if _tabel_ada(koneksi, "receivables"):
+            row_rec = koneksi.execute(
+                "SELECT id, status, jumlah_terbayar FROM receivables WHERE journal_entry_id = ?",
+                (entry_id,)
+            ).fetchone()
+            if row_rec:
+                if row_rec["jumlah_terbayar"] > 0:
+                    raise ValueError("Tidak bisa menghapus jurnal penjualan tempo yang sudah memiliki pembayaran piutang.")
+                koneksi.execute("DELETE FROM receivables WHERE journal_entry_id = ?", (entry_id,))
+
+        # 3. Lepaskan relasi absensi penggajian
+        if _tabel_ada(koneksi, "attendance"):
+            koneksi.execute(
+                "UPDATE attendance SET journal_entry_id = NULL, sudah_dibayar = 0 WHERE journal_entry_id = ?",
+                (entry_id,)
+            )
+
+        # 4. Hapus header — journal_lines terhapus otomatis via ON DELETE CASCADE
         koneksi.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
+
+        # 5. Rekalkulasi kartu stok item yang terdampak
+        for it_id in items_terdampak:
+            _rekalkulasi_kartu_persediaan(koneksi, it_id)
+
         koneksi.commit()
     except Exception as e:
         koneksi.rollback()

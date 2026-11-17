@@ -133,8 +133,8 @@ def ambil_jurnal_pembelian(period_id: int | None = None) -> pd.DataFrame:
             je.tanggal,
             je.no_bukti     AS no_faktur,
             COALESCE(je.pihak_terkait, '-') AS supplier,
-            -- Persediaan & Perlengkapan (D): debit ke persediaan (1140) atau perlengkapan (1130)
-            SUM(CASE WHEN a.kode_akun IN ('1140', '1130') AND jl.debit > 0
+            -- Persediaan, Perlengkapan & Peralatan (D): debit ke persediaan (1140), perlengkapan (1130), atau peralatan/aset (12xx)
+            SUM(CASE WHEN (a.kode_akun IN ('1140', '1130', '1250') OR a.kode_akun LIKE '12%') AND jl.debit > 0
                      THEN jl.debit  ELSE 0 END) AS persediaan_d,
             -- Utang Usaha (K): kredit ke akun utang usaha (2110)
             SUM(CASE WHEN a.kode_akun = '2110' AND jl.kredit > 0

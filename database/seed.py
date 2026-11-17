@@ -386,18 +386,42 @@ def _seed_saldo_awal(
     akun: dict,
 ) -> None:
     """
-    Saldo awal 1 Oktober 2026.
+    Saldo awal 1 November 2026.
     SEMUA ANGKA ADALAH CONTOH — user wajib mengganti dengan data asli.
 
     Kas: Rp500.000.000 (CONTOH)
     Modal Disetor: Rp3.460.000.000 (CONTOH — aset tetap + kas awal + persediaan cabai)
     """
-    catatan = "⚠️ CONTOH - ganti dengan data asli"
+    catatan = "-"
     # Debit: Kas
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
         "account_id": akun["1110"],
         "saldo_debit": 500_000_000,
+        "saldo_kredit": 0,
+        "catatan": catatan,
+    })
+    # Debit: Piutang Usaha
+    _insert(cursor, "opening_balances", {
+        "period_id": period_id,
+        "account_id": akun["1120"],
+        "saldo_debit": 0,
+        "saldo_kredit": 0,
+        "catatan": catatan,
+    })
+    # Debit: Perlengkapan
+    _insert(cursor, "opening_balances", {
+        "period_id": period_id,
+        "account_id": akun["1130"],
+        "saldo_debit": 3_800_000,
+        "saldo_kredit": 0,
+        "catatan": catatan,
+    })
+    # Debit: Persediaan
+    _insert(cursor, "opening_balances", {
+        "period_id": period_id,
+        "account_id": akun["1140"],
+        "saldo_debit": 33_950_000,
         "saldo_kredit": 0,
         "catatan": catatan,
     })
@@ -417,6 +441,14 @@ def _seed_saldo_awal(
         "saldo_kredit": 0,
         "catatan": catatan,
     })
+    # Kredit: Akumulasi Penyusutan Bangunan
+    _insert(cursor, "opening_balances", {
+        "period_id": period_id,
+        "account_id": akun["1221"],
+        "saldo_debit": 0,
+        "saldo_kredit": 12_000_000,
+        "catatan": catatan,
+    })
     # Debit: Kendaraan
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
@@ -425,6 +457,15 @@ def _seed_saldo_awal(
         "saldo_kredit": 0,
         "catatan": catatan,
     })
+    # Kredit: Akumulasi Penyusutan Kendaraan
+    _insert(cursor, "opening_balances", {
+        "period_id": period_id,
+        "account_id": akun["1231"],
+        "saldo_debit": 0,
+        "saldo_kredit": 62_500_000,
+        "catatan": catatan,
+    })
+    
     # Debit: Komputer
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
@@ -433,20 +474,60 @@ def _seed_saldo_awal(
         "saldo_kredit": 0,
         "catatan": catatan,
     })
-    # Debit: Persediaan Cabai Rawit (saldo stok contoh untuk penjualan seed).
+    # Kredit: Akumulasi Penyusutan Komputer
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
-        "account_id": akun["1140"],
-        "saldo_debit": 75_000_000,
-        "saldo_kredit": 0,
-        "catatan": "⚠️ CONTOH - 3.000 kg @ Rp25.000/kg; ganti dengan stok dan harga pokok aktual",
+        "account_id": akun["1241"],
+        "saldo_debit": 0,
+        "saldo_kredit": 7_500_000,
+        "catatan": catatan,
     })
-    # Kredit: Modal Disetor (disesuaikan dengan total aset termasuk persediaan cabai).
+    # Debit: Peralatan
+    _insert(cursor, "opening_balances", {
+        "period_id": period_id,
+        "account_id": akun["1250"],
+        "saldo_debit": 5_405_000,
+        "saldo_kredit": 0,
+        "catatan": "-",
+    })
+    # Kredit: Akumulasi Penyusutan Peralatan
+    _insert(cursor, "opening_balances", {
+        "period_id": period_id,
+        "account_id": akun["1251"],
+        "saldo_debit": 0,
+        "saldo_kredit": 2_955_000,
+        "catatan": catatan,
+    })
+    # Kredit: Utang Usaha
+    _insert(cursor, "opening_balances", {
+        "period_id": period_id,
+        "account_id": akun["2110"],
+        "saldo_debit": 0,
+        "saldo_kredit": 0,
+        "catatan": catatan,
+    })
+    # Kredit: Utang Gaji
+    _insert(cursor, "opening_balances", {
+        "period_id": period_id,
+        "account_id": akun["2210"],
+        "saldo_debit": 0,
+        "saldo_kredit": 0,
+        "catatan": catatan,
+    })
+    # Kredit: Modal Pribadi
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
         "account_id": akun["3110"],
         "saldo_debit": 0,
-        "saldo_kredit": 3_460_000_000,
+        "saldo_kredit": 3_343_200_000,
+        "catatan": catatan,
+    })
+    # Kredit: Laba
+    _insert(cursor, "opening_balances", {
+        "period_id": period_id,
+        "account_id": akun["3120"],
+        "saldo_debit": 0,
+        "saldo_kredit": 0,
         "catatan": catatan,
     })
 

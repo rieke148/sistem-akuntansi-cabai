@@ -779,6 +779,11 @@ def migrasikan_coa_baru() -> None:
             ("1201", "1120", "Piutang Usaha", "Aset"),
             ("1401", "1130", "Perlengkapan", "Aset"),
             ("1301", "1140", "Persediaan", "Aset"),
+            ("1302", "1140", "Persediaan", "Aset"),  # Persediaan Pupuk → gabung ke 1140
+            ("1303", "1140", "Persediaan", "Aset"),  # Persediaan Pupuk NPK → gabung ke 1140
+            ("1304", "1140", "Persediaan", "Aset"),  # Persediaan Pestisida → gabung ke 1140
+            ("1305", "1140", "Persediaan", "Aset"),  # Persediaan Plastik Mulsa → gabung ke 1140
+            ("1306", "1140", "Persediaan", "Aset"),  # Persediaan Bambu → gabung ke 1140
             ("1307", "1140", "Persediaan", "Aset"),  # akan digabung
             # Aset Tetap
             ("1501",  "1210", "Tanah",                            "Aset"),
@@ -987,6 +992,10 @@ def migrasikan_coa_baru() -> None:
         raise
     finally:
         koneksi.close()
+
+
+# Alias untuk backward-compatibility dan test suite
+migrasikan_coa_cabai_baru = migrasikan_coa_baru
 
 
 if __name__ == "__main__":
