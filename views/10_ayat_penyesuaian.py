@@ -309,5 +309,6 @@ def tampilkan() -> None:
             _tab_akrual_upah(period_id, tanggal_str, akun_ids)
 
 
-# Panggil fungsi utama
+from services.permission_service import wajib_punya_izin
+wajib_punya_izin("reports.manage")
 tampilkan()
