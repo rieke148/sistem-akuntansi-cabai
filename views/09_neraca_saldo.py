@@ -188,5 +188,6 @@ def tampilkan() -> None:
         )
 
 
-# Panggil fungsi utama
+from services.permission_service import wajib_punya_izin
+wajib_punya_izin("reports.view")
 tampilkan()

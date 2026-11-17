@@ -382,13 +382,24 @@ def tampilkan() -> None:
         icon=True,
     )
 
-    _section_backup_database()
-    st.divider()
-    _section_export_laporan()
-    st.divider()
-    _section_restore_database()
-    st.divider()
-    _section_reset_database()
+    # Backup database, restore, dan reset hanya untuk role dengan izin khusus.
+    if punya_izin("backup.restore"):
+        _section_backup_database()
+        st.divider()
+        _section_restore_database()
+        st.divider()
+        _section_reset_database()
+    else:
+        st.info("Backup database, restore, dan reset hanya dapat dilakukan pengguna yang diberi izin khusus.")
+
+    # Ekspor laporan diperiksa terpisah dari izin restore database.
+    if punya_izin("backup.export"):
+        st.divider()
+        _section_export_laporan()
+    else:
+        st.info("Akun Anda tidak memiliki izin untuk mengekspor data.")
 
 
+from services.permission_service import punya_izin, wajib_punya_izin
+wajib_punya_izin("backup.access")
 tampilkan()
