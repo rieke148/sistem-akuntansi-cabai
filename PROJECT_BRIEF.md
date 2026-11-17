@@ -110,7 +110,7 @@ sistem-akuntansi-cabai/
 | `journal_entries` | header jurnal: tanggal, no bukti, `journal_type`, keterangan, klasifikasi (`cabai` untuk transaksi budidaya atau `umum` untuk jurnal umum), pihak terkait |
 | `journal_lines` | baris jurnal: akun, debit, kredit |
 | `customers`, `suppliers` | pelanggan (restoran, supermarket, UMKM), supplier (Toko Sido Panen) |
-| `items` | bibit, pupuk, NPK, pestisida, plastik mulsa, bambu, cabai (kg) |
+| `items` | barang dagang cabai hasil panen (kg); item bahan lama hanya disimpan sebagai arsip nonaktif |
 | `inventory_movements` | kartu stok: masuk/keluar, qty, harga, saldo |
 | `employees`, `attendance` | pekerja & hari kerja (tetap Rp90.000, tambahan Rp120.000) |
 | `fixed_assets` | aset tetap, harga, umur, tanggal perolehan, nilai residu |
