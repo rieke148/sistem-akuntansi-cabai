@@ -110,7 +110,7 @@ def test_admin_terakhir_tidak_bisa_dinonaktifkan(auth_db):
         "setup-secret-yang-panjang-2026", "setup-secret-yang-panjang-2026",
     )
     with pytest.raises(ValueError, match="terakhir"):
-        auth_service.ubah_status_pengguna(admin_id, False, actor_user_id=999)
+        auth_service.ubah_status_pengguna(admin_id, False, actor_user_id=admin_id)
 
 
 def test_akun_duplikat_ditolak(auth_db):
@@ -151,3 +151,23 @@ def test_perubahan_role_membatalkan_versi_session(auth_db):
     auth_service.ubah_role_pengguna(user_id, "inventory", actor_user_id=admin_id)
     sesudah = auth_service.ambil_pengguna(user_id)["session_version"]
     assert sesudah == sebelum + 1
+
+
+def test_non_admin_tidak_bisa_mengelola_pengguna(auth_db):
+    admin_id = auth_service.buat_admin_pertama(
+        "owner01", "Pemilik Sistem", "PasswordAman!2026",
+        "setup-secret-yang-panjang-2026", "setup-secret-yang-panjang-2026",
+    )
+    accountant_id = auth_service.buat_pengguna(
+        "accountant01", "Akuntan", "PasswordAman!2026",
+        "accountant", actor_user_id=admin_id,
+    )
+    with pytest.raises(PermissionError, match="Hanya Admin"):
+        auth_service.buat_pengguna(
+            "inventory01", "Petugas Gudang", "PasswordAman!2026",
+            "inventory", actor_user_id=accountant_id,
+        )
+    with pytest.raises(PermissionError, match="Hanya Admin"):
+        auth_service.ubah_status_pengguna(
+            admin_id, False, actor_user_id=accountant_id
+        )
