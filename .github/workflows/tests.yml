@@ -38,3 +38,15 @@ jobs:
         run: python -m compileall -q app.py database services utils views
       - name: Run test suite
         run: python -m pytest tests/ -v
+      - name: Read-only HPP migration preflight
+        shell: bash
+        run: |
+          set +e
+          python scripts/migrasi_hpp_data_contoh.py > "${RUNNER_TEMP}/hpp-preview.log" 2>&1
+          status=$?
+          if [ "$status" -eq 0 ]; then
+            echo "Read-only HPP migration preflight completed."
+          else
+            echo "::error::Read-only HPP migration preflight failed; inspect the local database privately."
+          fi
+          exit "$status"
