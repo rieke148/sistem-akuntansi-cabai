@@ -386,7 +386,7 @@ def _seed_saldo_awal(
     SEMUA ANGKA ADALAH CONTOH — user wajib mengganti dengan data asli.
 
     Kas: Rp500.000.000 (CONTOH)
-    Modal Disetor: Rp3.460.000.000 (CONTOH — aset tetap + kas awal + persediaan cabai)
+    Modal Disetor: Rp3.384.250.000 (CONTOH — aset tetap + kas awal + persediaan cabai)
     """
     catatan = "-"
     # Debit: Kas
@@ -417,7 +417,7 @@ def _seed_saldo_awal(
     _insert(cursor, "opening_balances", {
         "period_id": period_id,
         "account_id": akun["1140"],
-        "saldo_debit": 33_950_000,
+        "saldo_debit": 75_000_000,
         "saldo_kredit": 0,
         "catatan": catatan,
     })
@@ -515,7 +515,7 @@ def _seed_saldo_awal(
         "period_id": period_id,
         "account_id": akun["3110"],
         "saldo_debit": 0,
-        "saldo_kredit": 3_343_200_000,
+        "saldo_kredit": 3_384_250_000,
         "catatan": catatan,
     })
     # Kredit: Laba
