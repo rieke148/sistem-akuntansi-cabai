@@ -150,3 +150,15 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 8. Logout dijalankan melalui `permission_service.keluar_pengguna()`. State sesi selalu dibersihkan meskipun penulisan audit log gagal.
 
 **Contoh masa sesi:** batas idle adalah 8 jam. Jika aktivitas terakhir pukul 08.00 dan pengguna tidak berinteraksi sampai pukul 16.01, sesi berakhir dan pengguna harus login kembali.
+
+
+## 4. Alur Otorisasi Berbasis Permission (RBAC)
+
+1. `services/auth_service.py` mendefinisikan daftar permission dan matriks izin untuk Admin/Owner, Akuntan, Petugas Gudang, dan Pimpinan.
+2. Ketika aplikasi mulai, `inisialisasi_otorisasi()` menyelaraskan tabel `role_permissions` dengan matriks di kode. Relasi lama untuk setiap role dihapus lalu dibuat ulang, sehingga permission yang dicabut tidak tertinggal.
+3. `app.py` menyusun menu navigasi berdasarkan hasil `punya_izin()`. Menu yang tidak diizinkan tidak ditampilkan.
+4. Setiap halaman memanggil `wajib_punya_izin()` sebelum fungsi tampilan dijalankan. Penyembunyian menu bukan satu-satunya lapisan pemeriksaan.
+5. Di dalam halaman, tindakan khusus diperiksa lagi. Contohnya: transaksi keuangan berbeda dari transaksi persediaan; penggajian dapat berupa pengelolaan atau hanya membaca ringkasan; backup database/restore berbeda dari ekspor laporan.
+6. Pimpinan mendapatkan akses baca-saja sesuai permission. Petugas Gudang hanya mendapatkan fitur persediaan yang diberikan. Akuntan dapat menjalankan proses akuntansi tetapi tidak mengelola akun pengguna atau memulihkan database.
+
+**Batas arsitektur:** service akuntansi tetap tidak mengimpor Streamlit. Pemeriksaan sesi dan permission dilakukan pada lapisan tampilan Streamlit sebelum memanggil service. Jika kelak service dipanggil dari API atau proses lain, lapisan tersebut perlu menambahkan mekanisme otorisasi non-Streamlit tersendiri.
