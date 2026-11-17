@@ -54,8 +54,8 @@ PERMISSIONS = {
     "reports.manage": ("Proses Laporan dan Penyesuaian", "Laporan", "Mengelola penyesuaian dan proses laporan."),
     "closing.manage": ("Proses Jurnal Penutup", "Penutupan", "Menjalankan proses jurnal penutup."),
     "backup.access": ("Buka Backup dan Export", "Utilitas", "Membuka fitur backup dan export."),
-    "backup.export": ("Export Data", "Utilitas", "Mengunduh laporan dan backup."),
-    "backup.restore": ("Restore Database", "Utilitas", "Memulihkan database dari file backup."),
+    "backup.export": ("Export Data", "Utilitas", "Mengunduh laporan keuangan dan data yang diizinkan."),
+    "backup.restore": ("Backup dan Restore Database", "Utilitas", "Mengunduh backup database, memulihkan database, dan mereset data contoh."),
     "users.manage": ("Kelola Pengguna", "Administrasi", "Membuat dan mengelola akun pengguna."),
     "audit.view": ("Lihat Audit Log", "Administrasi", "Melihat catatan aktivitas sistem."),
 }
