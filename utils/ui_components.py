@@ -181,11 +181,6 @@ def tag_status(status: str) -> None:
     sac.tags([sac.Tag(label=label, color=warna)])
 
 
-def divider_dengan_judul(judul: str, icon: str = "chevron-right") -> None:
-    """Menampilkan divider dengan judul bergaya Ant Design."""
-    sac.divider(label=judul, icon=icon, align="left", color="gray")
-
-
 # ---------------------------------------------------------------
 # PEMILIH PERIODE FLEKSIBEL & KALENDER (Bulan Ini, Bulan Lalu, dll)
 # ---------------------------------------------------------------

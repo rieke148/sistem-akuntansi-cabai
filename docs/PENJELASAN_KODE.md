@@ -224,3 +224,14 @@ Kertas kerja 10 kolom menghubungkan seluruh proses dari neraca saldo hingga lapo
 - Backup database/restore/reset memerlukan `backup.restore`, sedangkan ekspor laporan memerlukan `backup.export`.
 
 **Catatan arsitektur:** service di folder `services/` tetap bebas dari Streamlit sesuai aturan proyek. Karena itu, pemeriksaan session dan permission saat ini menjadi tanggung jawab lapisan `views/` dan `app.py`. Jika kelak service diakses dari API atau worker, otorisasi untuk jalur tersebut harus ditambahkan secara terpisah.
+
+
+## Antarmuka dan komponen visual
+
+1. `app.py` menampilkan identitas perusahaan dan pengguna aktif di sidebar, kemudian menyusun halaman melalui `st.navigation` sesuai permission.
+2. `theme.py` menjadi sumber warna visual aplikasi. `.streamlit/config.toml` menerapkan tema pada komponen bawaan Streamlit.
+3. `utils/ui_components.py` menyediakan komponen bersama: header halaman, header bagian, kartu metrik, alert status, indikator siklus, dan pemilih periode.
+4. Setiap file di `views/` tetap bertanggung jawab pada tampilan halaman masing-masing. Perhitungan akuntansi tetap dipanggil dari `services/`.
+5. Dashboard hanya memakai hasil query dari `services/dashboard_service.py`; angka tidak dibuat untuk sekadar mengisi kartu atau grafik.
+6. Implementasi visual ditulis menggunakan Python dan API Streamlit/komponen Python yang sudah menjadi dependensi proyek. Tidak ada HTML, CSS, maupun JavaScript manual di source aplikasi.
+7. Batas data: tabel `inventory_movements` belum menyimpan `blok_id`, sehingga dashboard tidak menyajikan sebaran panen per blok sampai relasi tersebut memang tersedia di model data.
