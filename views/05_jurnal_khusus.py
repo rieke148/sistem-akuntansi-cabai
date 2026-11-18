@@ -22,7 +22,6 @@ CATATAN AKUNTANSI:
 
 import streamlit as st
 import pandas as pd
-import streamlit_antd_components as sac
 from database.connection import get_connection
 from services.special_journal_service import (
     ambil_jurnal_penjualan,
@@ -32,7 +31,7 @@ from services.special_journal_service import (
     hitung_total_kolom,
 )
 from utils.formatting import format_rupiah, format_tanggal
-from utils.ui_components import divider_dengan_judul, selector_periode, render_page_header
+from utils.ui_components import divider_dengan_judul, selector_periode, render_page_header, render_alert
 from theme import WARNA_PRIMER
 
 
@@ -83,12 +82,13 @@ def _tampilkan_total_kolom(
         total     : Dict {nama_kolom_internal: nilai_integer}.
         label_map : Dict {nama_kolom_internal: label_tampilan}.
     """
-    sac.divider(label="Total Kolom", icon="sigma", align="center", color=warna)
+    divider_dengan_judul("Total Kolom")
     cols = st.columns(len(total))
     for i, (col_key, nilai) in enumerate(total.items()):
         label = label_map.get(col_key, col_key)
         with cols[i]:
-            st.metric(label=label, value=format_rupiah(nilai))
+            with st.container(border=True):
+                st.metric(label=label, value=format_rupiah(nilai))
 
 
 def _tampilkan_pesan_kosong(jenis: str) -> None:
@@ -159,18 +159,19 @@ def _tampilkan_jurnal_penjualan(period_id: int | None) -> None:
         "HPP Penjualan (D)", "Persediaan (1140) (K)",
     ]
 
-    st.dataframe(
-        df_tampil[kolom_tampil],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Pelanggan": st.column_config.TextColumn(width="medium"),
-            "Keterangan": st.column_config.TextColumn(width="large"),
-            "Piutang Usaha (D)": st.column_config.TextColumn(width="medium"),
-            "Penjualan (K)": st.column_config.TextColumn(width="medium"),
-            "Ref": st.column_config.TextColumn(width="small"),
-        },
-    )
+    with st.container(border=True):
+        st.dataframe(
+            df_tampil[kolom_tampil],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Pelanggan": st.column_config.TextColumn(width="medium"),
+                "Keterangan": st.column_config.TextColumn(width="large"),
+                "Piutang Usaha (D)": st.column_config.TextColumn(width="medium"),
+                "Penjualan (K)": st.column_config.TextColumn(width="medium"),
+                "Ref": st.column_config.TextColumn(width="small"),
+            },
+        )
 
     st.caption(f"Total {len(df)} transaksi penjualan tempo.")
 
@@ -189,7 +190,7 @@ def _tampilkan_jurnal_penjualan(period_id: int | None) -> None:
     pasangan_penjualan_seimbang = total["piutang_d"] == total["penjualan_k"]
     pasangan_hpp_seimbang = total["hpp_d"] == total["persediaan_k"]
     if pasangan_penjualan_seimbang and pasangan_hpp_seimbang:
-        sac.alert(
+        render_alert(
             label="Jurnal Seimbang ✅",
             description=(
                 f"Piutang = Penjualan = {format_rupiah(total['piutang_d'])}; "
@@ -198,7 +199,7 @@ def _tampilkan_jurnal_penjualan(period_id: int | None) -> None:
             color="success", icon=True,
         )
     else:
-        sac.alert(
+        render_alert(
             label="Peringatan: Kolom Tidak Seimbang",
             description=(
                 f"Piutang (D): {format_rupiah(total['piutang_d'])} | "
@@ -230,7 +231,7 @@ def _tampilkan_jurnal_pembelian(period_id: int | None) -> None:
     )
 
     # Catatan khusus tentang kondisi riil usaha
-    sac.alert(
+    render_alert(
         label="Catatan Observasi Lapangan",
         description=(
             "Berdasarkan wawancara dengan Bapak Hanif Margan Asparingga (Agronomist Utama), "
@@ -267,16 +268,17 @@ def _tampilkan_jurnal_pembelian(period_id: int | None) -> None:
         "Ref", "Persediaan (D)", "Utang Usaha (K)",
     ]
 
-    st.dataframe(
-        df_tampil[kolom_tampil],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Persediaan (D)": st.column_config.TextColumn(width="medium"),
-            "Utang Usaha (K)": st.column_config.TextColumn(width="medium"),
-            "Ref": st.column_config.TextColumn(width="small"),
-        },
-    )
+    with st.container(border=True):
+        st.dataframe(
+            df_tampil[kolom_tampil],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Persediaan (D)": st.column_config.TextColumn(width="medium"),
+                "Utang Usaha (K)": st.column_config.TextColumn(width="medium"),
+                "Ref": st.column_config.TextColumn(width="small"),
+            },
+        )
 
     st.caption(f"Total {len(df)} transaksi pembelian kredit.")
 
@@ -289,7 +291,7 @@ def _tampilkan_jurnal_pembelian(period_id: int | None) -> None:
     )
 
     if total["persediaan_d"] == total["utang_k"]:
-        sac.alert(
+        render_alert(
             label="Jurnal Seimbang ✅",
             description=f"Total Persediaan = Total Utang = {format_rupiah(total['persediaan_d'])}",
             color="success", icon=True,
@@ -349,19 +351,20 @@ def _tampilkan_jurnal_penerimaan_kas(period_id: int | None) -> None:
         "HPP Penjualan (D)", "Persediaan (1140) (K)",
     ]
 
-    st.dataframe(
-        df_tampil[kolom_tampil],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Keterangan": st.column_config.TextColumn(width="large"),
-            "Kas (D)": st.column_config.TextColumn(width="medium"),
-            "Piutang (K)": st.column_config.TextColumn(width="medium"),
-            "Penjualan (K)": st.column_config.TextColumn(width="medium"),
-            "Lain-lain (K)": st.column_config.TextColumn(width="medium"),
-            "Ref": st.column_config.TextColumn(width="small"),
-        },
-    )
+    with st.container(border=True):
+        st.dataframe(
+            df_tampil[kolom_tampil],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Keterangan": st.column_config.TextColumn(width="large"),
+                "Kas (D)": st.column_config.TextColumn(width="medium"),
+                "Piutang (K)": st.column_config.TextColumn(width="medium"),
+                "Penjualan (K)": st.column_config.TextColumn(width="medium"),
+                "Lain-lain (K)": st.column_config.TextColumn(width="medium"),
+                "Ref": st.column_config.TextColumn(width="small"),
+            },
+        )
 
     st.caption(f"Total {len(df)} transaksi penerimaan kas.")
 
@@ -382,7 +385,7 @@ def _tampilkan_jurnal_penerimaan_kas(period_id: int | None) -> None:
     # Validasi penerimaan kas tetap: kas_d == piutang_k + penjualan_k + lain_lain_k
     total_kredit = total["piutang_k"] + total["penjualan_k"] + total["lain_lain_k"]
     if total["kas_d"] == total_kredit:
-        sac.alert(
+        render_alert(
             label="Jurnal Seimbang ✅",
             description=(
                 f"Total Kas (D) = Total Kredit = {format_rupiah(total['kas_d'])}\n"
@@ -393,7 +396,7 @@ def _tampilkan_jurnal_penerimaan_kas(period_id: int | None) -> None:
             color="success", icon=True,
         )
     else:
-        sac.alert(
+        render_alert(
             label="Peringatan: Total Tidak Seimbang",
             description=(
                 f"Kas (D): {format_rupiah(total['kas_d'])} ≠ "
@@ -458,21 +461,22 @@ def _tampilkan_jurnal_pengeluaran_kas(period_id: int | None) -> None:
         "HPP (5110) (D)", "Beban Operasional (D)", "Lain-lain (D)",
     ]
 
-    st.dataframe(
-        df_tampil[kolom_tampil],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Keterangan": st.column_config.TextColumn(width="large"),
-            "Kas (K)": st.column_config.TextColumn(width="medium"),
-            "Persediaan (D)": st.column_config.TextColumn(width="medium"),
-            "Beban Gaji (D)": st.column_config.TextColumn(width="medium"),
-            "HPP (5110) (D)": st.column_config.TextColumn(width="medium"),
-            "Beban Operasional (D)": st.column_config.TextColumn(width="medium"),
-            "Lain-lain (D)": st.column_config.TextColumn(width="medium"),
-            "Ref": st.column_config.TextColumn(width="small"),
-        },
-    )
+    with st.container(border=True):
+        st.dataframe(
+            df_tampil[kolom_tampil],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Keterangan": st.column_config.TextColumn(width="large"),
+                "Kas (K)": st.column_config.TextColumn(width="medium"),
+                "Persediaan (D)": st.column_config.TextColumn(width="medium"),
+                "Beban Gaji (D)": st.column_config.TextColumn(width="medium"),
+                "HPP (5110) (D)": st.column_config.TextColumn(width="medium"),
+                "Beban Operasional (D)": st.column_config.TextColumn(width="medium"),
+                "Lain-lain (D)": st.column_config.TextColumn(width="medium"),
+                "Ref": st.column_config.TextColumn(width="small"),
+            },
+        )
 
     st.caption(f"Total {len(df)} transaksi pengeluaran kas.")
 
@@ -497,7 +501,7 @@ def _tampilkan_jurnal_pengeluaran_kas(period_id: int | None) -> None:
         + total["lain_lain_d"]
     )
     if total["kas_k"] == total_debit:
-        sac.alert(
+        render_alert(
             label="Jurnal Seimbang ✅",
             description=(
                 f"Total Kas (K) = Total Debit = {format_rupiah(total['kas_k'])}\n"
@@ -510,7 +514,7 @@ def _tampilkan_jurnal_pengeluaran_kas(period_id: int | None) -> None:
             color="success", icon=True,
         )
     else:
-        sac.alert(
+        render_alert(
             label="Peringatan: Total Tidak Seimbang",
             description=(
                 f"Kas (K): {format_rupiah(total['kas_k'])} ≠ "
@@ -567,16 +571,17 @@ def tampilkan() -> None:
     st.divider()
 
     # ---- 4 Tab Jurnal Khusus ----
-    tab_dipilih = sac.tabs(
-        items=[
-            sac.TabsItem(label="Jurnal Penjualan", icon="cart-check"),
-            sac.TabsItem(label="Jurnal Pembelian", icon="cart-plus"),
-            sac.TabsItem(label="Penerimaan Kas", icon="cash-coin"),
-            sac.TabsItem(label="Pengeluaran Kas", icon="cash-stack"),
+    tab_dipilih = st.radio(
+        "Pilih Jurnal",
+        options=[
+            "Jurnal Penjualan",
+            "Jurnal Pembelian",
+            "Penerimaan Kas",
+            "Pengeluaran Kas",
         ],
-        color=WARNA_PRIMER,
-        return_index=False,
+        horizontal=True,
         key="tab_jurnal_khusus",
+        label_visibility="collapsed",
     )
 
     st.divider()

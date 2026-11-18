@@ -162,3 +162,14 @@ Semua perhitungan finansial bersumber dari baris jurnal di tabel `journal_lines`
 6. Pimpinan mendapatkan akses baca-saja sesuai permission. Petugas Gudang hanya mendapatkan fitur persediaan yang diberikan. Akuntan dapat menjalankan proses akuntansi tetapi tidak mengelola akun pengguna atau memulihkan database.
 
 **Batas arsitektur:** service akuntansi tetap tidak mengimpor Streamlit. Pemeriksaan sesi dan permission dilakukan pada lapisan tampilan Streamlit sebelum memanggil service. Jika kelak service dipanggil dari API atau proses lain, lapisan tersebut perlu menambahkan mekanisme otorisasi non-Streamlit tersendiri.
+
+
+## Pembaruan antarmuka Python-native
+
+- Seluruh halaman menggunakan satu pola kepala halaman melalui `render_page_header()`.
+- Ringkasan angka ditampilkan sebagai kartu melalui `render_metric_card()`.
+- Panel data dan grafik memakai container native Streamlit.
+- Warna utama, latar, teks, status, dan palet grafik dikelola terpusat melalui `theme.py` dan `.streamlit/config.toml`.
+- Dashboard mengambil kas, piutang jatuh tempo, penjualan, HPP, persediaan, dan progress siklus dari `services/dashboard_service.py`.
+- UI tidak menambahkan kode HTML, CSS, atau JavaScript buatan aplikasi.
+- Grafik distribusi hasil panen per blok belum ditampilkan karena relasi mutasi persediaan ke blok belum tersedia pada skema saat ini. Dashboard tidak menggunakan angka contoh untuk menutup kekosongan tersebut.

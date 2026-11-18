@@ -107,11 +107,13 @@ def _tampilkan_rekap_absensi(period_id: int) -> None:
         "sudah_dibayar_m2": "M2",
     })
 
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     # Total upah bulan ini
     total_upah_bulan = int(df["total_upah"].sum())
-    st.metric("💰 Total Upah Bulan Ini", format_rupiah(total_upah_bulan))
+    with st.container(border=True):
+        st.metric("💰 Total Upah Bulan Ini", format_rupiah(total_upah_bulan))
 
 
 def _form_input_absensi(
@@ -143,7 +145,8 @@ def _form_input_absensi(
             "nama": "Pekerja", "tipe_pekerja": "Tipe",
             "upah_harian": "Upah/Hari", "hari_kerja": "Hari Kerja", "total_upah": "Total Upah"
         })
-        st.dataframe(df_view, use_container_width=True, hide_index=True)
+        with st.container(border=True):
+            st.dataframe(df_view, use_container_width=True, hide_index=True)
         return
 
     st.subheader(f"📝 Input Hari Kerja — {label_minggu}")
@@ -190,7 +193,8 @@ def _form_input_absensi(
             for p in semua_pekerja
         )
         st.divider()
-        st.metric("💰 Preview Total Upah", format_rupiah(total_preview))
+        with st.container(border=True):
+            st.metric("💰 Preview Total Upah", format_rupiah(total_preview))
 
         metode_bayar = st.radio(
             "Metode Pembayaran",

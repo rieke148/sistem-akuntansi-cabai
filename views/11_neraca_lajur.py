@@ -12,8 +12,7 @@ import pandas as pd
 from database.connection import get_connection
 from services.worksheet_service import buat_neraca_lajur, hitung_laba_rugi_dari_lajur, validasi_neraca_lajur
 from utils.formatting import format_rupiah
-from utils.ui_components import selector_periode, render_page_header
-import streamlit_antd_components as sac
+from utils.ui_components import selector_periode, render_page_header, render_alert, divider_dengan_judul
 
 
 # ---------------------------------------------------------------------------
@@ -55,20 +54,20 @@ def _format_tabel_lajur(df: pd.DataFrame) -> pd.DataFrame:
 
 def _tampilkan_ringkasan_validasi(validasi: dict) -> None:
     """Menampilkan hasil validasi keseimbangan neraca lajur."""
-    sac.divider(label="Validasi Keseimbangan", icon="check-circle", align="center")
+    divider_dengan_judul("Validasi Keseimbangan")
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
         if validasi["ns_seimbang"]:
-            sac.alert(
+            render_alert(
                 label="Neraca Saldo Seimbang ✓",
                 description=f"D = K = {format_rupiah(validasi['ns_total_debit'])}",
                 color="success",
                 icon=True,
             )
         else:
-            sac.alert(
+            render_alert(
                 label="Neraca Saldo Tidak Seimbang!",
                 description=(
                     f"Debit: {format_rupiah(validasi['ns_total_debit'])}\n"
@@ -80,14 +79,14 @@ def _tampilkan_ringkasan_validasi(validasi: dict) -> None:
 
     with col2:
         if validasi["nsd_seimbang"]:
-            sac.alert(
+            render_alert(
                 label="NS Disesuaikan Seimbang ✓",
                 description=f"D = K = {format_rupiah(validasi['nsd_total_debit'])}",
                 color="success",
                 icon=True,
             )
         else:
-            sac.alert(
+            render_alert(
                 label="NS Disesuaikan Tidak Seimbang!",
                 description=(
                     f"Debit: {format_rupiah(validasi['nsd_total_debit'])}\n"
@@ -100,14 +99,14 @@ def _tampilkan_ringkasan_validasi(validasi: dict) -> None:
     with col3:
         laba = validasi["laba_bersih"]
         if laba >= 0:
-            sac.alert(
+            render_alert(
                 label=f"Laba Bersih: {format_rupiah(laba)}",
                 description="Neraca seimbang dengan laba ditambahkan ke ekuitas.",
                 color="success",
                 icon=True,
             )
         else:
-            sac.alert(
+            render_alert(
                 label=f"Rugi Bersih: {format_rupiah(abs(laba))}",
                 description="Neraca seimbang dengan rugi mengurangi ekuitas.",
                 color="warning",
@@ -163,7 +162,7 @@ def tampilkan() -> None:
         df_lajur = buat_neraca_lajur(period_id)
 
     if df_lajur.empty:
-        sac.alert(
+        render_alert(
             label="Belum ada data transaksi untuk periode ini.",
             description="Input transaksi terlebih dahulu, kemudian buat ayat penyesuaian.",
             color="info",
@@ -182,7 +181,7 @@ def tampilkan() -> None:
     # -------------------------------------------------------------------
     # Tampilkan tabel neraca lajur lengkap
     # -------------------------------------------------------------------
-    sac.divider(label="Tabel Neraca Lajur", icon="table", align="center")
+    divider_dengan_judul("Tabel Neraca Lajur")
 
     # Format tampilan
     df_tampil = df_lajur.copy()
@@ -213,21 +212,22 @@ def tampilkan() -> None:
             )
 
     # Tampilkan dengan height yang proporsional
-    st.dataframe(
-        df_tampil,
-        use_container_width=True,
-        height=min(800, 50 + len(df_tampil) * 35),
-        column_config={
-            "Kode": st.column_config.TextColumn("Kode", width="small"),
-            "Nama Akun": st.column_config.TextColumn("Nama Akun", width="medium"),
-        }
-    )
+    with st.container(border=True):
+        st.dataframe(
+            df_tampil,
+            use_container_width=True,
+            height=min(800, 50 + len(df_tampil) * 35),
+            column_config={
+                "Kode": st.column_config.TextColumn("Kode", width="small"),
+                "Nama Akun": st.column_config.TextColumn("Nama Akun", width="medium"),
+            }
+        )
 
     # -------------------------------------------------------------------
     # Baris total (footer)
     # -------------------------------------------------------------------
     st.divider()
-    sac.divider(label="Total Kolom", icon="sigma", align="center")
+    divider_dengan_judul("Total Kolom")
 
     col_labels = st.columns([2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
     headers = ["", "NS Debit", "NS Kredit", "Peny D", "Peny K",

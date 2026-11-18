@@ -71,9 +71,11 @@ def _tampilkan_daftar_penyesuaian(period_id: int) -> None:
     total_penyesuaian = int(df["total_debit"].sum())
     kol_m1, kol_m2 = st.columns(2)
     with kol_m1:
-        st.metric("📝 Jumlah Ayat Penyesuaian", f"{len(df)} jurnal")
+        with st.container(border=True):
+            st.metric("📝 Jumlah Ayat Penyesuaian", f"{len(df)} jurnal")
     with kol_m2:
-        st.metric("💰 Total Penyesuaian", format_rupiah(total_penyesuaian))
+        with st.container(border=True):
+            st.metric("💰 Total Penyesuaian", format_rupiah(total_penyesuaian))
 
     # Tampilkan tabel
     df_tampil = df.copy()
@@ -87,7 +89,8 @@ def _tampilkan_daftar_penyesuaian(period_id: int) -> None:
         "total_debit": "Debit",
         "total_kredit": "Kredit",
     })
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
     # Tombol hapus (per no_bukti)
     with st.expander("🗑️ Hapus Penyesuaian"):
@@ -145,10 +148,12 @@ def _tab_penyusutan(period_id: int, tanggal_penyesuaian: str) -> None:
         "umur_ekonomis_tahun": "Umur (Tahun)",
         "penyusutan_per_bulan": "Penyusutan/Bulan",
     })
-    st.dataframe(df_preview, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_preview, use_container_width=True, hide_index=True)
 
     total_penyusutan = int(df_disusutkan["penyusutan_per_bulan"].sum())
-    st.metric("💰 Total Penyusutan Bulan Ini", format_rupiah(total_penyusutan))
+    with st.container(border=True):
+        st.metric("💰 Total Penyusutan Bulan Ini", format_rupiah(total_penyusutan))
 
     # Cek apakah sudah dibuat
     sudah_ada = cek_penyesuaian_sudah_ada(period_id, "penyusutan")

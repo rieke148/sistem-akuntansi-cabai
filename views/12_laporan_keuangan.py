@@ -26,9 +26,8 @@ from utils.export import (
     export_dataframe_ke_pdf,
     export_laporan_keuangan_ke_excel,
 )
-from utils.ui_components import selector_periode, render_page_header
+from utils.ui_components import selector_periode, render_page_header, render_alert, divider_dengan_judul
 import services.period_service as ps
-import streamlit_antd_components as sac
 
 
 # ---------------------------------------------------------------------------
@@ -81,7 +80,7 @@ def _tab_laba_rugi(period_id: int) -> None:
     st.divider()
 
     # Pendapatan
-    sac.divider(label="Pendapatan", align="left")
+    divider_dengan_judul("Pendapatan")
     for item in data["pendapatan"]:
         _baris_rupiah(item["nama_akun"], item["jumlah"], indent=1)
     _garis_tipis()
@@ -90,7 +89,7 @@ def _tab_laba_rugi(period_id: int) -> None:
     st.markdown("")
 
     # HPP Penjualan
-    sac.divider(label="Harga Pokok Penjualan (HPP)", align="left")
+    divider_dengan_judul("Harga Pokok Penjualan (HPP)")
     for item in data["hpp_penjualan"]:
         _baris_rupiah(item["nama_akun"], item["jumlah"], indent=1)
     _garis_tipis()
@@ -100,7 +99,7 @@ def _tab_laba_rugi(period_id: int) -> None:
     st.markdown("")
 
     # Beban produksi selain HPP
-    sac.divider(label="Beban Produksi Lain", align="left")
+    divider_dengan_judul("Beban Produksi Lain")
     for item in data["beban_produksi_lain"]:
         _baris_rupiah(item["nama_akun"], item["jumlah"], indent=1)
     _garis_tipis()
@@ -110,7 +109,7 @@ def _tab_laba_rugi(period_id: int) -> None:
     st.markdown("")
 
     # Beban Operasional
-    sac.divider(label="Beban Operasional", align="left")
+    divider_dengan_judul("Beban Operasional")
     for item in data["beban_operasional"]:
         _baris_rupiah(item["nama_akun"], item["jumlah"], indent=1)
     _garis_tipis()
@@ -127,14 +126,14 @@ def _tab_laba_rugi(period_id: int) -> None:
     laba = data["laba_bersih"]
     label_laba = "LABA BERSIH" if laba >= 0 else "RUGI BERSIH"
     if laba >= 0:
-        sac.alert(
+        render_alert(
             label=f"{label_laba}: {format_rupiah(laba)}",
             description="Pendapatan melebihi total beban.",
             color="success",
             icon=True,
         )
     else:
-        sac.alert(
+        render_alert(
             label=f"{label_laba}: {format_rupiah(abs(laba))}",
             description="Beban melebihi pendapatan. Usahakan efisiensi biaya.",
             color="error",
@@ -165,7 +164,7 @@ def _tab_perubahan_ekuitas(period_id: int, laba_bersih: int) -> int:
         if is_total:
             st.markdown("---")
             _baris_rupiah(label, jumlah)
-            sac.alert(
+            render_alert(
                 label=f"Modal Akhir: {format_rupiah(jumlah)}",
                 description="Modal akhir ini akan muncul di Neraca sisi ekuitas.",
                 color="success" if jumlah >= 0 else "error",
@@ -197,7 +196,7 @@ def _tab_neraca(period_id: int, modal_akhir: int) -> None:
 
     # ---- Kolom Kiri: ASET ----
     with col_kiri:
-        sac.divider(label="ASET", align="left")
+        divider_dengan_judul("ASET")
 
         # Aset Lancar
         st.markdown("**Aset Lancar**")
@@ -226,7 +225,7 @@ def _tab_neraca(period_id: int, modal_akhir: int) -> None:
 
     # ---- Kolom Kanan: LIABILITAS + EKUITAS ----
     with col_kanan:
-        sac.divider(label="LIABILITAS & EKUITAS", align="left")
+        divider_dengan_judul("LIABILITAS & EKUITAS")
 
         # Liabilitas Lancar
         st.markdown("**Liabilitas Lancar**")
@@ -266,7 +265,7 @@ def _tab_neraca(period_id: int, modal_akhir: int) -> None:
     # Validasi
     st.divider()
     if data["seimbang"]:
-        sac.alert(
+        render_alert(
             label=f"✓ Neraca Seimbang",
             description=(
                 f"Total Aset = Total Liabilitas + Ekuitas = "
@@ -276,7 +275,7 @@ def _tab_neraca(period_id: int, modal_akhir: int) -> None:
             icon=True,
         )
     else:
-        sac.alert(
+        render_alert(
             label="⚠ Neraca Tidak Seimbang!",
             description=(
                 f"Aset: {format_rupiah(data['total_aset'])} | "
@@ -303,7 +302,7 @@ def _tab_arus_kas(period_id: int) -> None:
     st.markdown("")
 
     # Arus dari Aktivitas Operasi
-    sac.divider(label="Aktivitas Operasi", align="left")
+    divider_dengan_judul("Aktivitas Operasi")
     for item in data["operasi"]["penerimaan"]:
         _baris_rupiah(f"Penerimaan: {item['keterangan']}", item["jumlah"], indent=1)
     for item in data["operasi"]["pengeluaran"]:
@@ -314,7 +313,7 @@ def _tab_arus_kas(period_id: int) -> None:
     st.markdown("")
 
     # Arus dari Aktivitas Investasi
-    sac.divider(label="Aktivitas Investasi", align="left")
+    divider_dengan_judul("Aktivitas Investasi")
     for item in data["investasi"]["penerimaan"]:
         _baris_rupiah(f"Penerimaan: {item['keterangan']}", item["jumlah"], indent=1)
     for item in data["investasi"]["pengeluaran"]:
@@ -327,7 +326,7 @@ def _tab_arus_kas(period_id: int) -> None:
     st.markdown("")
 
     # Arus dari Aktivitas Pendanaan
-    sac.divider(label="Aktivitas Pendanaan", align="left")
+    divider_dengan_judul("Aktivitas Pendanaan")
     for item in data["pendanaan"]["penerimaan"]:
         _baris_rupiah(f"Penerimaan: {item['keterangan']}", item["jumlah"], indent=1)
     for item in data["pendanaan"]["pengeluaran"]:
@@ -342,12 +341,12 @@ def _tab_arus_kas(period_id: int) -> None:
     _baris_rupiah("Saldo Kas Akhir Periode", data["saldo_kas_akhir"])
 
     if data["saldo_kas_akhir"] >= 0:
-        sac.alert(
+        render_alert(
             label=f"Saldo Kas Akhir: {format_rupiah(data['saldo_kas_akhir'])}",
             color="success", icon=True,
         )
     else:
-        sac.alert(
+        render_alert(
             label=f"Saldo Kas Negatif: {format_rupiah(data['saldo_kas_akhir'])}",
             description="Periksa kembali data transaksi kas.",
             color="error", icon=True,
@@ -643,15 +642,12 @@ def tampilkan() -> None:
     # -------------------------------------------------------------------
     # 4 Tabs laporan keuangan
     # -------------------------------------------------------------------
-    tab_lk = sac.tabs(
-        [
-            sac.TabsItem(label="Laba Rugi", icon="bar-chart"),
-            sac.TabsItem(label="Perubahan Ekuitas", icon="arrow-up-circle"),
-            sac.TabsItem(label="Neraca", icon="balance-scale" if False else "grid"),
-            sac.TabsItem(label="Arus Kas", icon="cash-stack"),
-        ],
-        align="center",
-        variant="outline",
+    tab_lk = st.radio(
+        "Jenis Laporan",
+        options=["Laba Rugi", "Perubahan Ekuitas", "Neraca", "Arus Kas"],
+        horizontal=True,
+        key="laporan_keuangan_tab",
+        label_visibility="collapsed",
     )
 
     if tab_lk == "Laba Rugi":

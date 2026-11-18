@@ -35,23 +35,26 @@ def _tampilkan_ringkasan_saldo(item_id: int, satuan: str) -> None:
 
     kol1, kol2, kol3 = st.columns(3)
     with kol1:
-        st.metric(
-            label="📦 Saldo Kuantitas",
-            value=format_qty(saldo["saldo_qty"], satuan),
-            help="Jumlah stok persediaan saat ini"
-        )
+        with st.container(border=True):
+            st.metric(
+                label="📦 Saldo Kuantitas",
+                value=format_qty(saldo["saldo_qty"], satuan),
+                help="Jumlah stok persediaan saat ini"
+            )
     with kol2:
-        st.metric(
-            label="💰 Saldo Nilai",
-            value=format_rupiah(saldo["saldo_nilai"]),
-            help="Nilai total persediaan saat ini"
-        )
+        with st.container(border=True):
+            st.metric(
+                label="💰 Saldo Nilai",
+                value=format_rupiah(saldo["saldo_nilai"]),
+                help="Nilai total persediaan saat ini"
+            )
     with kol3:
-        st.metric(
-            label="📊 Harga Rata-rata",
-            value=format_rupiah(saldo["harga_rata2"]),
-            help="Harga rata-rata bergerak per satuan saat ini"
-        )
+        with st.container(border=True):
+            st.metric(
+                label="📊 Harga Rata-rata",
+                value=format_rupiah(saldo["harga_rata2"]),
+                help="Harga rata-rata bergerak per satuan saat ini"
+            )
 
 
 def _tampilkan_tabel_kartu(df: pd.DataFrame, satuan: str) -> None:
@@ -98,7 +101,8 @@ def _tampilkan_tabel_kartu(df: pd.DataFrame, satuan: str) -> None:
         "keterangan": "Keterangan",
     })
 
-    st.dataframe(df_tampil, use_container_width=True, hide_index=True)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, hide_index=True)
 
 
 def _tampilkan_grafik_saldo(df: pd.DataFrame, satuan: str) -> None:
@@ -116,16 +120,18 @@ def _tampilkan_grafik_saldo(df: pd.DataFrame, satuan: str) -> None:
         return
 
     st.subheader("📈 Grafik Saldo Kuantitas")
-    st.area_chart(
-        df_grafik.set_index("tanggal")[["saldo_qty"]],
-        use_container_width=True,
-    )
+    with st.container(border=True):
+        st.area_chart(
+            df_grafik.set_index("tanggal")[["saldo_qty"]],
+            use_container_width=True,
+        )
 
     st.subheader("💹 Grafik Saldo Nilai")
-    st.line_chart(
-        df_grafik.set_index("tanggal")[["saldo_nilai"]],
-        use_container_width=True,
-    )
+    with st.container(border=True):
+        st.line_chart(
+            df_grafik.set_index("tanggal")[["saldo_nilai"]],
+            use_container_width=True,
+        )
 
 
 def tampilkan() -> None:

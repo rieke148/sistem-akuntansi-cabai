@@ -27,19 +27,20 @@ def tampilkan() -> None:
     panel_brand, panel_login = st.columns([1.15, 1])
 
     with panel_brand:
-        st.caption("SISTEM INFORMASI AKUNTANSI · ENTERPRISE")
-        st.title("Kelola bisnis cabai dengan lebih terukur.")
-        st.write(
-            "Satu ruang kerja untuk transaksi, persediaan, jurnal, "
-            "dan laporan keuangan perusahaan."
-        )
-        st.divider()
-        st.markdown("**Siklus akuntansi terintegrasi**")
-        st.caption("Transaksi → Jurnal → Buku Besar → Laporan Keuangan")
-        st.markdown("**Kontrol akses berbasis peran**")
-        st.caption("Akses pengguna disesuaikan dengan tanggung jawab operasional.")
-        st.markdown("**Data keuangan terpusat**")
-        st.caption("Riwayat transaksi tersimpan dalam database perusahaan.")
+        with st.container(border=True):
+            st.caption("SISTEM INFORMASI AKUNTANSI · ENTERPRISE")
+            st.title("Kelola bisnis cabai dengan lebih terukur.")
+            st.write(
+                "Satu ruang kerja untuk transaksi, persediaan, jurnal, "
+                "dan laporan keuangan perusahaan."
+            )
+            st.divider()
+            st.markdown("**Siklus akuntansi terintegrasi**")
+            st.caption("Transaksi → Jurnal → Buku Besar → Laporan Keuangan")
+            st.markdown("**Kontrol akses berbasis peran**")
+            st.caption("Akses pengguna disesuaikan dengan tanggung jawab operasional.")
+            st.markdown("**Data keuangan terpusat**")
+            st.caption("Riwayat transaksi tersimpan dalam database perusahaan.")
 
     with panel_login:
         with st.container(border=True):

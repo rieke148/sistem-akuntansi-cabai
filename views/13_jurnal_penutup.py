@@ -19,9 +19,8 @@ from services.closing_service import (
     hapus_jurnal_penutup,
 )
 from utils.formatting import format_rupiah
-from utils.ui_components import selector_periode, render_page_header
+from utils.ui_components import selector_periode, render_page_header, render_alert, divider_dengan_judul
 import services.period_service as ps
-import streamlit_antd_components as sac
 
 
 # ---------------------------------------------------------------------------
@@ -43,10 +42,10 @@ def _ambil_periode_buka() -> list[dict]:
 
 def _tampilkan_preview_jurnal(rencana: list[dict]) -> None:
     """Menampilkan pratinjau jurnal penutup sebelum disimpan."""
-    sac.divider(label="Pratinjau Jurnal Penutup", icon="eye", align="center")
+    divider_dengan_judul("Pratinjau Jurnal Penutup")
 
     if not rencana:
-        sac.alert(
+        render_alert(
             label="Tidak ada jurnal penutup yang perlu dibuat.",
             description="Pastikan ada transaksi pendapatan dan beban di periode ini.",
             color="info",
@@ -83,7 +82,7 @@ def _tampilkan_preview_jurnal(rencana: list[dict]) -> None:
 
 def _tampilkan_ns_setelah_penutup(period_id: int) -> None:
     """Menampilkan Neraca Saldo Setelah Penutup."""
-    sac.divider(label="Neraca Saldo Setelah Penutup", icon="table", align="center")
+    divider_dengan_judul("Neraca Saldo Setelah Penutup")
 
     df = hitung_neraca_saldo_setelah_penutup(period_id)
 
@@ -101,7 +100,8 @@ def _tampilkan_ns_setelah_penutup(period_id: int) -> None:
     )
     df_tampil.columns = ["Kode", "Nama Akun", "Kategori", "Debit", "Kredit"]
 
-    st.dataframe(df_tampil, use_container_width=True, height=400)
+    with st.container(border=True):
+        st.dataframe(df_tampil, use_container_width=True, height=400)
 
     # Total
     total_d = int(df["debit"].sum())
@@ -112,7 +112,7 @@ def _tampilkan_ns_setelah_penutup(period_id: int) -> None:
     col3.markdown(f"**{format_rupiah(total_k)}**")
 
     if total_d == total_k:
-        sac.alert(
+        render_alert(
             label="Neraca Saldo Setelah Penutup Seimbang ✓",
             description=(
                 f"Total Debit = Total Kredit = {format_rupiah(total_d)}\n"
@@ -122,7 +122,7 @@ def _tampilkan_ns_setelah_penutup(period_id: int) -> None:
             icon=True,
         )
     else:
-        sac.alert(
+        render_alert(
             label="Neraca Saldo Tidak Seimbang!",
             description=f"Debit: {format_rupiah(total_d)} | Kredit: {format_rupiah(total_k)}",
             color="error",
@@ -165,7 +165,7 @@ def tampilkan() -> None:
     # Status periode
     # -------------------------------------------------------------------
     if status_periode == "tutup":
-        sac.alert(
+        render_alert(
             label=f"Periode ini sudah DITUTUP.",
             description="Tidak bisa membuat atau mengubah jurnal penutup.",
             color="warning",
@@ -202,7 +202,7 @@ def tampilkan() -> None:
             with st.spinner("Menghitung jurnal penutup..."):
                 rencana = preview_jurnal_penutup(period_id, tanggal_str)
         except ValueError as e:
-            sac.alert(
+            render_alert(
                 label="Gagal menghitung jurnal penutup.",
                 description=str(e),
                 color="error",
@@ -215,7 +215,7 @@ def tampilkan() -> None:
         st.divider()
 
         # Tombol simpan jurnal penutup
-        sac.divider(label="Aksi", icon="gear", align="center")
+        divider_dengan_judul("Aksi")
         col1, col2 = st.columns(2)
         with col1:
             if rencana and st.button(
@@ -243,7 +243,7 @@ def tampilkan() -> None:
             )
     else:
         # Jurnal penutup sudah ada — tampilkan status dan opsi
-        sac.alert(
+        render_alert(
             label="Jurnal Penutup sudah dibuat ✓",
             description="Lihat Neraca Saldo Setelah Penutup di bawah.",
             color="success",
@@ -256,7 +256,7 @@ def tampilkan() -> None:
         st.divider()
 
         # Tombol aksi
-        sac.divider(label="Aksi Lanjutan", icon="gear", align="center")
+        divider_dengan_judul("Aksi Lanjutan")
         col1, col2 = st.columns(2)
 
         with col1:
