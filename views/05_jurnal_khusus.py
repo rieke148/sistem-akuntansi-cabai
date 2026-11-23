@@ -230,17 +230,6 @@ def _tampilkan_jurnal_pembelian(period_id: int | None) -> None:
         "Debit ke Persediaan, Kredit ke Utang Usaha."
     )
 
-    # Catatan khusus tentang kondisi riil usaha
-    render_alert(
-        label="Catatan Observasi Lapangan",
-        description=(
-            "Berdasarkan wawancara dengan Bapak Hanif Margan Asparingga (Agronomist Utama), "
-            "seluruh pembelian PT Sari Subur dilakukan TUNAI di Toko Sido Panen Bandungan. "
-            "Jurnal Pembelian ini berisi data simulasi untuk keperluan kelengkapan sistem."
-        ),
-        color="info", icon=True,
-    )
-
     df = ambil_jurnal_pembelian(period_id)
 
     if df.empty:

@@ -170,11 +170,11 @@ def tag_status(status: str) -> None:
     peta_label = {
         "lunas": "✅ Lunas",
         "belum_lunas": "⏳ Belum Lunas",
-        "sebagian": "🔶 Sebagian",
-        "buka": "🔓 Buka",
-        "tutup": "🔒 Tutup",
-        "aktif": "✅ Aktif",
-        "nonaktif": "⛔ Nonaktif",
+        "sebagian": "Sebagian",
+        "buka": "Buka",
+        "tutup": "Tutup",
+        "aktif": "Aktif",
+        "nonaktif": "Nonaktif",
     }
     warna = peta_warna.get(status, "default")
     label = peta_label.get(status, status)
@@ -222,16 +222,16 @@ def selector_periode(
 
     for p in daftar_periode:
         nama = p["nama_bulan"]
-        status_label = "🔓 Buka" if p["status"] == "buka" else "🔒 Tutup"
+        status_label = "Buka" if p["status"] == "buka" else "Tutup"
         tag_khusus = ""
         if p["tahun"] == 2026 and p["bulan"] == 10:
             tag_khusus = " ⭐ (Data Observasi)"
         elif p["tahun"] == thn_ini and p["bulan"] == bln_ini:
-            tag_khusus = " ⚡ (Bulan Ini)"
+            tag_khusus = "(Bulan Ini)"
         elif p["tahun"] == thn_lalu and p["bulan"] == bln_lalu:
-            tag_khusus = " ⏪ (Bulan Lalu)"
+            tag_khusus = "(Bulan Lalu)"
         elif p["tahun"] == thn_ini - 1:
-            tag_khusus = " 🗓️ (Tahun Lalu)"
+            tag_khusus = "(Tahun Lalu)"
 
         opsi_list.append({
             "id": p["id"],
@@ -271,31 +271,31 @@ def selector_periode(
 
     # 2. Panel Fitur Kalender & Shortcut Cepat
     if tampilkan_kalender:
-        with st.popover("🗓️ Buka Kalender & Pilihan Cepat", use_container_width=True):
+        with st.popover("Buka Kalender & Pilihan Cepat", use_container_width=True):
             st.caption("Pilih periode secara instan atau tentukan bulan dan tahun kalender:")
 
             # Baris Shortcut Preset Cepat
             k1, k2, k3, k4 = st.columns(4)
             with k1:
-                if st.button("⚡ Bulan Ini", key=f"{key}_btn_bln_ini", use_container_width=True):
+                if st.button("Bulan Ini", key=f"{key}_btn_bln_ini", use_container_width=True):
                     p_curr = ps.ambil_atau_buat_periode(thn_ini, bln_ini)
                     st.session_state[state_key] = p_curr["id"]
                     st.session_state["periode_global_id"] = p_curr["id"]
                     st.rerun()
             with k2:
-                if st.button("⏪ Bulan Lalu", key=f"{key}_btn_bln_lalu", use_container_width=True):
+                if st.button("Bulan Lalu", key=f"{key}_btn_bln_lalu", use_container_width=True):
                     p_prev = ps.ambil_atau_buat_periode(thn_lalu, bln_lalu)
                     st.session_state[state_key] = p_prev["id"]
                     st.session_state["periode_global_id"] = p_prev["id"]
                     st.rerun()
             with k3:
-                if st.button("🌾 Oktober 2026", key=f"{key}_btn_okt_26", use_container_width=True):
+                if st.button("Oktober 2026", key=f"{key}_btn_okt_26", use_container_width=True):
                     p_obs = ps.ambil_atau_buat_periode(2026, 10)
                     st.session_state[state_key] = p_obs["id"]
                     st.session_state["periode_global_id"] = p_obs["id"]
                     st.rerun()
             with k4:
-                if st.button("🗓️ Tahun Lalu (2025)", key=f"{key}_btn_thn_lalu", use_container_width=True):
+                if st.button("Tahun Lalu (2025)", key=f"{key}_btn_thn_lalu", use_container_width=True):
                     p_thn_lalu = ps.ambil_atau_buat_periode(thn_ini - 1, bln_ini)
                     st.session_state[state_key] = p_thn_lalu["id"]
                     st.session_state["periode_global_id"] = p_thn_lalu["id"]
@@ -303,7 +303,7 @@ def selector_periode(
 
             st.markdown("---")
             # Pemilih Kalender Manual (Bulan & Tahun)
-            st.markdown("**📅 Pemilih Bulan & Tahun Kalender Manual:**")
+            st.markdown("**Pemilih Bulan & Tahun Kalender Manual:**")
             kol_m1, kol_m2, kol_m3 = st.columns([2, 2, 2])
             with kol_m1:
                 bulan_pilih = st.selectbox(
@@ -325,7 +325,7 @@ def selector_periode(
             with kol_m3:
                 st.write("") # spacer
                 st.write("")
-                if st.button("🎯 Terapkan Periode", key=f"{key}_cal_terapkan", type="primary", use_container_width=True):
+                if st.button("Terapkan Periode", key=f"{key}_cal_terapkan", type="primary", use_container_width=True):
                     p_manual = ps.ambil_atau_buat_periode(int(tahun_pilih), int(bulan_pilih))
                     st.session_state[state_key] = p_manual["id"]
                     st.session_state["periode_global_id"] = p_manual["id"]

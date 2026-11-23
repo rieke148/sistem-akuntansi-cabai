@@ -10,11 +10,11 @@ Dipanggil oleh : app.py, utils/ui_components.py, serta seluruh views/.
 # Palet visual agribisnis cabai: merah cabai, navy, hijau panen, dan emas.
 WARNA_PRIMER = "#C83E43"
 WARNA_SEKUNDER = "#D5A64A"
-WARNA_LATAR = "#F4F6FA"
+WARNA_LATAR = "#A6BD40"
 WARNA_LATAR2 = "#E9EEF5"
 WARNA_TEKS = "#1B2738"
 WARNA_NAVIGASI = "#14233A"
-WARNA_PERMUKAAN = "#FFFFFF"
+WARNA_PERMUKAAN = "#BDDF28"
 WARNA_GARIS = "#D9E1EB"
 
 # Warna status yang digunakan konsisten pada seluruh halaman.
