@@ -49,7 +49,7 @@ def buat_neraca_lajur(period_id: int) -> pd.DataFrame:
         neraca_debit | neraca_kredit
     """
     # -------------------------------------------------------------------
-    # LANGKAH 1: Ambil Neraca Saldo SEBELUM penyesuaian (kolom 1-2)
+    # LANGKAH 1: Ambil Neraca Saldo SEBELUM penyesuaian
     # -------------------------------------------------------------------
     df_ns = hitung_neraca_saldo(period_id, termasuk_penyesuaian=False)
 
@@ -67,7 +67,7 @@ def buat_neraca_lajur(period_id: int) -> pd.DataFrame:
         }
 
     # -------------------------------------------------------------------
-    # LANGKAH 2: Ambil mutasi penyesuaian saja (jurnal PA-) untuk kolom 3-4
+    # LANGKAH 2: Ambil mutasi penyesuaian saja (jurnal PA-) 
     # -------------------------------------------------------------------
     dict_penyesuaian = _ambil_mutasi_penyesuaian(period_id)
 

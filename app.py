@@ -115,7 +115,7 @@ if seed_baru:
 halaman_dashboard = st.Page(
     "views/00_dashboard.py",
     title="Dashboard",
-    icon="📊",
+    icon=":material/dashboard:",
     default=True,
 )
 
@@ -123,88 +123,88 @@ halaman_dashboard = st.Page(
 halaman_master_data = st.Page(
     "views/01_master_data.py",
     title="Master Data",
-    icon="🗂️",
+    icon=":material/database:",
 )
 
 # --- Input ---
 halaman_transaksi = st.Page(
     "views/02_input_transaksi.py",
     title="Input Transaksi",
-    icon="✍️",
+    icon=":material/edit_note:",
 )
 halaman_penggajian = st.Page(
     "views/03_penggajian.py",
     title="Penggajian",
-    icon="💼",
+    icon=":material/payments:",
 )
 
 # --- Jurnal ---
 halaman_jurnal_umum = st.Page(
     "views/04_jurnal_umum.py",
     title="Jurnal Umum",
-    icon="📓",
+    icon=":material/menu_book:",
 )
 halaman_jurnal_khusus = st.Page(
     "views/05_jurnal_khusus.py",
     title="Jurnal Khusus",
-    icon="📚",
+    icon=":material/library_books:",
 )
 
 # --- Buku Besar ---
 halaman_kartu_persediaan = st.Page(
     "views/06_kartu_persediaan.py",
     title="Kartu Persediaan",
-    icon="📦",
+    icon=":material/inventory_2:",
 )
 halaman_buku_besar = st.Page(
     "views/07_buku_besar.py",
     title="Buku Besar",
-    icon="📘",
+    icon=":material/import_contacts:",
 )
 halaman_bb_pembantu = st.Page(
     "views/08_buku_besar_pembantu.py",
     title="BB Pembantu",
-    icon="🔎",
+    icon=":material/manage_search:",
 )
 
 # --- Laporan ---
 halaman_neraca_saldo = st.Page(
     "views/09_neraca_saldo.py",
     title="Neraca Saldo",
-    icon="⚖️",
+    icon=":material/balance:",
 )
 halaman_penyesuaian = st.Page(
     "views/10_ayat_penyesuaian.py",
     title="Ayat Penyesuaian",
-    icon="📝",
+    icon=":material/tune:",
 )
 halaman_neraca_lajur = st.Page(
     "views/11_neraca_lajur.py",
     title="Neraca Lajur",
-    icon="📋",
+    icon=":material/table_rows:",
 )
 halaman_laporan_keuangan = st.Page(
     "views/12_laporan_keuangan.py",
     title="Laporan Keuangan",
-    icon="📈",
+    icon=":material/bar_chart:",
 )
 halaman_jurnal_penutup = st.Page(
     "views/13_jurnal_penutup.py",
     title="Jurnal Penutup",
-    icon="🔒",
+    icon=":material/lock:",
 )
 
 # --- Utilitas ---
 halaman_backup = st.Page(
     "views/14_backup_export.py",
     title="Backup & Export",
-    icon="💾",
+    icon=":material/backup:",
 )
 
 halaman_manajemen_pengguna = st.Page(
     "views/15_manajemen_pengguna.py",
     title="Manajemen Pengguna",
-    icon="👥",
+    icon=":material/group:",
 )
 
 
@@ -219,7 +219,7 @@ if not user_aktif:
 
 with st.sidebar:
     with st.container(border=True):
-        st.markdown(f"## 🌶️ {NAMA_APLIKASI}")
+        st.markdown(f"## 🌶️ {NAMA_APLIKASI}")  # emoji tetap di judul
         st.caption("FINANCE & FARM OPERATIONS")
         st.caption(NAMA_PERUSAHAAN)
     st.divider()
