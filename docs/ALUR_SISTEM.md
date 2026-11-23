@@ -40,7 +40,7 @@
   • Akrual Upah Tenaga Kerja
         │
         ▼
-[Neraca Lajur 10 Kolom]            (services/worksheet_service.py)
+[Neraca Lajur]            (services/worksheet_service.py)
   (NS → Penyesuaian → NSD → Laba Rugi → Neraca)
         │
         ▼
