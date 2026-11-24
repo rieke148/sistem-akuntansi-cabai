@@ -222,10 +222,10 @@ def selector_periode(
 
     for p in daftar_periode:
         nama = p["nama_bulan"]
-        status_label = "Buka" if p["status"] == "buka" else "Tutup"
+        status_label = "Buka" if p["status"] == "Buka" else "Tutup"
         tag_khusus = ""
         if p["tahun"] == 2026 and p["bulan"] == 10:
-            tag_khusus = " ⭐ (Data Observasi)"
+            tag_khusus = "(Data Observasi)"
         elif p["tahun"] == thn_ini and p["bulan"] == bln_ini:
             tag_khusus = "(Bulan Ini)"
         elif p["tahun"] == thn_lalu and p["bulan"] == bln_lalu:
