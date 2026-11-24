@@ -246,7 +246,7 @@ def _form_penjualan_tunai(period_id: int):
         keterangan = st.text_input("Keterangan Tambahan", placeholder="(opsional)")
         st.caption(f"**Total: {format_rupiah(int(jumlah_kg * harga_per_kg))}**")
 
-        pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+        pratinjau_btn = st.form_submit_button("Pratinjau Jurnal", type="primary")
 
     if pratinjau_btn:
         if not pelanggan:
@@ -369,7 +369,7 @@ def _form_penjualan_tempo(period_id: int):
 
         total = int(jumlah_kg * harga_per_kg)
         st.caption(f"**Total: {format_rupiah(total)}** | Jatuh tempo: 7 hari")
-        pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+        pratinjau_btn = st.form_submit_button("Pratinjau Jurnal", type="primary")
 
     if pratinjau_btn:
         customer = customers[customer_idx]
@@ -476,7 +476,7 @@ def _form_terima_piutang(period_id: int):
             min_value=1000, max_value=sisa, value=sisa, step=1000,
         )
         keterangan = st.text_input("Keterangan", placeholder="(opsional)")
-        pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+        pratinjau_btn = st.form_submit_button("Pratinjau Jurnal", type="primary")
 
     if pratinjau_btn:
         akun_kas_id = _cari_akun_by_kode("1110")
@@ -533,7 +533,7 @@ def _form_setoran_modal(period_id: int):
         tanggal = st.date_input("Tanggal", value="today")
         jumlah = st.number_input("Jumlah Modal (Rp)", min_value=100000, step=100000, value=1000000)
         keterangan = st.text_input("Keterangan", value="Setoran modal pemilik")
-        pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+        pratinjau_btn = st.form_submit_button("Pratinjau Jurnal", type="primary")
 
     if pratinjau_btn:
         akun_kas_id = _cari_akun_by_kode("1110")
@@ -631,7 +631,7 @@ def _form_pembelian_tunai(period_id: int):
             keterangan = st.text_input("Keterangan", placeholder="(opsional)")
             total = int(qty * harga_satuan)
             st.caption(f"**Total: {format_rupiah(total)}**")
-            pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+            pratinjau_btn = st.form_submit_button("Pratinjau Jurnal", type="primary")
 
         if pratinjau_btn:
             item = items_panen[item_idx]
@@ -731,7 +731,7 @@ def _form_pembelian_tunai(period_id: int):
             keterangan = st.text_input("Keterangan", placeholder="(opsional)", key=f"ket_pt_{period_id}")
             total = int(qty * harga_satuan)
             st.caption(f"**Total: {format_rupiah(total)}**")
-            pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+            pratinjau_btn = st.form_submit_button("Pratinjau Jurnal", type="primary")
 
         if pratinjau_btn:
             if not nama_perlengkapan.strip():
@@ -840,7 +840,7 @@ def _form_pembelian_tunai(period_id: int):
             keterangan = st.text_input("Keterangan", placeholder="(opsional)", key=f"ket_alat_t_{period_id}")
             total = int(qty * harga_satuan)
             st.caption(f"**Total: {format_rupiah(total)}**")
-            pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+            pratinjau_btn = st.form_submit_button("Pratinjau Jurnal", type="primary")
 
         if pratinjau_btn:
             if not nama_peralatan.strip():
@@ -956,7 +956,7 @@ def _form_pembelian_kredit(period_id: int):
             keterangan = st.text_input("Keterangan", placeholder="(opsional)")
             total = int(qty * harga_satuan)
             st.caption(f"**Total: {format_rupiah(total)}**")
-            pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+            pratinjau_btn = st.form_submit_button("Pratinjau Jurnal", type="primary")
 
         if pratinjau_btn:
             item = items_panen[item_idx]
@@ -1168,7 +1168,7 @@ def _form_pembelian_kredit(period_id: int):
             keterangan = st.text_input("Keterangan", placeholder="(opsional)", key=f"ket_alat_k_{period_id}")
             total = int(qty * harga_satuan)
             st.caption(f"**Total: {format_rupiah(total)}** | Jatuh tempo standar 30 hari")
-            pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+            pratinjau_btn = st.form_submit_button("Pratinjau Jurnal", type="primary")
 
         if pratinjau_btn:
             if not supplier_nama:
@@ -1290,7 +1290,7 @@ def _form_catat_panen(period_id: int):
         keterangan = st.text_input("Keterangan", placeholder="(opsional)")
         total = int(jumlah_kg * harga_estimasi)
         st.caption(f"**Nilai Panen: {format_rupiah(total)}**")
-        pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+        pratinjau_btn = st.form_submit_button("Pratinjau Jurnal", type="primary")
 
     if pratinjau_btn:
         if not akun_panen_id:
@@ -1391,7 +1391,7 @@ def _form_biaya_operasional(period_id: int):
                 st.caption(f"Akun beban: **{kode_akun}** (otomatis)")
 
         keterangan = st.text_input("Keterangan", placeholder="(opsional)")
-        pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+        pratinjau_btn = st.form_submit_button("Pratinjau Jurnal", type="primary")
 
     if pratinjau_btn:
         if not akun_beban_id:
@@ -1473,7 +1473,7 @@ def _form_pembelian_aset(period_id: int):
                 st.warning("Akun perlengkapan/aset tidak ditemukan.")
 
         keterangan = st.text_input("Keterangan", placeholder="(opsional)")
-        pratinjau_btn = st.form_submit_button("👁️ Pratinjau Jurnal", type="primary")
+        pratinjau_btn = st.form_submit_button("Pratinjau Jurnal", type="primary")
 
     if pratinjau_btn:
         if not nama_aset:

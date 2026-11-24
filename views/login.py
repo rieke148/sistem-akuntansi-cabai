@@ -29,7 +29,7 @@ def tampilkan() -> None:
     with panel_brand:
         with st.container(border=True):
             st.caption("SISTEM INFORMASI AKUNTANSI · ENTERPRISE")
-            st.title("Kelola bisnis cabai dengan lebih terukur.")
+            st.title("Kelola bisnis cabai dengan lebih terukur")
             st.write(
                 "Satu ruang kerja untuk transaksi, persediaan, jurnal, "
                 "dan laporan keuangan perusahaan."
