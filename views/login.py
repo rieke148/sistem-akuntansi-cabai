@@ -28,6 +28,7 @@ def tampilkan() -> None:
 
     with panel_brand:
         with st.container(border=True):
+            st.image("assets/logo.png", width=110)
             st.caption("SISTEM INFORMASI AKUNTANSI · ENTERPRISE")
             st.title("Kelola bisnis cabai dengan lebih terukur")
             st.write(

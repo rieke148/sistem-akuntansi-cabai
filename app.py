@@ -36,13 +36,14 @@ from services.permission_service import pengguna_aktif, keluar_pengguna, punya_i
 # ---------------------------------------------------------------
 st.set_page_config(
     page_title=NAMA_APLIKASI,
-    page_icon="🌶️",
+    page_icon="assets/logo.png",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
         "About": f"**{NAMA_APLIKASI}**\n{NAMA_PERUSAHAAN}\n\nSistem Informasi Siklus Akuntansi",
     },
 )
+st.logo("assets/logo.png")
 
 
 # ---------------------------------------------------------------
@@ -219,6 +220,7 @@ if not user_aktif:
 
 with st.sidebar:
     with st.container(border=True):
+        st.image("assets/logo.png", width=90)
         st.markdown(f"## 🌶️ {NAMA_APLIKASI}")  # emoji tetap di judul
         st.caption("FINANCE & FARM OPERATIONS")
         st.caption(NAMA_PERUSAHAAN)
