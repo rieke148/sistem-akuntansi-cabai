@@ -11,7 +11,6 @@ Dipanggil oleh : database/schema.py, database/seed.py,
 """
 
 import sqlite3
-import os
 from pathlib import Path
 
 
