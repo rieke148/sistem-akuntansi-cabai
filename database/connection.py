@@ -3,7 +3,7 @@ database/connection.py
 ----------------------
 Tujuan  : Membuat dan mengelola koneksi ke database SQLite.
           Semua file lain yang butuh database harus impor fungsi
-          `get_connection()` dari sini — JANGAN buka koneksi sendiri.
+          `get_connection()` dari sini, JANGAN buka koneksi sendiri.
 Input   : Tidak ada (path database sudah ditentukan di dalam file ini).
 Output  : Objek koneksi sqlite3.Connection.
 Dipanggil oleh : database/schema.py, database/seed.py,
@@ -17,8 +17,6 @@ from pathlib import Path
 # ---------------------------------------------------------------
 # PATH DATABASE
 # ---------------------------------------------------------------
-# File .db disimpan di folder yang sama dengan connection.py ini.
-# Di Streamlit Cloud, filesystem tidak permanen — gunakan fitur
 # Backup/Restore (views/14_backup_export.py) untuk menyimpan data.
 _FOLDER_DATABASE = Path(__file__).parent          # folder database/
 NAMA_FILE_DB = "akuntansi_cabai.db"               # nama file SQLite
@@ -50,7 +48,6 @@ def get_connection() -> sqlite3.Connection:
 
 
 def tutup_connection(koneksi: sqlite3.Connection) -> None:
-    """Menutup koneksi database dengan aman."""
     if koneksi:
         koneksi.close()
 

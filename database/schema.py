@@ -30,7 +30,6 @@ def buat_semua_tabel() -> None:
     # 1. TABEL PERIODE AKUNTANSI
     # ---------------------------------------------------------------
     # Setiap periode = 1 bulan. Status 'buka' atau 'tutup'.
-    # Periode yang sudah tutup tidak bisa diedit.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS periods (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,8 +50,9 @@ def buat_semua_tabel() -> None:
     #   2xxx = Liabilitas
     #   3xxx = Ekuitas
     #   4xxx = Pendapatan
-    #   5xxx = Beban Produksi
+    #   5xxx = HPP
     #   6xxx = Beban Operasional
+    #   7xxx = Beban Lainnya
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS accounts (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,7 +61,7 @@ def buat_semua_tabel() -> None:
             kategori        TEXT NOT NULL
                             CHECK (kategori IN (
                                 'Aset', 'Liabilitas', 'Ekuitas',
-                                'Pendapatan', 'HPP', 'Beban Produksi',
+                                'Pendapatan', 'HPP',
                                 'Beban Operasional', 'Beban Lainnya'
                             )),
             saldo_normal    TEXT NOT NULL
@@ -77,7 +77,6 @@ def buat_semua_tabel() -> None:
     # ---------------------------------------------------------------
     # 3. TABEL HEADER JURNAL
     # ---------------------------------------------------------------
-    # Satu entri di sini = satu transaksi (mis. 1 faktur penjualan).
     # Detail debit/kredit ada di tabel journal_lines.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS journal_entries (
@@ -102,7 +101,7 @@ def buat_semua_tabel() -> None:
     """)
 
     # ---------------------------------------------------------------
-    # 4. TABEL BARIS JURNAL (sumber kebenaran semua angka)
+    # 4. TABEL BARIS JURNAL
     # ---------------------------------------------------------------
     # Setiap transaksi punya minimal 2 baris (1 debit, 1 kredit).
     # ATURAN: total debit = total kredit untuk setiap journal_entry_id.
@@ -154,14 +153,12 @@ def buat_semua_tabel() -> None:
     # ---------------------------------------------------------------
     # 7. TABEL ITEM PERSEDIAAN
     # ---------------------------------------------------------------
-    # `hasil_panen` adalah tipe persediaan aktif. Nilai `bahan` dipertahankan
-    # pada CHECK hanya untuk membaca data historis dari database versi lama.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS items (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
-            kode_item       TEXT NOT NULL UNIQUE,  -- contoh: 'BHN-001'
-            nama_item       TEXT NOT NULL,         -- contoh: 'Bibit Cabai'
-            satuan          TEXT NOT NULL,         -- contoh: 'batang', 'kg', 'karung'
+            kode_item       TEXT NOT NULL UNIQUE,  -- contoh: 'HSL-001'
+            nama_item       TEXT NOT NULL,         -- contoh: 'Cabai Rawit'
+            satuan          TEXT NOT NULL,         -- contoh: 'kg'
             tipe            TEXT NOT NULL
                             CHECK (tipe IN ('bahan', 'hasil_panen')),
             komoditas       TEXT NOT NULL DEFAULT 'cabai'
